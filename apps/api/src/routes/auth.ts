@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db/index.js';
 import { hashPassword, verifyPassword } from '../security/password.js';
+import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-token.js';
 
 const registerBody = z.object({
   email: z.string().email().optional(),
@@ -14,6 +15,31 @@ const loginBody = z.object({
   email: z.string().email(),
   password: z.string().min(1).max(200)
 });
+
+const refreshBody = z.object({
+  refreshToken: z.string().min(40).max(200)
+});
+
+async function createRefreshSession(userId: string, userAgent: string | undefined, ipAddress: string | undefined) {
+  const refreshToken = newSessionToken();
+  const session = await db.insertInto('refresh_sessions')
+    .values({
+      user_id: userId,
+      token_hash: sessionTokenHash(refreshToken),
+      user_agent: userAgent ?? null,
+      ip_address: ipAddress ?? null,
+      expires_at: daysFromNow(30),
+      revoked_at: null
+    })
+    .returning(['id', 'expires_at'])
+    .executeTakeFirstOrThrow();
+
+  return {
+    refreshToken,
+    sessionId: session.id,
+    expiresAt: session.expires_at
+  };
+}
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', async (request, reply) => {
@@ -39,7 +65,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .returning(['id', 'email', 'phone_e164', 'display_name', 'status'])
       .executeTakeFirstOrThrow();
 
-    return reply.code(201).send({ user });
+    const session = await createRefreshSession(user.id, request.headers['user-agent'], request.ip);
+
+    return reply.code(201).send({ user, session });
   });
 
   app.post('/auth/login', async (request, reply) => {
@@ -58,13 +86,37 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
 
+    const session = await createRefreshSession(user.id, request.headers['user-agent'], request.ip);
+
     return reply.send({
       user: {
         id: user.id,
         email: user.email,
         displayName: user.display_name,
         status: user.status
-      }
+      },
+      session
     });
+  });
+
+  app.post('/auth/refresh', async (request, reply) => {
+    const body = refreshBody.parse(request.body);
+    const storedHash = sessionTokenHash(body.refreshToken);
+    const existing = await db.selectFrom('refresh_sessions')
+      .select(['id', 'user_id', 'expires_at', 'revoked_at'])
+      .where('token_hash', '=', storedHash)
+      .executeTakeFirst();
+
+    if (!existing || existing.revoked_at || existing.expires_at < new Date()) {
+      return reply.code(401).send({ error: 'Invalid session' });
+    }
+
+    await db.updateTable('refresh_sessions')
+      .set({ revoked_at: new Date() })
+      .where('id', '=', existing.id)
+      .execute();
+
+    const session = await createRefreshSession(existing.user_id, request.headers['user-agent'], request.ip);
+    return reply.send({ session });
   });
 }
