@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Suqnaa provisional app icon reference</title>
+  <desc id="desc">Replaceable Suqnaa app icon using a blue marketplace bag and flowing path mark.</desc>
+  <rect width="512" height="512" rx="112" fill="#0b46d8"/>
+  <path d="M365 91c48 30 78 83 78 144" fill="none" stroke="#ff6958" stroke-width="56" stroke-linecap="round"/>
+  <path d="M105 171c43-74 158-109 242-47" fill="none" stroke="#fff" stroke-width="62" stroke-linecap="round"/>
+  <path d="M99 358c81 56 190 52 261-9" fill="none" stroke="#d9a441" stroke-width="58" stroke-linecap="round"/>
+  <path d="M305 125h88v140h-88z" fill="#fff" opacity=".95"/>
+  <path d="M326 125c0-48 48-48 48 0" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <path d="M116 162c-40 88 205 78 153 194-27 61-122 76-198 28" fill="none" stroke="#18b9c5" stroke-width="62" stroke-linecap="round"/>
+</svg>
