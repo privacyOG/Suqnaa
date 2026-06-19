@@ -4,7 +4,7 @@ export type ListingCondition = 'new' | 'like_new' | 'good' | 'fair' | 'parts_or_
 export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected' | 'expired';
 export type VerificationLevel = 'basic' | 'seller' | 'high_value_seller' | 'business';
 
-type TableShape = Record<string, unknown>;
+type TableShape = Record<string, any>;
 
 export interface Database {
   users: TableShape;
