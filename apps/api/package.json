@@ -18,7 +18,9 @@
   },
   "devDependencies": {
     "typescript": "latest",
-    "tsx": "latest"
+    "tsx": "latest",
+    "@types/node": "latest",
+    "@types/pg": "latest"
   },
   "private": true
 }
