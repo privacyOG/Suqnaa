@@ -4,6 +4,8 @@
   "private": true,
   "packageManager": "pnpm@9.12.0",
   "scripts": {
+    "dev:api": "pnpm --dir apps/api dev",
+    "dev:web": "pnpm --dir apps/web dev",
     "typecheck": "pnpm -r typecheck"
   }
 }
