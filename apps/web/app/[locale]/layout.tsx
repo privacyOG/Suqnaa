@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import './locale.css';
 import { directionForLocale, isLocale, locales, type Locale } from '../../i18n/locales';
 import { getMessages } from '../../i18n/get-messages';
 
