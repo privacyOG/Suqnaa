@@ -8,7 +8,11 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
-  PASSWORD_PEPPER: z.string().min(32)
+  PASSWORD_PEPPER: z.string().min(32),
+  ASSISTANT_ENABLED: z.coerce.boolean().default(false),
+  ASSISTANT_PROVIDER: z.enum(['none', 'remote', 'local']).default('none'),
+  ASSISTANT_BASE_URL: z.string().optional().default(''),
+  ASSISTANT_API_KEY: z.string().optional().default('')
 });
 
 export const env = schema.parse(process.env);
