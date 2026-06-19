@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:suqnaa/l10n/app_localizations.dart';
 import '../../brand/brand.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -6,26 +7,37 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: SuqnaaBrand.ivory,
       appBar: AppBar(
         backgroundColor: SuqnaaBrand.ivory,
         elevation: 0,
-        title: const Text(SuqnaaBrand.name),
+        title: Text(text.appName),
         actions: const [Icon(Icons.notifications_none), SizedBox(width: 12)],
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
-        children: const [
-          _SearchBox(),
-          SizedBox(height: 18),
-          _CategoryRow(),
-          SizedBox(height: 18),
-          _HeroCard(),
-          SizedBox(height: 24),
-          Text('Trending near you', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          SizedBox(height: 12),
-          _ProductGrid(),
+        children: [
+          _SearchBox(hint: text.homeSearchHint),
+          const SizedBox(height: 18),
+          _CategoryRow(items: [
+            text.categoryElectronics,
+            text.categoryFashion,
+            text.categoryHome,
+            text.categoryBeauty,
+            text.categoryVehicles,
+            text.categoryMore,
+          ]),
+          const SizedBox(height: 18),
+          _HeroCard(title: text.heroTitle, action: text.shopNow),
+          const SizedBox(height: 24),
+          Text(text.trendingNearYou, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          const _ProductGrid(),
+          const SizedBox(height: 18),
+          _AssistantCard(title: text.assistantTitle, body: text.assistantBody),
         ],
       ),
     );
@@ -33,13 +45,15 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _SearchBox extends StatelessWidget {
-  const _SearchBox();
+  const _SearchBox({required this.hint});
+
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       decoration: InputDecoration(
-        hintText: 'What are you looking for?',
+        hintText: hint,
         prefixIcon: const Icon(Icons.search),
         filled: true,
         fillColor: Colors.white,
@@ -53,11 +67,12 @@ class _SearchBox extends StatelessWidget {
 }
 
 class _CategoryRow extends StatelessWidget {
-  const _CategoryRow();
+  const _CategoryRow({required this.items});
+
+  final List<String> items;
 
   @override
   Widget build(BuildContext context) {
-    final items = ['Electronics', 'Fashion', 'Home', 'Beauty', 'Vehicles', 'More'];
     return SizedBox(
       height: 86,
       child: ListView.separated(
@@ -81,7 +96,10 @@ class _CategoryRow extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard();
+  const _HeroCard({required this.title, required this.action});
+
+  final String title;
+  final String action;
 
   @override
   Widget build(BuildContext context) {
@@ -91,12 +109,48 @@ class _HeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(colors: [SuqnaaBrand.blue, SuqnaaBrand.teal]),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Great finds.\nFair prices.\nTrusted people.', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
-          SizedBox(height: 16),
-          Text('Shop now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 16),
+          Text(action, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssistantCard extends StatelessWidget {
+  const _AssistantCard({required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: SuqnaaBrand.gold.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.support_agent, color: SuqnaaBrand.blue),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                Text(body),
+              ],
+            ),
+          ),
         ],
       ),
     );
