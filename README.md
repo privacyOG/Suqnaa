@@ -7,7 +7,7 @@ Suqnaa is a trusted marketplace platform for web, Android, and iOS. The product 
 - Brand: `Suqnaa`
 - Arabic brand: `سوقنا`
 - Domain: `suqnaa.com`
-- Current logo/app-icon artwork is stored as a replaceable brand reference in `assets/brand/`.
+- Current logo/app-icon artwork is stored as replaceable brand references in `assets/brand/`.
 - The branding layer is isolated so the logo, app icon, colors, and typography can be replaced later without changing core product logic.
 
 ## Monorepo layout
@@ -40,8 +40,8 @@ assets/      Brand assets and replaceable visual references
 cp .env.example .env
 docker compose up -d
 pnpm install
-pnpm --filter @suqnaa/api dev
-pnpm --filter @suqnaa/web dev
+pnpm dev:api
+pnpm dev:web
 cd apps/mobile && flutter pub get && flutter run
 ```
 
