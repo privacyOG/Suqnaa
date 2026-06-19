@@ -1,0 +1,17 @@
+{
+  "@@locale": "ar",
+  "appName": "سوقنا",
+  "brandArabic": "سوقنا",
+  "homeSearchHint": "ما الذي تبحث عنه؟",
+  "categoryElectronics": "إلكترونيات",
+  "categoryFashion": "أزياء",
+  "categoryHome": "منزل",
+  "categoryBeauty": "جمال",
+  "categoryVehicles": "مركبات",
+  "categoryMore": "المزيد",
+  "heroTitle": "اختيارات مميزة.\nأسعار عادلة.\nناس موثوقون.",
+  "shopNow": "تسوّق الآن",
+  "trendingNearYou": "الأكثر رواجاً بالقرب منك",
+  "assistantTitle": "مساعد السوق",
+  "assistantBody": "يساعدك في كتابة الإعلان، مقارنة المنتجات، وفهم خطوات البيع والشراء الآمن."
+}
