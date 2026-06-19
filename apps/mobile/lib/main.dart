@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'src/features/home/home_screen.dart';
 
 void main() {
   runApp(const SuqnaaApp());
@@ -9,12 +10,15 @@ class SuqnaaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Suqnaa',
-      home: Scaffold(
-        body: Center(child: Text('Suqnaa')),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B46D8)),
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFFFFAF0),
       ),
+      home: const HomeScreen(),
     );
   }
 }
