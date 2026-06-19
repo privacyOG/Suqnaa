@@ -20,6 +20,10 @@ const refreshBody = z.object({
   refreshToken: z.string().min(40).max(200)
 });
 
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 async function createRefreshSession(userId: string, userAgent: string | undefined, ipAddress: string | undefined) {
   const refreshToken = newSessionToken();
   const session = await db.insertInto('refresh_sessions')
@@ -65,7 +69,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .returning(['id', 'email', 'phone_e164', 'display_name', 'status'])
       .executeTakeFirstOrThrow();
 
-    const session = await createRefreshSession(user.id, request.headers['user-agent'], request.ip);
+    const session = await createRefreshSession(user.id, firstHeader(request.headers['user-agent']), request.ip);
 
     return reply.code(201).send({ user, session });
   });
@@ -86,7 +90,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
 
-    const session = await createRefreshSession(user.id, request.headers['user-agent'], request.ip);
+    const session = await createRefreshSession(user.id, firstHeader(request.headers['user-agent']), request.ip);
 
     return reply.send({
       user: {
@@ -116,7 +120,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .where('id', '=', existing.id)
       .execute();
 
-    const session = await createRefreshSession(existing.user_id, request.headers['user-agent'], request.ip);
+    const session = await createRefreshSession(existing.user_id, firstHeader(request.headers['user-agent']), request.ip);
     return reply.send({ session });
   });
 }
