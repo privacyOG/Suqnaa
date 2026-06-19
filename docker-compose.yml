@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: suqnaa-postgres
+    environment:
+      POSTGRES_DB: suqnaa
+      POSTGRES_USER: suqnaa
+      POSTGRES_PASSWORD: suqnaa_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - suqnaa-postgres-data:/var/lib/postgresql/data
+      - ./infra/db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U suqnaa -d suqnaa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: suqnaa-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - suqnaa-redis-data:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: suqnaa-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: suqnaa
+      MINIO_ROOT_PASSWORD: suqnaa_dev_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - suqnaa-minio-data:/data
+
+volumes:
+  suqnaa-postgres-data:
+  suqnaa-redis-data:
+  suqnaa-minio-data:
