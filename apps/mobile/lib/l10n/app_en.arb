@@ -1,0 +1,17 @@
+{
+  "@@locale": "en",
+  "appName": "Suqnaa",
+  "brandArabic": "سوقنا",
+  "homeSearchHint": "What are you looking for?",
+  "categoryElectronics": "Electronics",
+  "categoryFashion": "Fashion",
+  "categoryHome": "Home",
+  "categoryBeauty": "Beauty",
+  "categoryVehicles": "Vehicles",
+  "categoryMore": "More",
+  "heroTitle": "Great finds.\nFair prices.\nTrusted people.",
+  "shopNow": "Shop now",
+  "trendingNearYou": "Trending near you",
+  "assistantTitle": "Marketplace assistant",
+  "assistantBody": "Get help writing listings, comparing items, and understanding safe trade steps."
+}
