@@ -1,0 +1,61 @@
+.top-nav {
+  max-width: 1180px;
+  margin: 0 auto 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand-word {
+  font-weight: 900;
+  color: var(--suqnaa-blue);
+}
+
+.language-link {
+  border: 1px solid rgba(11, 70, 216, 0.14);
+  background: #fff;
+  color: var(--suqnaa-blue);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 800;
+}
+
+.section-heading {
+  font-size: 18px;
+  margin: 20px 0 12px;
+}
+
+.assistant-card {
+  margin-top: 18px;
+  border-radius: 22px;
+  padding: 18px;
+  background: #fffaf0;
+  border: 1px solid rgba(217, 164, 65, 0.32);
+}
+
+.assistant-card strong {
+  display: block;
+  color: var(--suqnaa-blue);
+  font-size: 18px;
+}
+
+.assistant-card p {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--suqnaa-muted);
+}
+
+[dir='rtl'] body,
+[dir='rtl'] .page-shell {
+  font-family: Tahoma, Arial, sans-serif;
+}
+
+[dir='rtl'] h1 {
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+[dir='rtl'] .eyebrow {
+  letter-spacing: 0;
+}
