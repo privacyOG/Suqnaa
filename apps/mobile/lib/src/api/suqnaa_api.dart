@@ -28,6 +28,21 @@ class SuqnaaApi {
     final items = payload['listings'] as List<dynamic>;
     return items.map((item) => ListingDto.fromJson(item as Map<String, dynamic>)).toList();
   }
+
+  Future<AssistantDto> askAssistant({required String locale, required String purpose, required String message}) async {
+    final response = await _client.post(
+      baseUrl.resolve('/v1/assistant'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'locale': locale, 'purpose': purpose, 'message': message}),
+    );
+
+    if (response.statusCode != 200) {
+      throw StateError('Unable to contact assistant');
+    }
+
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return AssistantDto.fromJson(payload['assistant'] as Map<String, dynamic>);
+  }
 }
 
 class CategoryDto {
@@ -62,6 +77,24 @@ class ListingDto {
       title: json['title'] as String,
       priceAmount: json['price_amount'] as String,
       currencyCode: json['currency_code'] as String,
+    );
+  }
+}
+
+class AssistantDto {
+  const AssistantDto({required this.enabled, required this.locale, required this.purpose, required this.answer});
+
+  final bool enabled;
+  final String locale;
+  final String purpose;
+  final String answer;
+
+  factory AssistantDto.fromJson(Map<String, dynamic> json) {
+    return AssistantDto(
+      enabled: json['enabled'] as bool,
+      locale: json['locale'] as String,
+      purpose: json['purpose'] as String,
+      answer: json['answer'] as String,
     );
   }
 }
