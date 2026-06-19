@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" role="img" aria-labelledby="title desc">
+  <title id="title">Suqnaa provisional logo reference</title>
+  <desc id="desc">Replaceable Suqnaa logo direction using a blue, teal, coral, and sand marketplace mark.</desc>
+  <rect width="900" height="320" fill="#fffaf0"/>
+  <g transform="translate(64 40)">
+    <path d="M120 10c54 0 98 44 98 98 0 54-44 98-98 98-54 0-98-44-98-98 0-54 44-98 98-98Z" fill="#fff"/>
+    <path d="M168 30c25 16 42 44 42 76" fill="none" stroke="#ff6958" stroke-width="28" stroke-linecap="round"/>
+    <path d="M49 72c23-38 82-57 126-25" fill="none" stroke="#0b46d8" stroke-width="30" stroke-linecap="round"/>
+    <path d="M53 169c42 31 98 28 134-4" fill="none" stroke="#d9a441" stroke-width="26" stroke-linecap="round"/>
+    <path d="M150 57h45v74h-45z" fill="#0b46d8"/>
+    <path d="M161 57c0-24 24-24 24 0" fill="none" stroke="#0b46d8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M61 70c-20 45 104 40 77 99-14 31-62 39-101 14" fill="none" stroke="#18b9c5" stroke-width="30" stroke-linecap="round"/>
+  </g>
+  <text x="320" y="145" font-family="Inter, Arial, sans-serif" font-size="86" font-weight="800" fill="#0b46d8">Suqnaa</text>
+  <text x="326" y="235" font-family="Arial, sans-serif" font-size="70" font-weight="800" fill="#0b46d8">سوقنا</text>
+  <text x="326" y="285" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#0b46d8">Discover.</text>
+  <text x="468" y="285" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#18b9c5">Connect.</text>
+  <text x="612" y="285" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#ff6958">Trust.</text>
+</svg>
