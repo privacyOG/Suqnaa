@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
 import '../../brand/brand.dart';
+import '../sell/create_listing_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -16,6 +17,11 @@ class HomeScreen extends StatelessWidget {
         elevation: 0,
         title: Text(text.appName),
         actions: const [Icon(Icons.notifications_none), SizedBox(width: 12)],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreateListingScreen())),
+        icon: const Icon(Icons.add_business_outlined),
+        label: const Text('Sell'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
