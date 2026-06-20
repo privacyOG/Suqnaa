@@ -9,6 +9,7 @@ import { categoryRoutes } from './routes/categories.js';
 import { checkoutRoutes } from './routes/checkout.js';
 import { disputeRoutes } from './routes/disputes.js';
 import { listingRoutes } from './routes/listings.js';
+import { marketActionRoutes } from './routes/market-actions.js';
 import { verificationRoutes } from './routes/verification.js';
 
 const app = Fastify({
@@ -34,6 +35,7 @@ await app.register(categoryRoutes, { prefix: '/v1' });
 await app.register(checkoutRoutes, { prefix: '/v1' });
 await app.register(disputeRoutes, { prefix: '/v1' });
 await app.register(listingRoutes, { prefix: '/v1' });
+await app.register(marketActionRoutes, { prefix: '/v1' });
 await app.register(verificationRoutes, { prefix: '/v1' });
 
 try {
