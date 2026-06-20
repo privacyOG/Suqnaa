@@ -48,6 +48,14 @@ select {
   gap: 16px;
 }
 
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--suqnaa-blue);
+  font-weight: 800;
+}
+
 .brand-word {
   color: var(--suqnaa-blue);
   font-weight: 900;
@@ -337,5 +345,11 @@ h1 {
 
   .hero {
     grid-template-columns: 1fr;
+  }
+
+  .top-nav,
+  .nav-links {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
