@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { env } from './config/env.js';
+import { accountRoutes } from './routes/account.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
 import { assistantRoutes } from './routes/assistant.js';
@@ -25,6 +26,7 @@ app.setErrorHandler((error, _request, reply) => {
 });
 
 await app.register(healthRoutes, { prefix: '/v1' });
+await app.register(accountRoutes, { prefix: '/v1' });
 await app.register(authRoutes, { prefix: '/v1' });
 await app.register(assistantRoutes, { prefix: '/v1' });
 await app.register(auctionRoutes, { prefix: '/v1' });
