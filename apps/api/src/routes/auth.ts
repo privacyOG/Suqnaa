@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { createAccessToken } from '../auth/access.js';
+import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-token.js';
 import { db } from '../db/index.js';
 import { hashPassword, verifyPassword } from '../security/password.js';
-import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-token.js';
 
 const registerBody = z.object({
   email: z.string().email().optional(),
@@ -22,6 +23,19 @@ const refreshBody = z.object({
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function authPayload(user: { id: string; email?: string | null; display_name?: string; status?: string }, session: unknown) {
+  return {
+    user: {
+      id: user.id,
+      email: user.email ?? null,
+      displayName: user.display_name,
+      status: user.status
+    },
+    accessToken: createAccessToken({ userId: user.id, email: user.email ?? null, status: user.status }),
+    session
+  };
 }
 
 async function createRefreshSession(userId: string, userAgent: string | undefined, ipAddress: string | undefined) {
@@ -71,7 +85,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const session = await createRefreshSession(user.id, firstHeader(request.headers['user-agent']), request.ip);
 
-    return reply.code(201).send({ user, session });
+    return reply.code(201).send(authPayload(user, session));
   });
 
   app.post('/auth/login', async (request, reply) => {
@@ -92,15 +106,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const session = await createRefreshSession(user.id, firstHeader(request.headers['user-agent']), request.ip);
 
-    return reply.send({
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.display_name,
-        status: user.status
-      },
-      session
-    });
+    return reply.send(authPayload(user, session));
   });
 
   app.post('/auth/refresh', async (request, reply) => {
@@ -120,7 +126,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .where('id', '=', existing.id)
       .execute();
 
+    const user = await db.selectFrom('users')
+      .select(['id', 'email', 'display_name', 'status'])
+      .where('id', '=', existing.user_id)
+      .executeTakeFirst();
+
+    if (!user) {
+      return reply.code(401).send({ error: 'Invalid session' });
+    }
+
     const session = await createRefreshSession(existing.user_id, firstHeader(request.headers['user-agent']), request.ip);
-    return reply.send({ session });
+    return reply.send(authPayload(user, session));
   });
 }
