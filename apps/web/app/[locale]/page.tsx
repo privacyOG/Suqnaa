@@ -23,12 +23,17 @@ export default function LocalizedHomePage({ params }: { params: { locale: string
 
   const locale = params.locale as Locale;
   const messages = getMessages(locale);
+  const isArabic = locale === 'ar';
 
   return (
     <main className="page-shell">
       <nav className="top-nav">
-        <span className="brand-word">Suqnaa · سوقنا</span>
-        <a className="language-link" href={messages.nav.languageHref}>{messages.nav.language}</a>
+        <a className="brand-word" href={`/${locale}`}>Suqnaa · سوقنا</a>
+        <div className="nav-links">
+          <a href={`/${locale}/sell`}>{isArabic ? 'بيع' : 'Sell'}</a>
+          <a href={`/${locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
+          <a className="language-link" href={messages.nav.languageHref}>{messages.nav.language}</a>
+        </div>
       </nav>
 
       <section className="hero">
@@ -38,8 +43,8 @@ export default function LocalizedHomePage({ params }: { params: { locale: string
           <h1>{messages.hero.title}</h1>
           <p>{messages.hero.body}</p>
           <div className="actions">
-            <a className="button-primary" href="#waitlist">{messages.hero.primaryAction}</a>
-            <a className="button-secondary" href="#values">{messages.hero.secondaryAction}</a>
+            <a className="button-primary" href={`/${locale}/sell`}>{isArabic ? 'ابدأ البيع' : 'Start selling'}</a>
+            <a className="button-secondary" href={`/${locale}/account`}>{isArabic ? 'إنشاء حساب' : 'Create account'}</a>
           </div>
         </div>
 
