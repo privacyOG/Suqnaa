@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
 
 const createListingBody = z.object({
-  sellerId: z.string().uuid(),
   categoryId: z.string().uuid().optional(),
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().min(10).max(5000),
@@ -30,12 +30,13 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     return { listings };
   });
 
-  app.post('/listings', async (request, reply) => {
+  app.post('/listings', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
     const body = createListingBody.parse(request.body);
 
     const listing = await db.insertInto('listings')
       .values({
-        seller_id: body.sellerId,
+        seller_id: authRequest.user.sub,
         category_id: body.categoryId ?? null,
         title: body.title,
         description: body.description,
