@@ -28,7 +28,9 @@ a {
 }
 
 button,
-input {
+input,
+textarea,
+select {
   font: inherit;
 }
 
@@ -67,6 +69,10 @@ input {
   align-items: center;
   max-width: 1180px;
   margin: 0 auto;
+}
+
+.account-hero {
+  align-items: start;
 }
 
 .brand-mark {
@@ -117,6 +123,7 @@ h1 {
   border-radius: 999px;
   padding: 14px 22px;
   font-weight: 800;
+  border: 0;
 }
 
 .button-primary {
@@ -261,6 +268,52 @@ h1 {
 .value-card p {
   margin: 0;
   color: var(--suqnaa-muted);
+}
+
+.auth-page {
+  display: block;
+}
+
+.auth-card {
+  max-width: 680px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 22px 80px rgba(15, 23, 42, 0.1);
+}
+
+.auth-card h1 {
+  font-size: clamp(36px, 6vw, 64px);
+}
+
+.auth-card p {
+  color: var(--suqnaa-muted);
+  line-height: 1.6;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 8px;
+  color: var(--suqnaa-ink);
+  font-weight: 800;
+}
+
+.form-grid input,
+.form-grid textarea,
+.form-grid select {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  padding: 14px 16px;
+  color: var(--suqnaa-ink);
+  background: #fff;
 }
 
 [dir='rtl'] body,
