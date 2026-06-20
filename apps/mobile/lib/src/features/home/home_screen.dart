@@ -140,7 +140,7 @@ class _AssistantCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SuqnaaBrand.gold.withValues(alpha: 0.35)),
+        border: Border.all(color: SuqnaaBrand.gold.withOpacity(0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
