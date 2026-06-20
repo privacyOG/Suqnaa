@@ -60,7 +60,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
             const SizedBox(height: 12),
             const Text(
               'Sign in will be required before publishing.',
-              style: TextStyle(color: SuqnaaBrand.muted),
+              style: TextStyle(color: Colors.black54),
             ),
           ],
         ],
