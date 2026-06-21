@@ -176,42 +176,86 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/refresh', async (request, reply) => {
     const body = refreshBody.parse(request.body);
     const storedHash = sessionTokenHash(body.refreshToken);
-    const limit = checkRateLimit({
-      group: 'auth.refresh',
-      identifiers: [`ip:${request.ip}`, `session:${storedHash.slice(0, 16)}`],
+    const sessionLimit = checkRateLimit({
+      group: 'auth.refresh.session',
+      identifiers: [`session:${storedHash.slice(0, 16)}`],
       limit: 30,
       windowMs: 15 * 60 * 1000
     });
+    const ipLimit = checkRateLimit({
+      group: 'auth.refresh.ip',
+      identifiers: [`ip:${request.ip}`],
+      limit: 600,
+      windowMs: 15 * 60 * 1000
+    });
+    const limited = !sessionLimit.allowed
+      ? sessionLimit
+      : !ipLimit.allowed
+        ? ipLimit
+        : undefined;
 
-    if (!limit.allowed) {
-      reply.header('Retry-After', String(limit.retryAfterSeconds));
-      return reply.code(429).send(rateLimitResponse(limit));
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
     }
 
-    const existing = await db.selectFrom('refresh_sessions')
-      .select(['id', 'user_id', 'expires_at', 'revoked_at'])
-      .where('token_hash', '=', storedHash)
-      .executeTakeFirst();
+    const rotated = await db.transaction().execute(async (transaction) => {
+      const existing = await transaction.selectFrom('refresh_sessions')
+        .select(['id', 'user_id', 'expires_at', 'revoked_at'])
+        .where('token_hash', '=', storedHash)
+        .executeTakeFirst();
 
-    if (!existing || existing.revoked_at || existing.expires_at < new Date()) {
+      if (!existing || existing.revoked_at || existing.expires_at < new Date()) {
+        return null;
+      }
+
+      const revoked = await transaction.updateTable('refresh_sessions')
+        .set({ revoked_at: new Date() })
+        .where('id', '=', existing.id)
+        .where('revoked_at', 'is', null)
+        .returning(['id'])
+        .executeTakeFirst();
+
+      if (!revoked) {
+        return null;
+      }
+
+      const user = await transaction.selectFrom('users')
+        .select(['id', 'email', 'display_name', 'status'])
+        .where('id', '=', existing.user_id)
+        .executeTakeFirst();
+
+      if (!user) {
+        return null;
+      }
+
+      const refreshToken = newSessionToken();
+      const session = await transaction.insertInto('refresh_sessions')
+        .values({
+          user_id: existing.user_id,
+          token_hash: sessionTokenHash(refreshToken),
+          user_agent: firstHeader(request.headers['user-agent']) ?? null,
+          ip_address: request.ip ?? null,
+          expires_at: daysFromNow(30),
+          revoked_at: null
+        })
+        .returning(['id', 'expires_at'])
+        .executeTakeFirstOrThrow();
+
+      return {
+        user,
+        session: {
+          refreshToken,
+          sessionId: session.id,
+          expiresAt: session.expires_at
+        }
+      };
+    });
+
+    if (!rotated) {
       return reply.code(401).send({ error: 'Invalid session' });
     }
 
-    await db.updateTable('refresh_sessions')
-      .set({ revoked_at: new Date() })
-      .where('id', '=', existing.id)
-      .execute();
-
-    const user = await db.selectFrom('users')
-      .select(['id', 'email', 'display_name', 'status'])
-      .where('id', '=', existing.user_id)
-      .executeTakeFirst();
-
-    if (!user) {
-      return reply.code(401).send({ error: 'Invalid session' });
-    }
-
-    const session = await createRefreshSession(existing.user_id, firstHeader(request.headers['user-agent']), request.ip);
-    return reply.send(authPayload(user, session));
+    return reply.send(authPayload(rotated.user, rotated.session));
   });
 }
