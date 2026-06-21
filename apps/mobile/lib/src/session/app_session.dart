@@ -126,6 +126,14 @@ class AppSession extends ChangeNotifier {
         displayName: result.user.displayName,
       );
     } catch (_) {
+      final expiry = _access.expiresAtTime;
+      final now = DateTime.now().toUtc();
+
+      if (expiry != null && expiry.isAfter(now)) {
+        _scheduleRetry(expiry.difference(now));
+        return;
+      }
+
       clear();
     }
   }
@@ -144,6 +152,17 @@ class AppSession extends ChangeNotifier {
     final delay = refreshAt.isAfter(now)
         ? refreshAt.difference(now)
         : Duration.zero;
+
+    _refreshTimer = Timer(delay, () {
+      ensureFreshAccess(force: true);
+    });
+  }
+
+  void _scheduleRetry(Duration remainingValidity) {
+    _refreshTimer?.cancel();
+    final delay = remainingValidity > const Duration(seconds: 30)
+        ? const Duration(seconds: 30)
+        : remainingValidity;
 
     _refreshTimer = Timer(delay, () {
       ensureFreshAccess(force: true);
