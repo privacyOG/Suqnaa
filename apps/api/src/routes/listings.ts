@@ -5,10 +5,29 @@ import { db } from '../db/index.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { writeSecurityAudit } from '../security/security-audit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
 const listingStatus = z.enum(['draft', 'active', 'reserved', 'sold', 'expired', 'removed']);
+type ListingStatus = z.infer<typeof listingStatus>;
+
+const listingParams = z.object({
+  listingId: z.string().uuid()
+});
+
+const listingStatusBody = z.object({
+  status: listingStatus
+});
+
+const allowedStatusTransitions: Record<ListingStatus, ReadonlySet<ListingStatus>> = {
+  draft: new Set(['active', 'removed']),
+  active: new Set(['reserved', 'sold', 'removed']),
+  reserved: new Set(['active', 'sold', 'removed']),
+  sold: new Set(),
+  expired: new Set(['active', 'removed']),
+  removed: new Set()
+};
 
 const myListingsQuery = z.object({
   status: listingStatus.optional(),
@@ -33,6 +52,26 @@ const createListingBody = z.object({
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function limitedListingAction(
+  request: Parameters<FastifyInstance['route']>[0] extends never ? never : any,
+  accountId: string
+) {
+  const accountLimit = checkRateLimit({
+    group: 'listing.status.account',
+    identifiers: [`account:${accountId}`],
+    limit: 40,
+    windowMs: 60 * 60 * 1000
+  });
+  const ipLimit = checkRateLimit({
+    group: 'listing.status.ip',
+    identifiers: [`ip:${request.ip}`],
+    limit: 120,
+    windowMs: 60 * 60 * 1000
+  });
+
+  return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
 }
 
 export async function listingRoutes(app: FastifyInstance): Promise<void> {
@@ -116,6 +155,100 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
         nextCursor: hasMore && last
           ? new Date(last.updated_at).toISOString()
           : null
+      }
+    });
+  });
+
+  app.post('/listings/:listingId/status', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
+    const params = listingParams.parse(request.params);
+    const body = listingStatusBody.parse(request.body);
+    const limited = limitedListingAction(request, authRequest.user.sub);
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const existing = await db.selectFrom('listings')
+      .select(['id', 'seller_id', 'status'])
+      .where('id', '=', params.listingId)
+      .executeTakeFirst();
+
+    if (!existing || existing.seller_id !== authRequest.user.sub) {
+      return reply.code(404).send({ error: 'Listing not found' });
+    }
+
+    const currentStatus = listingStatus.parse(existing.status);
+    if (currentStatus === body.status) {
+      return reply.send({
+        listing: {
+          id: existing.id,
+          status: currentStatus,
+          unchanged: true
+        }
+      });
+    }
+
+    if (!allowedStatusTransitions[currentStatus].has(body.status)) {
+      return reply.code(409).send({
+        error: 'Invalid listing status transition',
+        currentStatus,
+        requestedStatus: body.status
+      });
+    }
+
+    const protection = await checkHumanProtectionWithChallenge(
+      {
+        action: 'listing.status_update',
+        accountId: authRequest.user.sub,
+        ip: request.ip,
+        userAgent: firstHeader(request.headers['user-agent']),
+        challengeResponse: firstHeader(request.headers['x-suqnaa-human-check'])
+      },
+      challengeVerifier
+    );
+
+    if (protection.decision !== 'allow') {
+      return reply.code(403).send(humanProtectionResponse(protection));
+    }
+
+    const updated = await db.updateTable('listings')
+      .set({
+        status: body.status,
+        updated_at: new Date()
+      })
+      .where('id', '=', existing.id)
+      .where('seller_id', '=', authRequest.user.sub)
+      .where('status', '=', currentStatus)
+      .returning(['id', 'title', 'status', 'updated_at'])
+      .executeTakeFirst();
+
+    if (!updated) {
+      return reply.code(409).send({ error: 'Listing changed; refresh and try again' });
+    }
+
+    writeSecurityAudit(app.log, {
+      action: 'listing.status_update',
+      decision: 'allow',
+      actorId: authRequest.user.sub,
+      targetId: existing.id,
+      ip: request.ip,
+      riskScore: protection.riskScore,
+      reasonCodes: protection.reasonCodes,
+      metadata: {
+        fromStatus: currentStatus,
+        toStatus: body.status
+      }
+    });
+
+    return reply.send({
+      listing: {
+        id: updated.id,
+        title: updated.title,
+        status: updated.status,
+        updatedAt: updated.updated_at,
+        unchanged: false
       }
     });
   });
