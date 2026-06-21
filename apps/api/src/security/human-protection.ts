@@ -23,7 +23,10 @@ const highImpactActions = new Set([
   'listing.create',
   'message.create',
   'offer.create',
+  'order.create',
   'profile.check',
+  'review.create',
+  'timed_sale.create',
 ]);
 
 export function checkHumanProtection(input: ProtectionInput): ProtectionResult {
