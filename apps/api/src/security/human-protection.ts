@@ -17,6 +17,11 @@ export interface ProtectionResult {
   riskScore: number;
 }
 
+const publicAccountActions = new Set([
+  'account.register',
+  'account.login',
+]);
+
 const highImpactActions = new Set([
   'account.register',
   'account.login',
@@ -30,26 +35,33 @@ const highImpactActions = new Set([
   'timed_sale.create',
 ]);
 
+const challengeThreshold = 50;
+
 export function checkHumanProtection(input: ProtectionInput): ProtectionResult {
   const reasonCodes: string[] = [];
   let riskScore = 0;
 
   if (highImpactActions.has(input.action)) {
-    riskScore += 10;
+    riskScore += 20;
     reasonCodes.push('high_impact_action');
   }
 
+  if (!input.ip) {
+    riskScore += 30;
+    reasonCodes.push('missing_ip_context');
+  }
+
   if (!input.userAgent) {
-    riskScore += 15;
+    riskScore += 35;
     reasonCodes.push('missing_user_agent');
   }
 
-  if (!input.accountId && input.action !== 'account.register' && input.action !== 'account.login') {
-    riskScore += 10;
+  if (!input.accountId && !publicAccountActions.has(input.action)) {
+    riskScore += 25;
     reasonCodes.push('missing_account_context');
   }
 
-  if (riskScore >= 50) {
+  if (riskScore >= challengeThreshold) {
     return { decision: 'challenge', reasonCodes, riskScore };
   }
 
