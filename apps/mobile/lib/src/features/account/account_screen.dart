@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../brand/brand.dart';
+import '../conversations/conversation_list_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -16,14 +17,42 @@ class AccountScreen extends StatelessWidget {
         children: [
           const Text(
             'Your Suqnaa account',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: SuqnaaBrand.blue),
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: SuqnaaBrand.blue,
+            ),
           ),
           const SizedBox(height: 8),
-          const Text('Sign in and profile tools will appear here as the account layer is connected.'),
+          const Text(
+            'Sign in and profile tools will appear here as the account layer is connected.',
+          ),
           const SizedBox(height: 24),
-          _AccountTile(icon: Icons.person_outline, title: 'Profile', subtitle: 'Manage your public marketplace profile'),
-          _AccountTile(icon: Icons.verified_user_outlined, title: 'Trust', subtitle: 'Verification and account confidence tools'),
-          _AccountTile(icon: Icons.storefront_outlined, title: 'Selling', subtitle: 'Manage your listings and seller tools'),
+          const _AccountTile(
+            icon: Icons.person_outline,
+            title: 'Profile',
+            subtitle: 'Manage your public marketplace profile',
+          ),
+          _AccountTile(
+            icon: Icons.forum_outlined,
+            title: 'Messages',
+            subtitle: 'View conversations with buyers and sellers',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ConversationListScreen(),
+              ),
+            ),
+          ),
+          const _AccountTile(
+            icon: Icons.verified_user_outlined,
+            title: 'Trust',
+            subtitle: 'Verification and account confidence tools',
+          ),
+          const _AccountTile(
+            icon: Icons.storefront_outlined,
+            title: 'Selling',
+            subtitle: 'Manage your listings and seller tools',
+          ),
         ],
       ),
     );
@@ -31,20 +60,30 @@ class AccountScreen extends StatelessWidget {
 }
 
 class _AccountTile extends StatelessWidget {
-  const _AccountTile({required this.icon, required this.title, required this.subtitle});
+  const _AccountTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
         leading: Icon(icon, color: SuqnaaBrand.blue),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
