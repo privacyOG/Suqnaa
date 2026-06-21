@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createAccessToken } from '../auth/access.js';
 import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-token.js';
 import { db } from '../db/index.js';
+import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
 import { hashPassword, verifyPassword } from '../security/password.js';
 
 const registerBody = z.object({
@@ -62,6 +63,16 @@ async function createRefreshSession(userId: string, userAgent: string | undefine
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', async (request, reply) => {
     const body = registerBody.parse(request.body);
+    const protection = checkHumanProtection({
+      action: 'account.register',
+      ip: request.ip,
+      userAgent: firstHeader(request.headers['user-agent'])
+    });
+
+    if (protection.decision !== 'allow') {
+      return reply.code(403).send(humanProtectionResponse(protection));
+    }
+
     const passwordHash = await hashPassword(body.password);
 
     const existing = body.email
@@ -90,6 +101,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/auth/login', async (request, reply) => {
     const body = loginBody.parse(request.body);
+    const protection = checkHumanProtection({
+      action: 'account.login',
+      ip: request.ip,
+      userAgent: firstHeader(request.headers['user-agent'])
+    });
+
+    if (protection.decision !== 'allow') {
+      return reply.code(403).send(humanProtectionResponse(protection));
+    }
+
     const user = await db.selectFrom('users')
       .select(['id', 'email', 'display_name', 'password_hash', 'status'])
       .where('email', '=', body.email.toLowerCase())
