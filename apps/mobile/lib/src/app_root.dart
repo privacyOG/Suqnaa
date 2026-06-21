@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
+import 'brand/brand.dart';
 import 'features/home/home_screen.dart';
 import 'session/app_session.dart';
 import 'session/session_scope.dart';
@@ -20,12 +22,17 @@ class _SuqnaaRootState extends State<SuqnaaRoot>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_session.restore());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _session.ensureFreshAccess();
+      if (_session.isSignedIn) {
+        unawaited(_session.ensureFreshAccess());
+      } else {
+        unawaited(_session.restore());
+      }
     }
   }
 
@@ -57,7 +64,43 @@ class _SuqnaaRootState extends State<SuqnaaRoot>
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFFFFFAF0),
         ),
-        home: const HomeScreen(),
+        home: const _SessionGate(),
+      ),
+    );
+  }
+}
+
+class _SessionGate extends StatelessWidget {
+  const _SessionGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final session = SessionScope.of(context);
+
+    if (!session.isRestoring) {
+      return const HomeScreen();
+    }
+
+    return const Scaffold(
+      backgroundColor: SuqnaaBrand.ivory,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.storefront_outlined,
+              size: 54,
+              color: SuqnaaBrand.blue,
+            ),
+            SizedBox(height: 18),
+            CircularProgressIndicator(),
+            SizedBox(height: 14),
+            Text(
+              'Restoring your Suqnaa session...',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
       ),
     );
   }
