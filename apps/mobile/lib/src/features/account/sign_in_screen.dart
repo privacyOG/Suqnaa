@@ -56,10 +56,7 @@ class _SignInScreenState extends State<SignInScreen> {
       }
 
       SessionScope.of(context).establish(
-        access: AccessState(
-          value: result.accessToken,
-          expiresAt: result.session.expiresAt,
-        ),
+        access: AccessState.fromToken(result.accessToken),
         refreshToken: result.session.refreshToken,
         userId: result.user.id,
         displayName: result.user.displayName,
