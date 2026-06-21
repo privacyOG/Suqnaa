@@ -16,6 +16,7 @@ class MyListingsScreen extends StatefulWidget {
 
 class _MyListingsScreenState extends State<MyListingsScreen> {
   final _items = <Map<String, dynamic>>[];
+  final _updatingIds = <String>{};
   SellerListingApi? _api;
   AppSession? _session;
   String? _status;
@@ -162,6 +163,91 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     _reload();
   }
 
+  Future<void> _changeStatus(
+    Map<String, dynamic> listing,
+    String nextStatus,
+  ) async {
+    final api = _api;
+    final token = _session?.access.value ?? '';
+    final listingId = listing['id']?.toString();
+    if (api == null || token.isEmpty || listingId == null || _updatingIds.contains(listingId)) {
+      return;
+    }
+
+    final destructive = nextStatus == 'sold' || nextStatus == 'removed';
+    if (destructive) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(nextStatus == 'sold' ? 'Mark as sold?' : 'Remove listing?'),
+          content: Text(
+            nextStatus == 'sold'
+                ? 'This action is final. The listing cannot be reactivated.'
+                : 'Removed listings cannot be restored.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(nextStatus == 'sold' ? 'Mark sold' : 'Remove'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) {
+        return;
+      }
+    }
+
+    setState(() {
+      _updatingIds.add(listingId);
+      _error = null;
+    });
+
+    try {
+      await api.updateStatus(
+        token,
+        listingId: listingId,
+        status: nextStatus,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_statusSuccessMessage(nextStatus))),
+      );
+      await _reload();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Unable to update the listing status.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _updatingIds.remove(listingId));
+      }
+    }
+  }
+
+  String _statusSuccessMessage(String status) {
+    switch (status) {
+      case 'active':
+        return 'Listing is now active.';
+      case 'reserved':
+        return 'Listing marked as reserved.';
+      case 'sold':
+        return 'Listing marked as sold.';
+      case 'removed':
+        return 'Listing removed.';
+      default:
+        return 'Listing updated.';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final signedIn = _session?.isSignedIn == true;
@@ -227,7 +313,13 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                                 );
                               }
 
-                              return _ListingCard(data: _items[index]);
+                              final listing = _items[index];
+                              final listingId = listing['id']?.toString() ?? '';
+                              return _ListingCard(
+                                data: listing,
+                                busy: _updatingIds.contains(listingId),
+                                onStatusSelected: (status) => _changeStatus(listing, status),
+                              );
                             },
                           ),
                         ),
@@ -277,9 +369,15 @@ class _StatusFilter extends StatelessWidget {
 }
 
 class _ListingCard extends StatelessWidget {
-  const _ListingCard({required this.data});
+  const _ListingCard({
+    required this.data,
+    required this.busy,
+    required this.onStatusSelected,
+  });
 
   final Map<String, dynamic> data;
+  final bool busy;
+  final ValueChanged<String> onStatusSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -293,6 +391,7 @@ class _ListingCard extends StatelessWidget {
     final location = [suburb, city]
         .where((value) => value != null && value.trim().isNotEmpty)
         .join(', ');
+    final actions = _actionsFor(status);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -310,6 +409,34 @@ class _ListingCard extends StatelessWidget {
                   ),
                 ),
                 _StatusBadge(status: status),
+                if (busy)
+                  const Padding(
+                    padding: EdgeInsetsDirectional.only(start: 8),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else if (actions.isNotEmpty)
+                  PopupMenuButton<String>(
+                    tooltip: 'Listing actions',
+                    onSelected: onStatusSelected,
+                    itemBuilder: (context) => actions
+                        .map(
+                          (action) => PopupMenuItem<String>(
+                            value: action.status,
+                            child: Row(
+                              children: [
+                                Icon(action.icon, size: 20),
+                                const SizedBox(width: 10),
+                                Text(action.label),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -347,6 +474,43 @@ class _ListingCard extends StatelessWidget {
       ),
     );
   }
+
+  List<_ListingAction> _actionsFor(String status) {
+    switch (status) {
+      case 'draft':
+        return const [
+          _ListingAction('active', 'Publish', Icons.publish_outlined),
+          _ListingAction('removed', 'Remove', Icons.delete_outline),
+        ];
+      case 'active':
+        return const [
+          _ListingAction('reserved', 'Mark reserved', Icons.bookmark_outline),
+          _ListingAction('sold', 'Mark sold', Icons.sell_outlined),
+          _ListingAction('removed', 'Remove', Icons.delete_outline),
+        ];
+      case 'reserved':
+        return const [
+          _ListingAction('active', 'Make active', Icons.replay_outlined),
+          _ListingAction('sold', 'Mark sold', Icons.sell_outlined),
+          _ListingAction('removed', 'Remove', Icons.delete_outline),
+        ];
+      case 'expired':
+        return const [
+          _ListingAction('active', 'Republish', Icons.refresh_outlined),
+          _ListingAction('removed', 'Remove', Icons.delete_outline),
+        ];
+      default:
+        return const [];
+    }
+  }
+}
+
+class _ListingAction {
+  const _ListingAction(this.status, this.label, this.icon);
+
+  final String status;
+  final String label;
+  final IconData icon;
 }
 
 class _StatusBadge extends StatelessWidget {
