@@ -15,6 +15,22 @@ export interface ListingDraftInput extends JsonBody {
   allowDelivery?: boolean;
 }
 
-export function createListingDraft(accessToken: string, input: ListingDraftInput) {
-  return postAuthed('/v1/listings', accessToken, input);
+export interface ListingDraftResponse {
+  listing: {
+    id: string;
+    title: string;
+    status: string;
+    created_at: string;
+  };
+}
+
+export function createListingDraft(
+  input: ListingDraftInput,
+  challengeResponse?: string
+): Promise<ListingDraftResponse> {
+  return postAuthed<ListingDraftResponse>(
+    '/v1/listings',
+    input,
+    challengeResponse
+  );
 }
