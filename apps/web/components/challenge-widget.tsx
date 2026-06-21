@@ -50,7 +50,7 @@ export function ChallengeWidget({
 
   const renderWidget = useCallback(() => {
     if (!containerRef.current || !window.turnstile || widgetIdRef.current) {
-      return;
+      return false;
     }
 
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
@@ -62,14 +62,26 @@ export function ChallengeWidget({
       'expired-callback': () => callbacksRef.current.onExpired(),
       'error-callback': () => callbacksRef.current.onError()
     });
+
+    return true;
   }, [action, locale, siteKey]);
 
   useEffect(() => {
-    const interval = window.setInterval(renderWidget, 100);
-    renderWidget();
+    let interval: number | undefined;
+
+    if (!renderWidget()) {
+      interval = window.setInterval(() => {
+        if (renderWidget() && interval !== undefined) {
+          window.clearInterval(interval);
+          interval = undefined;
+        }
+      }, 100);
+    }
 
     return () => {
-      window.clearInterval(interval);
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+      }
       const widgetId = widgetIdRef.current;
       if (widgetId && window.turnstile) {
         window.turnstile.remove(widgetId);
