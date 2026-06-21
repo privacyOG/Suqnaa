@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
+import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
 
 const createListingBody = z.object({
   categoryId: z.string().uuid().optional(),
@@ -18,6 +19,10 @@ const createListingBody = z.object({
   allowDelivery: z.boolean().default(false)
 });
 
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export async function listingRoutes(app: FastifyInstance): Promise<void> {
   app.get('/listings', async () => {
     const listings = await db.selectFrom('listings')
@@ -33,6 +38,16 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
   app.post('/listings', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = createListingBody.parse(request.body);
+    const protection = checkHumanProtection({
+      action: 'listing.create',
+      accountId: authRequest.user.sub,
+      ip: request.ip,
+      userAgent: firstHeader(request.headers['user-agent'])
+    });
+
+    if (protection.decision !== 'allow') {
+      return reply.code(403).send(humanProtectionResponse(protection));
+    }
 
     const listing = await db.insertInto('listings')
       .values({
