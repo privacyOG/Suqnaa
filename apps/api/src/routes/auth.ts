@@ -5,6 +5,7 @@ import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-
 import { db } from '../db/index.js';
 import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
 import { hashPassword, verifyPassword } from '../security/password.js';
+import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 
 const registerBody = z.object({
   email: z.string().email().optional(),
@@ -63,6 +64,21 @@ async function createRefreshSession(userId: string, userAgent: string | undefine
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', async (request, reply) => {
     const body = registerBody.parse(request.body);
+    const accountIdentifier = body.email
+      ? `email:${body.email.toLowerCase()}`
+      : `phone:${body.phone}`;
+    const limit = checkRateLimit({
+      group: 'auth.register',
+      identifiers: [`ip:${request.ip}`, accountIdentifier],
+      limit: 5,
+      windowMs: 15 * 60 * 1000
+    });
+
+    if (!limit.allowed) {
+      reply.header('Retry-After', String(limit.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limit));
+    }
+
     const protection = checkHumanProtection({
       action: 'account.register',
       ip: request.ip,
@@ -101,6 +117,19 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/auth/login', async (request, reply) => {
     const body = loginBody.parse(request.body);
+    const normalizedEmail = body.email.toLowerCase();
+    const limit = checkRateLimit({
+      group: 'auth.login',
+      identifiers: [`ip:${request.ip}`, `email:${normalizedEmail}`],
+      limit: 10,
+      windowMs: 15 * 60 * 1000
+    });
+
+    if (!limit.allowed) {
+      reply.header('Retry-After', String(limit.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limit));
+    }
+
     const protection = checkHumanProtection({
       action: 'account.login',
       ip: request.ip,
@@ -113,7 +142,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const user = await db.selectFrom('users')
       .select(['id', 'email', 'display_name', 'password_hash', 'status'])
-      .where('email', '=', body.email.toLowerCase())
+      .where('email', '=', normalizedEmail)
       .executeTakeFirst();
 
     if (!user?.password_hash) {
