@@ -8,16 +8,10 @@ class SessionApi {
   final Uri baseUrl;
   final http.Client _client;
 
-  Future<void> revoke({
-    required String accessToken,
-    required String refreshToken,
-  }) async {
+  Future<void> revoke({required String refreshToken}) async {
     final response = await _client.post(
       baseUrl.resolve('/v1/auth/logout'),
-      headers: {
-        'authorization': 'Bearer $accessToken',
-        'content-type': 'application/json',
-      },
+      headers: {'content-type': 'application/json'},
       body: jsonEncode({'refreshToken': refreshToken}),
     );
 
