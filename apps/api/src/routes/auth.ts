@@ -162,6 +162,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/refresh', async (request, reply) => {
     const body = refreshBody.parse(request.body);
     const storedHash = sessionTokenHash(body.refreshToken);
+    const limit = checkRateLimit({
+      group: 'auth.refresh',
+      identifiers: [`ip:${request.ip}`, `session:${storedHash.slice(0, 16)}`],
+      limit: 30,
+      windowMs: 15 * 60 * 1000
+    });
+
+    if (!limit.allowed) {
+      reply.header('Retry-After', String(limit.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limit));
+    }
+
     const existing = await db.selectFrom('refresh_sessions')
       .select(['id', 'user_id', 'expires_at', 'revoked_at'])
       .where('token_hash', '=', storedHash)
