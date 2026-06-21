@@ -57,7 +57,7 @@ export function checkHumanProtection(input: ProtectionInput): ProtectionResult {
   }
 
   if (!input.accountId && !publicAccountActions.has(input.action)) {
-    riskScore += 25;
+    riskScore += 30;
     reasonCodes.push('missing_account_context');
   }
 
