@@ -12,11 +12,26 @@ class SuqnaaRoot extends StatefulWidget {
   State<SuqnaaRoot> createState() => _SuqnaaRootState();
 }
 
-class _SuqnaaRootState extends State<SuqnaaRoot> {
+class _SuqnaaRootState extends State<SuqnaaRoot>
+    with WidgetsBindingObserver {
   final AppSession _session = AppSession();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _session.ensureFreshAccess();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _session.dispose();
     super.dispose();
   }
