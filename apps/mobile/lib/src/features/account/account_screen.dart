@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
 import '../conversations/session_conversation_inbox.dart';
+import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
 import 'register_screen.dart';
 
@@ -80,10 +81,19 @@ class AccountScreen extends StatelessWidget {
             title: 'Trust',
             subtitle: 'Verification and account confidence tools',
           ),
-          const _AccountTile(
+          _AccountTile(
             icon: Icons.storefront_outlined,
             title: 'Selling',
-            subtitle: 'Manage your listings and seller tools',
+            subtitle: signedIn
+                ? 'Manage your listings and create new drafts'
+                : 'Sign in to manage your listings',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn
+                    ? const MyListingsScreen()
+                    : const AccountLoginScreen(),
+              ),
+            ),
           ),
           if (signedIn)
             _AccountTile(
