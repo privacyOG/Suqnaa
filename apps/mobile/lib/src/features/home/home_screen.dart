@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
 import '../../brand/brand.dart';
+import '../account/account_screen.dart';
 import '../sell/create_listing_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -16,10 +17,21 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: SuqnaaBrand.ivory,
         elevation: 0,
         title: Text(text.appName),
-        actions: const [Icon(Icons.notifications_none), SizedBox(width: 12)],
+        actions: [
+          IconButton(
+            tooltip: 'Account',
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AccountScreen()),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreateListingScreen())),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CreateListingScreen()),
+        ),
         icon: const Icon(Icons.add_business_outlined),
         label: const Text('Sell'),
       ),
@@ -39,7 +51,10 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 18),
           _HeroCard(title: text.heroTitle, action: text.shopNow),
           const SizedBox(height: 24),
-          Text(text.trendingNearYou, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          Text(
+            text.trendingNearYou,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 12),
           const _ProductGrid(),
           const SizedBox(height: 18),
@@ -89,8 +104,16 @@ class _CategoryRow extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: index.isEven ? SuqnaaBrand.blue : SuqnaaBrand.teal,
-              child: Text(items[index][0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              backgroundColor: index.isEven
+                  ? SuqnaaBrand.blue
+                  : SuqnaaBrand.teal,
+              child: Text(
+                items[index][0],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             Text(items[index], style: const TextStyle(fontSize: 12)),
@@ -113,14 +136,29 @@ class _HeroCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(colors: [SuqnaaBrand.blue, SuqnaaBrand.teal]),
+        gradient: const LinearGradient(
+          colors: [SuqnaaBrand.blue, SuqnaaBrand.teal],
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
           const SizedBox(height: 16),
-          Text(action, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          Text(
+            action,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
@@ -151,7 +189,10 @@ class _AssistantCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 6),
                 Text(body),
               ],
@@ -180,14 +221,20 @@ class _ProductGrid extends StatelessWidget {
       ),
       itemBuilder: (context, index) => Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             const Icon(Icons.shopping_bag_outlined, size: 40),
             const Spacer(),
-            Text(products[index], style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(
+              products[index],
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
             Text('\$${[59, 89, 129, 299][index]}'),
           ],
         ),
