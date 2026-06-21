@@ -21,6 +21,7 @@ const highImpactActions = new Set([
   'account.register',
   'account.login',
   'listing.create',
+  'listing.status_update',
   'message.create',
   'offer.create',
   'order.create',
