@@ -3,7 +3,7 @@ import {
   AuthedRequestError,
   getAuthed,
   postAuthed
-} from './authed-api.js';
+} from './authed-api';
 
 const originalFetch = globalThis.fetch;
 
