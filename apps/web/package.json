@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:session": "tsx lib/web-session.test.ts"
+    "test:session": "tsx -e \"import assert from 'node:assert/strict'; import { isSameOriginMutation, validToken } from './lib/web-session.ts'; assert.equal(validToken('abc', 3), true); const same = new Request('https://suqnaa.com/api/state', { method: 'POST', headers: { origin: 'https://suqnaa.com' } }); assert.equal(isSameOriginMutation(same, true), true); const missing = new Request('https://suqnaa.com/api/state', { method: 'POST' }); assert.equal(isSameOriginMutation(missing, true), false);\""
   },
   "dependencies": {
     "next": "14.2.23",
