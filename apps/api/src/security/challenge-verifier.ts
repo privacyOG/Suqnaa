@@ -63,6 +63,13 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
+function environmentTimeoutMs(): number {
+  const parsed = Number.parseInt(process.env.TURNSTILE_TIMEOUT_MS ?? '', 10);
+  return Number.isFinite(parsed) && parsed >= 500 && parsed <= 15000
+    ? parsed
+    : 5000;
+}
+
 export function toTurnstileAction(action: string): string {
   return action
     .replace(/[^a-zA-Z0-9_-]+/g, '_')
@@ -70,13 +77,13 @@ export function toTurnstileAction(action: string): string {
     .slice(0, 32);
 }
 
-export class NoopChallengeVerifier implements ChallengeVerifier {
+export class UnavailableChallengeVerifier implements ChallengeVerifier {
   async verify(input: ChallengeVerificationInput): Promise<ChallengeVerificationResult> {
     const reasonCodes = input.response
       ? ['challenge_provider_not_configured']
       : ['missing_challenge_response', 'challenge_provider_not_configured'];
 
-    return failure('noop', ...reasonCodes);
+    return failure('unavailable', ...reasonCodes);
   }
 }
 
@@ -141,17 +148,11 @@ export class TurnstileChallengeVerifier implements ChallengeVerifier {
         );
       }
 
-      if (
-        this.expectedHostname &&
-        payload.hostname !== this.expectedHostname
-      ) {
+      if (this.expectedHostname && payload.hostname !== this.expectedHostname) {
         return failure('turnstile', 'turnstile_hostname_mismatch');
       }
 
-      if (
-        expectedAction &&
-        payload.action !== expectedAction
-      ) {
+      if (expectedAction && payload.action !== expectedAction) {
         return failure('turnstile', 'turnstile_action_mismatch');
       }
 
@@ -176,7 +177,7 @@ export function createChallengeVerifier(
   options: ChallengeVerifierFactoryOptions
 ): ChallengeVerifier {
   if (options.provider !== 'turnstile' || !options.secretKey?.trim()) {
-    return new NoopChallengeVerifier();
+    return new UnavailableChallengeVerifier();
   }
 
   return new TurnstileChallengeVerifier({
@@ -186,3 +187,22 @@ export function createChallengeVerifier(
     fetchImpl: options.fetchImpl
   });
 }
+
+export class EnvironmentChallengeVerifier implements ChallengeVerifier {
+  private readonly delegate: ChallengeVerifier;
+
+  constructor() {
+    this.delegate = createChallengeVerifier({
+      provider: process.env.CHALLENGE_PROVIDER === 'turnstile' ? 'turnstile' : 'none',
+      secretKey: process.env.TURNSTILE_SECRET_KEY,
+      expectedHostname: process.env.TURNSTILE_EXPECTED_HOSTNAME,
+      timeoutMs: environmentTimeoutMs()
+    });
+  }
+
+  verify(input: ChallengeVerificationInput): Promise<ChallengeVerificationResult> {
+    return this.delegate.verify(input);
+  }
+}
+
+export { EnvironmentChallengeVerifier as NoopChallengeVerifier };
