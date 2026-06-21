@@ -80,7 +80,10 @@ export function clearWebSessionCookies(response: NextResponse): void {
   });
 }
 
-export function isSameOriginMutation(request: Request): boolean {
+export function isSameOriginMutation(
+  request: Request,
+  production = process.env.NODE_ENV === 'production'
+): boolean {
   const requestOrigin = new URL(request.url).origin;
   const origin = request.headers.get('origin');
   if (origin) {
@@ -92,5 +95,5 @@ export function isSameOriginMutation(request: Request): boolean {
     return fetchSite === 'same-origin';
   }
 
-  return process.env.NODE_ENV !== 'production';
+  return !production;
 }
