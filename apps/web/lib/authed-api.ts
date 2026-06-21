@@ -1,32 +1,91 @@
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
-
 export type JsonBody = Record<string, unknown>;
 
-export async function postAuthed(path: string, accessToken: string, body: JsonBody) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    throw new Error('Request failed');
-  }
-
-  return response.json();
+export interface AuthedErrorPayload {
+  error?: string;
+  requiresHumanCheck?: boolean;
+  decision?: string;
+  reasonCodes?: string[];
 }
 
-export async function getAuthed(path: string, accessToken: string) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: { authorization: `Bearer ${accessToken}` }
-  });
+export class AuthedRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly payload: AuthedErrorPayload,
+    readonly retryAfter?: number
+  ) {
+    super(message);
+    this.name = 'AuthedRequestError';
+  }
+}
 
-  if (!response.ok) {
-    throw new Error('Request failed');
+function proxyPath(path: string): string {
+  if (!path.startsWith('/v1/')) {
+    throw new Error('Protected API paths must begin with /v1/');
+  }
+  return `/api/authed${path}`;
+}
+
+async function readPayload(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) {
+    return {};
   }
 
-  return response.json();
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return { error: 'Invalid marketplace response' };
+  }
+}
+
+async function requestAuthed<T>(
+  method: 'GET' | 'POST',
+  path: string,
+  input?: JsonBody,
+  challengeResponse?: string
+): Promise<T> {
+  const response = await fetch(proxyPath(path), {
+    method,
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: {
+      accept: 'application/json',
+      ...(method === 'POST' ? { 'content-type': 'application/json' } : {}),
+      ...(challengeResponse
+        ? { 'x-suqnaa-human-check': challengeResponse }
+        : {})
+    },
+    body: method === 'POST' ? JSON.stringify(input ?? {}) : undefined
+  });
+
+  const payload = await readPayload(response);
+  if (!response.ok) {
+    const errorPayload = typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+      ? payload as AuthedErrorPayload
+      : {};
+    const parsedRetryAfter = Number.parseInt(response.headers.get('retry-after') ?? '', 10);
+    throw new AuthedRequestError(
+      errorPayload.error ?? 'Protected marketplace request failed',
+      response.status,
+      errorPayload,
+      Number.isFinite(parsedRetryAfter) && parsedRetryAfter > 0
+        ? parsedRetryAfter
+        : undefined
+    );
+  }
+
+  return payload as T;
+}
+
+export function getAuthed<T = Record<string, unknown>>(path: string): Promise<T> {
+  return requestAuthed<T>('GET', path);
+}
+
+export function postAuthed<T = Record<string, unknown>>(
+  path: string,
+  input: JsonBody,
+  challengeResponse?: string
+): Promise<T> {
+  return requestAuthed<T>('POST', path, input, challengeResponse);
 }

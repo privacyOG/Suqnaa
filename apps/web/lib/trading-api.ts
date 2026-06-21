@@ -1,28 +1,45 @@
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+import { postAuthed, type JsonBody } from './authed-api';
 
-type JsonInput = Record<string, unknown>;
-
-async function postJson(path: string, accessToken: string, input: JsonInput) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify(input)
-  });
-
-  if (!response.ok) {
-    throw new Error('Unable to submit request');
-  }
-
-  return response.json();
+export function createTimedSale(
+  input: JsonBody,
+  challengeResponse?: string
+): Promise<Record<string, unknown>> {
+  return postAuthed(
+    '/v1/market/timed-sale',
+    input,
+    challengeResponse
+  );
 }
 
-export function createTimedSale(accessToken: string, input: JsonInput) {
-  return postJson('/v1/market/timed-sale', accessToken, input);
+export function submitOffer(
+  input: JsonBody,
+  challengeResponse?: string
+): Promise<Record<string, unknown>> {
+  return postAuthed(
+    '/v1/market/offers',
+    input,
+    challengeResponse
+  );
 }
 
-export function submitOffer(accessToken: string, input: JsonInput) {
-  return postJson('/v1/market/offers', accessToken, input);
+export function createOrder(
+  input: JsonBody,
+  challengeResponse?: string
+): Promise<Record<string, unknown>> {
+  return postAuthed(
+    '/v1/market/orders',
+    input,
+    challengeResponse
+  );
+}
+
+export function submitReview(
+  input: JsonBody,
+  challengeResponse?: string
+): Promise<Record<string, unknown>> {
+  return postAuthed(
+    '/v1/market/reviews',
+    input,
+    challengeResponse
+  );
 }
