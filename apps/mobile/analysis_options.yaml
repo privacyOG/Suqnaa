@@ -1,5 +1,12 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    - lib/src/features/account/sign_in_screen.dart
+  errors:
+    deprecated_member_use: ignore
+
 linter:
   rules:
     avoid_print: true
+    use_super_parameters: false

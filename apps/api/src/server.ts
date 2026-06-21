@@ -8,7 +8,6 @@ import { categoryRoutes } from './routes/categories.js';
 import { listingRoutes } from './routes/listings.js';
 import { marketActionRoutes } from './routes/market-actions.js';
 import { messageRoutes } from './routes/messages.js';
-import { sellerListingManagementRoutes } from './routes/seller-listing-management.js';
 import { sessionManagementRoutes } from './routes/session-management.js';
 
 const app = Fastify({
@@ -33,7 +32,6 @@ await app.register(categoryRoutes, { prefix: '/v1' });
 await app.register(listingRoutes, { prefix: '/v1' });
 await app.register(marketActionRoutes, { prefix: '/v1' });
 await app.register(messageRoutes, { prefix: '/v1' });
-await app.register(sellerListingManagementRoutes, { prefix: '/v1' });
 await app.register(sessionManagementRoutes, { prefix: '/v1' });
 
 try {
