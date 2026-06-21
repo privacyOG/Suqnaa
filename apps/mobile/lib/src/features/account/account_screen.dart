@@ -79,9 +79,12 @@ class AccountScreen extends StatelessWidget {
             _AccountTile(
               icon: Icons.logout,
               title: 'Sign out',
-              subtitle: 'Clear this device session',
-              onTap: () {
-                session.clear();
+              subtitle: 'Revoke and clear this device session',
+              onTap: () async {
+                await session.signOut();
+                if (!context.mounted) {
+                  return;
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Signed out')),
                 );
