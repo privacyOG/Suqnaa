@@ -16,18 +16,14 @@ export interface ChallengeVerifier {
 
 export class NoopChallengeVerifier implements ChallengeVerifier {
   async verify(input: ChallengeVerificationInput): Promise<ChallengeVerificationResult> {
-    if (!input.response) {
-      return {
-        success: false,
-        provider: 'noop',
-        reasonCodes: ['missing_challenge_response']
-      };
-    }
+    const reasonCodes = input.response
+      ? ['challenge_provider_not_configured']
+      : ['missing_challenge_response', 'challenge_provider_not_configured'];
 
     return {
-      success: true,
+      success: false,
       provider: 'noop',
-      reasonCodes: []
+      reasonCodes
     };
   }
 }
