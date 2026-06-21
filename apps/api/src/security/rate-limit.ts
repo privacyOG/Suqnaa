@@ -7,6 +7,7 @@ export interface RateLimitInput extends RateLimitPolicy {
   group: string;
   identifiers: string[];
   now?: number;
+  store?: RateLimitStore;
 }
 
 export interface RateLimitResult {
@@ -17,32 +18,90 @@ export interface RateLimitResult {
   limitedIdentifier?: string;
 }
 
-interface Counter {
+export interface RateLimitCounter {
   count: number;
   resetAt: number;
 }
 
-const counters = new Map<string, Counter>();
+export interface RateLimitStore {
+  get(key: string): RateLimitCounter | undefined;
+  set(key: string, value: RateLimitCounter): void;
+  delete(key: string): void;
+  entries(): IterableIterator<[string, RateLimitCounter]>;
+}
+
+export class InMemoryRateLimitStore implements RateLimitStore {
+  private readonly counters = new Map<string, RateLimitCounter>();
+
+  get(key: string): RateLimitCounter | undefined {
+    return this.counters.get(key);
+  }
+
+  set(key: string, value: RateLimitCounter): void {
+    this.counters.set(key, value);
+  }
+
+  delete(key: string): void {
+    this.counters.delete(key);
+  }
+
+  entries(): IterableIterator<[string, RateLimitCounter]> {
+    return this.counters.entries();
+  }
+}
+
+export const defaultRateLimitStore = new InMemoryRateLimitStore();
+
+let operationsSinceCleanup = 0;
+const cleanupInterval = 256;
 
 function counterKey(group: string, identifier: string): string {
   return `${group}:${identifier}`;
 }
 
-function activeCounter(key: string, now: number, windowMs: number): Counter {
-  const existing = counters.get(key);
+function activeCounter(
+  store: RateLimitStore,
+  key: string,
+  now: number,
+  windowMs: number
+): RateLimitCounter {
+  const existing = store.get(key);
 
   if (!existing || existing.resetAt <= now) {
     const fresh = { count: 0, resetAt: now + windowMs };
-    counters.set(key, fresh);
+    store.set(key, fresh);
     return fresh;
   }
 
   return existing;
 }
 
+export function cleanupExpiredRateLimits(
+  store: RateLimitStore = defaultRateLimitStore,
+  now = Date.now()
+): number {
+  let removed = 0;
+
+  for (const [key, counter] of store.entries()) {
+    if (counter.resetAt <= now) {
+      store.delete(key);
+      removed += 1;
+    }
+  }
+
+  return removed;
+}
+
 export function checkRateLimit(input: RateLimitInput): RateLimitResult {
   const now = input.now ?? Date.now();
+  const store = input.store ?? defaultRateLimitStore;
   const identifiers = [...new Set(input.identifiers.map((value) => value.trim()).filter(Boolean))];
+
+  operationsSinceCleanup += 1;
+  if (operationsSinceCleanup >= cleanupInterval) {
+    cleanupExpiredRateLimits(store, now);
+    operationsSinceCleanup = 0;
+  }
 
   if (identifiers.length === 0 || input.limit <= 0 || input.windowMs <= 0) {
     return {
@@ -54,7 +113,7 @@ export function checkRateLimit(input: RateLimitInput): RateLimitResult {
   }
 
   const entries = identifiers.map((identifier) => {
-    const counter = activeCounter(counterKey(input.group, identifier), now, input.windowMs);
+    const counter = activeCounter(store, counterKey(input.group, identifier), now, input.windowMs);
     return { identifier, counter };
   });
 
