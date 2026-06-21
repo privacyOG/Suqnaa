@@ -13,19 +13,27 @@ export async function sessionManagementRoutes(app: FastifyInstance): Promise<voi
   app.post('/auth/logout', async (request, reply) => {
     const body = logoutBody.parse(request.body);
     const tokenHash = sessionTokenHash(body.refreshToken);
-    const limit = checkRateLimit({
-      group: 'auth.logout',
-      identifiers: [
-        `ip:${request.ip}`,
-        `session:${tokenHash.slice(0, 16)}`
-      ],
+    const sessionLimit = checkRateLimit({
+      group: 'auth.logout.session',
+      identifiers: [`session:${tokenHash.slice(0, 16)}`],
       limit: 20,
       windowMs: 15 * 60 * 1000
     });
+    const ipLimit = checkRateLimit({
+      group: 'auth.logout.ip',
+      identifiers: [`ip:${request.ip}`],
+      limit: 600,
+      windowMs: 15 * 60 * 1000
+    });
+    const limited = !sessionLimit.allowed
+      ? sessionLimit
+      : !ipLimit.allowed
+        ? ipLimit
+        : undefined;
 
-    if (!limit.allowed) {
-      reply.header('Retry-After', String(limit.retryAfterSeconds));
-      return reply.code(429).send(rateLimitResponse(limit));
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
     }
 
     const existing = await db.selectFrom('refresh_sessions')
