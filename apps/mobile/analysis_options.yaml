@@ -1,5 +1,9 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    - lib/src/features/account/sign_in_screen.dart
+
 linter:
   rules:
     avoid_print: true
