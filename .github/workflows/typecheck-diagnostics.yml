@@ -9,13 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: pnpm install --frozen-lockfile=false
       - name: Concise typecheck
         shell: bash
-        run: set -o pipefail; pnpm typecheck 2>&1 | tail -n 100
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+          pnpm install --frozen-lockfile=false >/dev/null
+          set -o pipefail
+          pnpm typecheck 2>&1 | tail -n 60
