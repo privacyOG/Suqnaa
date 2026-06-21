@@ -1,20 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  clearWebSessionCookies,
+  isSameOriginMutation,
+  maximumAccessTokenLength,
+  maximumRefreshTokenLength,
+  refreshCookieName,
+  setWebSessionCookies,
+  validToken
+} from '../../../lib/web-session';
 
-const accessCookieName = 'suqnaa_access';
-const refreshCookieName = 'suqnaa_refresh';
-const maximumAccessTokenLength = 4096;
-const maximumRefreshTokenLength = 512;
+const apiBaseUrl =
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  'http://localhost:4000';
 
 interface SessionRequestBody {
   accessToken?: unknown;
   refreshToken?: unknown;
 }
 
-function validToken(value: unknown, maximumLength: number): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= maximumLength;
-}
+export async function POST(request: NextRequest) {
+  if (!isSameOriginMutation(request)) {
+    return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
+  }
 
-export async function POST(request: Request) {
   let body: SessionRequestBody;
 
   try {
@@ -31,44 +40,39 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ established: true });
-  const secure = process.env.NODE_ENV === 'production';
-
-  response.cookies.set(accessCookieName, body.accessToken, {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 15 * 60
+  response.headers.set('Cache-Control', 'no-store');
+  setWebSessionCookies(response, {
+    accessToken: body.accessToken,
+    refreshToken: body.refreshToken
   });
-  response.cookies.set(refreshCookieName, body.refreshToken, {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60
-  });
-
   return response;
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  if (!isSameOriginMutation(request)) {
+    return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
+  }
+
+  const refreshToken = request.cookies.get(refreshCookieName)?.value;
+
+  if (refreshToken) {
+    try {
+      await fetch(`${apiBaseUrl}/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': request.headers.get('user-agent') ?? 'SuqnaaWeb/1.0'
+        },
+        body: JSON.stringify({ refreshToken }),
+        cache: 'no-store'
+      });
+    } catch {
+      // Local cookie removal must still complete if the API is temporarily unavailable.
+    }
+  }
+
   const response = NextResponse.json({ cleared: true });
-  const secure = process.env.NODE_ENV === 'production';
-
-  response.cookies.set(accessCookieName, '', {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0
-  });
-  response.cookies.set(refreshCookieName, '', {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0
-  });
-
+  response.headers.set('Cache-Control', 'no-store');
+  clearWebSessionCookies(response);
   return response;
 }

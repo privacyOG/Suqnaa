@@ -38,4 +38,10 @@ For local integration tests, use Cloudflare's published test sitekey and secret-
 
 After successful authentication, the web client immediately transfers the access and refresh credentials to a same-origin route that stores them as HttpOnly, SameSite=Lax cookies. The application does not persist these credentials in localStorage or sessionStorage.
 
+The access cookie is short-lived. When it expires, the account page calls the same-origin refresh route, which reads the HttpOnly refresh cookie server-side, rotates the API refresh session, and replaces both cookies. Browser tabs coordinate through the Web Locks API where available, and the client retries once to tolerate a concurrent rotation.
+
+Refresh and logout requests use separate per-session and per-IP limits. Rotation revokes the previous refresh session and creates the replacement in one database transaction, preventing one token from branching into multiple active sessions.
+
+Signing out calls the API logout endpoint before removing the local cookies. Cookie removal still completes if the API is temporarily unavailable.
+
 Planned feature flags should cover protected checkout, auctions, and optional digital currency support. These features should stay disabled until payment providers, verification rules, and country-specific compliance requirements are reviewed.
