@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../brand/brand.dart';
+import '../../session/session_scope.dart';
 import '../conversations/conversation_list_screen.dart';
+import 'sign_in_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final session = SessionScope.of(context);
+    final signedIn = session.isSignedIn;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Account'),
@@ -15,19 +20,32 @@ class AccountScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text(
-            'Your Suqnaa account',
-            style: TextStyle(
+          Text(
+            signedIn
+                ? 'Welcome, ${session.displayName ?? 'Suqnaa user'}'
+                : 'Your Suqnaa account',
+            style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w900,
               color: SuqnaaBrand.blue,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Sign in and profile tools will appear here as the account layer is connected.',
+          Text(
+            signedIn
+                ? 'Manage your marketplace activity and conversations.'
+                : 'Sign in to access your profile, listings, and messages.',
           ),
           const SizedBox(height: 24),
+          if (!signedIn)
+            _AccountTile(
+              icon: Icons.login,
+              title: 'Sign in',
+              subtitle: 'Connect your Suqnaa account',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SignInScreen()),
+              ),
+            ),
           const _AccountTile(
             icon: Icons.person_outline,
             title: 'Profile',
@@ -36,10 +54,14 @@ class AccountScreen extends StatelessWidget {
           _AccountTile(
             icon: Icons.forum_outlined,
             title: 'Messages',
-            subtitle: 'View conversations with buyers and sellers',
+            subtitle: signedIn
+                ? 'View conversations with buyers and sellers'
+                : 'Sign in to view your conversations',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const ConversationListScreen(),
+                builder: (_) => signedIn
+                    ? const ConversationListScreen()
+                    : const SignInScreen(),
               ),
             ),
           ),
@@ -53,6 +75,18 @@ class AccountScreen extends StatelessWidget {
             title: 'Selling',
             subtitle: 'Manage your listings and seller tools',
           ),
+          if (signedIn)
+            _AccountTile(
+              icon: Icons.logout,
+              title: 'Sign out',
+              subtitle: 'Clear this device session',
+              onTap: () {
+                session.clear();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Signed out')),
+                );
+              },
+            ),
         ],
       ),
     );
