@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
@@ -21,12 +21,12 @@ const listingStatusBody = z.object({
 });
 
 const allowedStatusTransitions: Record<ListingStatus, ReadonlySet<ListingStatus>> = {
-  draft: new Set(['active', 'removed']),
-  active: new Set(['reserved', 'sold', 'removed']),
-  reserved: new Set(['active', 'sold', 'removed']),
-  sold: new Set(),
-  expired: new Set(['active', 'removed']),
-  removed: new Set()
+  draft: new Set<ListingStatus>(['active', 'removed']),
+  active: new Set<ListingStatus>(['reserved', 'sold', 'removed']),
+  reserved: new Set<ListingStatus>(['active', 'sold', 'removed']),
+  sold: new Set<ListingStatus>(),
+  expired: new Set<ListingStatus>(['active', 'removed']),
+  removed: new Set<ListingStatus>()
 };
 
 const myListingsQuery = z.object({
@@ -54,10 +54,7 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function limitedListingAction(
-  request: Parameters<FastifyInstance['route']>[0] extends never ? never : any,
-  accountId: string
-) {
+function limitedListingAction(request: FastifyRequest, accountId: string) {
   const accountLimit = checkRateLimit({
     group: 'listing.status.account',
     identifiers: [`account:${accountId}`],
