@@ -7,20 +7,26 @@ export interface ConversationEntryInput extends JsonBody {
   clientMessageId?: string;
 }
 
+export interface ConversationEntryResponse {
+  message: Record<string, unknown>;
+}
+
 export function createConversationEntry(
-  accessToken: string,
-  input: ConversationEntryInput
-) {
-  return postAuthed('/v1/messages', accessToken, input);
+  input: ConversationEntryInput,
+  challengeResponse?: string
+): Promise<ConversationEntryResponse> {
+  return postAuthed<ConversationEntryResponse>(
+    '/v1/messages',
+    input,
+    challengeResponse
+  );
 }
 
 export function acknowledgeConversation(
-  accessToken: string,
   conversationId: string
-) {
+): Promise<Record<string, unknown>> {
   return postAuthed(
     `/v1/conversations/${encodeURIComponent(conversationId)}/read`,
-    accessToken,
     {}
   );
 }
