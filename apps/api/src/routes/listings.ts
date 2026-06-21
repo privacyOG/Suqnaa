@@ -8,6 +8,14 @@ import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
+const listingStatus = z.enum(['draft', 'active', 'reserved', 'sold', 'expired', 'removed']);
+
+const myListingsQuery = z.object({
+  status: listingStatus.optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  before: z.string().datetime().optional()
+});
+
 const createListingBody = z.object({
   categoryId: z.string().uuid().optional(),
   title: z.string().trim().min(3).max(120),
@@ -28,6 +36,90 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
 }
 
 export async function listingRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/listings/mine', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
+    const query = myListingsQuery.parse(request.query);
+    const accountLimit = checkRateLimit({
+      group: 'listing.mine.account',
+      identifiers: [`account:${authRequest.user.sub}`],
+      limit: 120,
+      windowMs: 5 * 60 * 1000
+    });
+    const ipLimit = checkRateLimit({
+      group: 'listing.mine.ip',
+      identifiers: [`ip:${request.ip}`],
+      limit: 300,
+      windowMs: 5 * 60 * 1000
+    });
+    const limited = !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    let listingsQuery = db.selectFrom('listings')
+      .select([
+        'id',
+        'title',
+        'description',
+        'price_amount',
+        'currency_code',
+        'condition',
+        'status',
+        'country_code',
+        'region',
+        'city',
+        'suburb',
+        'allow_pickup',
+        'allow_delivery',
+        'created_at',
+        'updated_at'
+      ])
+      .where('seller_id', '=', authRequest.user.sub);
+
+    if (query.status) {
+      listingsQuery = listingsQuery.where('status', '=', query.status);
+    }
+    if (query.before) {
+      listingsQuery = listingsQuery.where('updated_at', '<', new Date(query.before));
+    }
+
+    const rows = await listingsQuery
+      .orderBy('updated_at', 'desc')
+      .limit(query.limit + 1)
+      .execute();
+    const hasMore = rows.length > query.limit;
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+
+    return reply.send({
+      listings: page.map((listing) => ({
+        id: listing.id,
+        title: listing.title,
+        description: listing.description,
+        priceAmount: listing.price_amount,
+        currencyCode: listing.currency_code,
+        condition: listing.condition,
+        status: listing.status,
+        countryCode: listing.country_code,
+        region: listing.region,
+        city: listing.city,
+        suburb: listing.suburb,
+        allowPickup: listing.allow_pickup,
+        allowDelivery: listing.allow_delivery,
+        createdAt: listing.created_at,
+        updatedAt: listing.updated_at
+      })),
+      pagination: {
+        hasMore,
+        nextCursor: hasMore && last
+          ? new Date(last.updated_at).toISOString()
+          : null
+      }
+    });
+  });
+
   app.get('/listings', async () => {
     const listings = await db.selectFrom('listings')
       .select(['id', 'title', 'price_amount', 'currency_code', 'condition', 'city', 'country_code', 'created_at'])
