@@ -1,3 +1,5 @@
+import { AccountAuthForm } from '../../../../components/account-auth-form';
+
 export default function RegisterPage({ params }: { params: { locale: string } }) {
   const isArabic = params.locale === 'ar';
 
@@ -11,13 +13,12 @@ export default function RegisterPage({ params }: { params: { locale: string } })
       <section className="auth-card">
         <div className="eyebrow">{isArabic ? 'إنشاء حساب' : 'Create account'}</div>
         <h1>{isArabic ? 'ابدأ البيع والشراء بثقة' : 'Start buying and selling with trust'}</h1>
-        <p>{isArabic ? 'واجهة أولية لإنشاء حساب جديد.' : 'Initial interface for creating a new account.'}</p>
-        <div className="form-grid">
-          <label>{isArabic ? 'الاسم' : 'Display name'}<input placeholder={isArabic ? 'اسمك' : 'Your name'} /></label>
-          <label>{isArabic ? 'البريد الإلكتروني' : 'Email'}<input type="email" placeholder="you@example.com" /></label>
-          <label>{isArabic ? 'كلمة المرور' : 'Password'}<input type="password" placeholder="••••••••••" /></label>
-          <button className="button-primary" type="button">{isArabic ? 'إنشاء الحساب' : 'Create account'}</button>
-        </div>
+        <p>
+          {isArabic
+            ? 'أنشئ حسابك عبر جلسة آمنة مع حماية تلقائية من النشاط الآلي الضار.'
+            : 'Create your account through a secure session with automated abuse protection.'}
+        </p>
+        <AccountAuthForm locale={params.locale} mode="register" />
       </section>
     </main>
   );
