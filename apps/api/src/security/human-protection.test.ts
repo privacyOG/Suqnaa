@@ -53,8 +53,8 @@ const missingAccount = checkHumanProtection({
   userAgent: 'SuqnaaTest/1.0'
 });
 
-assert.equal(missingAccount.decision, 'allow');
-assert.equal(missingAccount.riskScore, 45);
+assert.equal(missingAccount.decision, 'challenge');
+assert.equal(missingAccount.riskScore, 50);
 assert.ok(missingAccount.reasonCodes.includes('missing_account_context'));
 
 const failedChallenge = await checkHumanProtectionWithChallenge(
