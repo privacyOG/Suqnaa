@@ -19,3 +19,5 @@ jobs:
         run: flutter gen-l10n
       - working-directory: apps/mobile
         run: flutter analyze
+      - working-directory: apps/mobile
+        run: flutter test
