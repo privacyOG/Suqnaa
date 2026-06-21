@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
 import '../conversations/conversation_inbox_screen.dart';
+import 'register_screen.dart';
 import 'sign_in_screen.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -34,18 +35,27 @@ class AccountScreen extends StatelessWidget {
           Text(
             signedIn
                 ? 'Manage your marketplace activity and conversations.'
-                : 'Sign in to access your profile, listings, and messages.',
+                : 'Create an account or sign in to access marketplace tools.',
           ),
           const SizedBox(height: 24),
-          if (!signedIn)
+          if (!signedIn) ...[
+            _AccountTile(
+              icon: Icons.person_add_alt_1,
+              title: 'Create account',
+              subtitle: 'Join Suqnaa as a buyer or seller',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RegisterScreen()),
+              ),
+            ),
             _AccountTile(
               icon: Icons.login,
               title: 'Sign in',
-              subtitle: 'Connect your Suqnaa account',
+              subtitle: 'Connect your existing Suqnaa account',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SignInScreen()),
               ),
             ),
+          ],
           const _AccountTile(
             icon: Icons.person_outline,
             title: 'Profile',
