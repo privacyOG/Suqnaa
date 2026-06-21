@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { sessionTokenHash } from '../auth/session-token.js';
 import { db } from '../db/index.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
@@ -11,13 +10,15 @@ const logoutBody = z.object({
 });
 
 export async function sessionManagementRoutes(app: FastifyInstance): Promise<void> {
-  app.post('/auth/logout', { preHandler: requireUser }, async (request, reply) => {
-    const authRequest = request as AuthenticatedRequest;
+  app.post('/auth/logout', async (request, reply) => {
     const body = logoutBody.parse(request.body);
-    const userId = authRequest.user.sub;
+    const tokenHash = sessionTokenHash(body.refreshToken);
     const limit = checkRateLimit({
       group: 'auth.logout',
-      identifiers: [`account:${userId}`, `ip:${request.ip}`],
+      identifiers: [
+        `ip:${request.ip}`,
+        `session:${tokenHash.slice(0, 16)}`
+      ],
       limit: 20,
       windowMs: 15 * 60 * 1000
     });
@@ -27,22 +28,29 @@ export async function sessionManagementRoutes(app: FastifyInstance): Promise<voi
       return reply.code(429).send(rateLimitResponse(limit));
     }
 
-    const revokedAt = new Date();
-    const revoked = await db.updateTable('refresh_sessions')
-      .set({ revoked_at: revokedAt })
-      .where('user_id', '=', userId)
-      .where('token_hash', '=', sessionTokenHash(body.refreshToken))
-      .where('revoked_at', 'is', null)
-      .returning(['id'])
-      .execute();
+    const existing = await db.selectFrom('refresh_sessions')
+      .select(['id', 'user_id', 'revoked_at'])
+      .where('token_hash', '=', tokenHash)
+      .executeTakeFirst();
+
+    let revokedSessions = 0;
+    if (existing && !existing.revoked_at) {
+      const revoked = await db.updateTable('refresh_sessions')
+        .set({ revoked_at: new Date() })
+        .where('id', '=', existing.id)
+        .where('revoked_at', 'is', null)
+        .returning(['id'])
+        .execute();
+      revokedSessions = revoked.length;
+    }
 
     writeSecurityAudit(app.log, {
       action: 'session.logout',
       decision: 'allow',
-      actorId: userId,
+      actorId: existing?.user_id,
       ip: request.ip,
       metadata: {
-        revokedSessions: revoked.length
+        revokedSessions
       }
     });
 
