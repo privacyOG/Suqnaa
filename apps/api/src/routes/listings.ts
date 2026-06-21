@@ -2,7 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
-import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
+import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
+import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
+
+const challengeVerifier = new NoopChallengeVerifier();
 
 const createListingBody = z.object({
   categoryId: z.string().uuid().optional(),
@@ -38,12 +41,16 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
   app.post('/listings', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = createListingBody.parse(request.body);
-    const protection = checkHumanProtection({
-      action: 'listing.create',
-      accountId: authRequest.user.sub,
-      ip: request.ip,
-      userAgent: firstHeader(request.headers['user-agent'])
-    });
+    const protection = await checkHumanProtectionWithChallenge(
+      {
+        action: 'listing.create',
+        accountId: authRequest.user.sub,
+        ip: request.ip,
+        userAgent: firstHeader(request.headers['user-agent']),
+        challengeResponse: firstHeader(request.headers['x-suqnaa-human-check'])
+      },
+      challengeVerifier
+    );
 
     if (protection.decision !== 'allow') {
       return reply.code(403).send(humanProtectionResponse(protection));
