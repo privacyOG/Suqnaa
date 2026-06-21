@@ -88,5 +88,9 @@ export function isSameOriginMutation(request: Request): boolean {
   }
 
   const fetchSite = request.headers.get('sec-fetch-site');
-  return fetchSite === null || fetchSite === 'same-origin';
+  if (fetchSite) {
+    return fetchSite === 'same-origin';
+  }
+
+  return process.env.NODE_ENV !== 'production';
 }
