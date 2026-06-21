@@ -82,19 +82,15 @@ class AppSession extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    final accessToken = _access.value;
     final refreshToken = _refreshToken;
     clear();
 
-    if (accessToken.isEmpty || refreshToken == null) {
+    if (refreshToken == null) {
       return;
     }
 
     try {
-      await _sessionApi.revoke(
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-      );
+      await _sessionApi.revoke(refreshToken: refreshToken);
     } catch (_) {
       // Local sign-out remains authoritative even when remote revocation is delayed.
     }
