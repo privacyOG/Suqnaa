@@ -51,7 +51,7 @@ async function prepareRequest(
     return errorResponse('Protected route not allowed', 404);
   }
 
-  if (route.method === 'POST' && !isSameOriginMutation(request)) {
+  if (!isSameOriginMutation(request)) {
     return errorResponse('Origin not allowed', 403);
   }
 
@@ -135,11 +135,10 @@ async function upstreamResponse(
     status: apiResponse.status,
     headers
   });
-  if (credentials) {
-    setWebSessionCookies(response, credentials);
-  }
   if (apiResponse.status === 401) {
     clearWebSessionCookies(response);
+  } else if (credentials) {
+    setWebSessionCookies(response, credentials);
   }
   return response;
 }
@@ -175,7 +174,11 @@ async function handleProtectedRequest(
   try {
     apiResponse = await callApi(prepared, accessToken, userAgent);
   } catch {
-    return errorResponse('Marketplace service unavailable', 503);
+    const response = errorResponse('Marketplace service unavailable', 503);
+    if (rotatedCredentials) {
+      setWebSessionCookies(response, rotatedCredentials);
+    }
+    return response;
   }
 
   if (apiResponse.status === 401 && !rotatedCredentials) {
