@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
+import { conversationRoutes } from './conversations.js';
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
   app.get('/account/me', { preHandler: requireUser }, async (request, reply) => {
@@ -16,4 +17,6 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send({ user });
   });
+
+  await conversationRoutes(app);
 }
