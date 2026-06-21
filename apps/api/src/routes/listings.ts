@@ -4,6 +4,7 @@ import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js'
 import { db } from '../db/index.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
+import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
@@ -41,6 +42,26 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
   app.post('/listings', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = createListingBody.parse(request.body);
+
+    const accountLimit = checkRateLimit({
+      group: 'listing.create.account',
+      identifiers: [`account:${authRequest.user.sub}`],
+      limit: 20,
+      windowMs: 60 * 60 * 1000
+    });
+    const ipLimit = checkRateLimit({
+      group: 'listing.create.ip',
+      identifiers: [`ip:${request.ip}`],
+      limit: 60,
+      windowMs: 60 * 60 * 1000
+    });
+    const limited = !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
     const protection = await checkHumanProtectionWithChallenge(
       {
         action: 'listing.create',
