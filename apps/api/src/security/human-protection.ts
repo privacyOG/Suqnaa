@@ -1,3 +1,5 @@
+import type { ChallengeVerifier } from './challenge-verifier.js';
+
 export type ProtectionDecision = 'allow' | 'challenge' | 'slow_down' | 'reject';
 
 export interface ProtectionInput {
@@ -48,6 +50,36 @@ export function checkHumanProtection(input: ProtectionInput): ProtectionResult {
   }
 
   return { decision: 'allow', reasonCodes, riskScore };
+}
+
+export async function checkHumanProtectionWithChallenge(
+  input: ProtectionInput,
+  verifier: ChallengeVerifier
+): Promise<ProtectionResult> {
+  const result = checkHumanProtection(input);
+
+  if (result.decision !== 'challenge') {
+    return result;
+  }
+
+  const verification = await verifier.verify({
+    response: input.challengeResponse,
+    remoteIp: input.ip,
+    action: input.action
+  });
+
+  if (!verification.success) {
+    return {
+      ...result,
+      reasonCodes: [...result.reasonCodes, ...verification.reasonCodes]
+    };
+  }
+
+  return {
+    decision: 'allow',
+    reasonCodes: [...result.reasonCodes, 'challenge_verified'],
+    riskScore: result.riskScore
+  };
 }
 
 export function humanProtectionResponse(result: ProtectionResult) {
