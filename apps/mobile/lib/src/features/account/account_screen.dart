@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
 import '../conversations/conversation_inbox_screen.dart';
+import 'account_login_screen.dart';
 import 'register_screen.dart';
-import 'sign_in_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -52,7 +52,7 @@ class AccountScreen extends StatelessWidget {
               title: 'Sign in',
               subtitle: 'Connect your existing Suqnaa account',
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SignInScreen()),
+                MaterialPageRoute(builder: (_) => const AccountLoginScreen()),
               ),
             ),
           ],
@@ -71,7 +71,7 @@ class AccountScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => signedIn
                     ? const ConversationInboxScreen()
-                    : const SignInScreen(),
+                    : const AccountLoginScreen(),
               ),
             ),
           ),
