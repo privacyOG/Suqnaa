@@ -23,4 +23,17 @@ class SellerListingApi {
 
     return _authedApi.get(path, accessToken);
   }
+
+  Future<Map<String, dynamic>> updateStatus(
+    String accessToken, {
+    required String listingId,
+    required String status,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.post(
+      '/v1/listings/$encodedId/status',
+      accessToken,
+      {'status': status},
+    );
+  }
 }
