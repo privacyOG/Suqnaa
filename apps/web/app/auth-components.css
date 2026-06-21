@@ -25,6 +25,17 @@
   border: 1px solid rgba(159, 31, 22, 0.18);
 }
 
+.session-refresh {
+  display: grid;
+  gap: 12px;
+  flex: 1 1 320px;
+  max-width: 520px;
+}
+
+.session-refresh .button-secondary {
+  justify-self: start;
+}
+
 .form-grid button:disabled,
 .actions button:disabled {
   cursor: not-allowed;
@@ -33,4 +44,8 @@
 
 [dir='rtl'] .turnstile-shell {
   justify-content: flex-end;
+}
+
+[dir='rtl'] .session-refresh .button-secondary {
+  justify-self: end;
 }
