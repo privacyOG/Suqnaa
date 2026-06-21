@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { resolveProtectedRoute } from './protected-route-policy.js';
+import { resolveProtectedRoute } from './protected-route-policy';
 
 const account = resolveProtectedRoute(
   'GET',
