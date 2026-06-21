@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../api/authed_api.dart';
 import '../../api/conversation_api.dart';
+import '../../api/session_authed_api.dart';
 import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/session_scope.dart';
@@ -28,8 +28,9 @@ class _ConversationInboxScreenState extends State<ConversationInboxScreen> {
   void initState() {
     super.initState();
     _api = ConversationApi(
-      authedApi: AuthedApi(
+      authedApi: SessionAuthedApi(
         baseUrl: Uri.parse(MobileEnvironment.apiBaseUrl),
+        sessionProvider: () => SessionScope.of(context),
       ),
     );
   }
