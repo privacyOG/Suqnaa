@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
@@ -42,10 +42,70 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function enforceActionLimit(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  accountId: string,
+  group: string,
+  accountLimit: number,
+  ipLimit: number,
+  windowMs: number
+): boolean {
+  const perAccount = checkRateLimit({
+    group: `${group}.account`,
+    identifiers: [`account:${accountId}`],
+    limit: accountLimit,
+    windowMs
+  });
+  const perIp = checkRateLimit({
+    group: `${group}.ip`,
+    identifiers: [`ip:${request.ip}`],
+    limit: ipLimit,
+    windowMs
+  });
+  const limited = !perAccount.allowed ? perAccount : !perIp.allowed ? perIp : undefined;
+
+  if (!limited) {
+    return true;
+  }
+
+  reply.header('Retry-After', String(limited.retryAfterSeconds));
+  reply.code(429).send(rateLimitResponse(limited));
+  return false;
+}
+
+function enforceHumanProtection(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  accountId: string,
+  action: string
+): boolean {
+  const protection = checkHumanProtection({
+    action,
+    accountId,
+    ip: request.ip,
+    userAgent: firstHeader(request.headers['user-agent'])
+  });
+
+  if (protection.decision === 'allow') {
+    return true;
+  }
+
+  reply.code(403).send(humanProtectionResponse(protection));
+  return false;
+}
+
 export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
   app.post('/market/timed-sale', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = timedSaleBody.parse(request.body);
+
+    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.timed_sale', 10, 30, 24 * 60 * 60 * 1000)) {
+      return;
+    }
+    if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'timed_sale.create')) {
+      return;
+    }
 
     return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
   });
@@ -53,34 +113,12 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
   app.post('/market/offers', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = offerBody.parse(request.body);
-    const accountLimit = checkRateLimit({
-      group: 'market.offers.account',
-      identifiers: [`account:${authRequest.user.sub}`],
-      limit: 60,
-      windowMs: 15 * 60 * 1000
-    });
-    const ipLimit = checkRateLimit({
-      group: 'market.offers.ip',
-      identifiers: [`ip:${request.ip}`],
-      limit: 180,
-      windowMs: 15 * 60 * 1000
-    });
-    const limited = !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
 
-    if (limited) {
-      reply.header('Retry-After', String(limited.retryAfterSeconds));
-      return reply.code(429).send(rateLimitResponse(limited));
+    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.offers', 60, 180, 15 * 60 * 1000)) {
+      return;
     }
-
-    const protection = checkHumanProtection({
-      action: 'offer.create',
-      accountId: authRequest.user.sub,
-      ip: request.ip,
-      userAgent: firstHeader(request.headers['user-agent'])
-    });
-
-    if (protection.decision !== 'allow') {
-      return reply.code(403).send(humanProtectionResponse(protection));
+    if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'offer.create')) {
+      return;
     }
 
     return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
@@ -93,6 +131,12 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
     if (body.counterpartyId === authRequest.user.sub) {
       return reply.code(400).send({ error: 'Counterparty must be different' });
     }
+    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.orders', 30, 100, 60 * 60 * 1000)) {
+      return;
+    }
+    if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'order.create')) {
+      return;
+    }
 
     return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
   });
@@ -101,40 +145,25 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const body = reviewBody.parse(request.body);
 
+    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.reviews', 10, 30, 24 * 60 * 60 * 1000)) {
+      return;
+    }
+    if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'review.create')) {
+      return;
+    }
+
     return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
   });
 
   app.post('/market/identity-checks', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = identityBody.parse(request.body);
-    const accountLimit = checkRateLimit({
-      group: 'market.identity.account',
-      identifiers: [`account:${authRequest.user.sub}`],
-      limit: 5,
-      windowMs: 24 * 60 * 60 * 1000
-    });
-    const ipLimit = checkRateLimit({
-      group: 'market.identity.ip',
-      identifiers: [`ip:${request.ip}`],
-      limit: 20,
-      windowMs: 24 * 60 * 60 * 1000
-    });
-    const limited = !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
 
-    if (limited) {
-      reply.header('Retry-After', String(limited.retryAfterSeconds));
-      return reply.code(429).send(rateLimitResponse(limited));
+    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.identity', 5, 20, 24 * 60 * 60 * 1000)) {
+      return;
     }
-
-    const protection = checkHumanProtection({
-      action: 'profile.check',
-      accountId: authRequest.user.sub,
-      ip: request.ip,
-      userAgent: firstHeader(request.headers['user-agent'])
-    });
-
-    if (protection.decision !== 'allow') {
-      return reply.code(403).send(humanProtectionResponse(protection));
+    if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'profile.check')) {
+      return;
     }
 
     return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
