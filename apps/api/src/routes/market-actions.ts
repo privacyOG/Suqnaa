@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
+import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
+import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 
 const timedSaleBody = z.object({
   listingId: z.string().uuid(),
@@ -36,6 +38,10 @@ const identityBody = z.object({
   countryCode: z.string().length(2)
 });
 
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
   app.post('/market/timed-sale', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
@@ -47,6 +53,35 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
   app.post('/market/offers', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = offerBody.parse(request.body);
+    const accountLimit = checkRateLimit({
+      group: 'market.offers.account',
+      identifiers: [`account:${authRequest.user.sub}`],
+      limit: 60,
+      windowMs: 15 * 60 * 1000
+    });
+    const ipLimit = checkRateLimit({
+      group: 'market.offers.ip',
+      identifiers: [`ip:${request.ip}`],
+      limit: 180,
+      windowMs: 15 * 60 * 1000
+    });
+    const limited = !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const protection = checkHumanProtection({
+      action: 'offer.create',
+      accountId: authRequest.user.sub,
+      ip: request.ip,
+      userAgent: firstHeader(request.headers['user-agent'])
+    });
+
+    if (protection.decision !== 'allow') {
+      return reply.code(403).send(humanProtectionResponse(protection));
+    }
 
     return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
   });
@@ -72,6 +107,35 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
   app.post('/market/identity-checks', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = identityBody.parse(request.body);
+    const accountLimit = checkRateLimit({
+      group: 'market.identity.account',
+      identifiers: [`account:${authRequest.user.sub}`],
+      limit: 5,
+      windowMs: 24 * 60 * 60 * 1000
+    });
+    const ipLimit = checkRateLimit({
+      group: 'market.identity.ip',
+      identifiers: [`ip:${request.ip}`],
+      limit: 20,
+      windowMs: 24 * 60 * 60 * 1000
+    });
+    const limited = !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const protection = checkHumanProtection({
+      action: 'profile.check',
+      accountId: authRequest.user.sub,
+      ip: request.ip,
+      userAgent: firstHeader(request.headers['user-agent'])
+    });
+
+    if (protection.decision !== 'allow') {
+      return reply.code(403).send(humanProtectionResponse(protection));
+    }
 
     return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
   });
