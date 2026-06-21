@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface NavigatorWithLocks extends Navigator {
+type NavigatorWithLocks = Navigator & {
   locks?: {
     request<T>(name: string, callback: () => Promise<T>): Promise<T>;
   };
-}
+};
 
 interface WindowWithRefreshPromise extends Window {
   __suqnaaSessionRefresh?: Promise<Response>;
