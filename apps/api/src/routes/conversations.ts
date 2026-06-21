@@ -57,6 +57,26 @@ function isParticipant(
   return conversation.buyer_id === userId || conversation.seller_id === userId;
 }
 
+function rejectConversationAccess(
+  app: FastifyInstance,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  userId: string,
+  conversationId: string,
+  action: string
+) {
+  writeSecurityAudit(app.log, {
+    action,
+    decision: 'reject',
+    actorId: userId,
+    targetId: conversationId,
+    ip: request.ip,
+    reasonCodes: ['conversation_access_denied']
+  });
+
+  return reply.code(404).send({ error: 'Conversation not found' });
+}
+
 export async function conversationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/conversations', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
@@ -90,7 +110,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
         ? conversation.seller_id
         : conversation.buyer_id;
 
-      const [counterpart, latestMessage] = await Promise.all([
+      const [counterpart, latestMessage, unread] = await Promise.all([
         db.selectFrom('users')
           .select(['id', 'display_name', 'status'])
           .where('id', '=', counterpartId)
@@ -101,6 +121,13 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
           .where('status', '!=', 'removed')
           .orderBy('created_at', 'desc')
           .limit(1)
+          .executeTakeFirst(),
+        db.selectFrom('messages')
+          .select((expression) => expression.fn.countAll<number>().as('count'))
+          .where('conversation_id', '=', conversation.id)
+          .where('sender_id', '!=', userId)
+          .where('read_at', 'is', null)
+          .where('status', '!=', 'removed')
           .executeTakeFirst()
       ]);
 
@@ -123,6 +150,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
               createdAt: latestMessage.created_at
             }
           : null,
+        unreadCount: Number(unread?.count ?? 0),
         createdAt: conversation.created_at,
         updatedAt: conversation.updated_at
       };
@@ -156,15 +184,14 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
       .executeTakeFirst();
 
     if (!conversation || !isParticipant(conversation, userId)) {
-      writeSecurityAudit(app.log, {
-        action: 'conversation.messages.read',
-        decision: 'reject',
-        actorId: userId,
-        targetId: params.conversationId,
-        ip: request.ip,
-        reasonCodes: ['conversation_access_denied']
-      });
-      return reply.code(404).send({ error: 'Conversation not found' });
+      return rejectConversationAccess(
+        app,
+        request,
+        reply,
+        userId,
+        params.conversationId,
+        'conversation.messages.read'
+      );
     }
 
     let messagesQuery = db.selectFrom('messages')
@@ -219,6 +246,63 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
           ? new Date(last.created_at).toISOString()
           : null
       }
+    });
+  });
+
+  app.post('/conversations/:conversationId/read', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
+    const userId = authRequest.user.sub;
+    const params = conversationParams.parse(request.params);
+
+    if (!enforceReadLimit(request, reply, userId, 'conversations.mark_read', 120, 300)) {
+      return;
+    }
+
+    const conversation = await db.selectFrom('conversations')
+      .select(['id', 'buyer_id', 'seller_id'])
+      .where('id', '=', params.conversationId)
+      .executeTakeFirst();
+
+    if (!conversation || !isParticipant(conversation, userId)) {
+      return rejectConversationAccess(
+        app,
+        request,
+        reply,
+        userId,
+        params.conversationId,
+        'conversation.messages.mark_read'
+      );
+    }
+
+    const now = new Date();
+    const updated = await db.updateTable('messages')
+      .set({
+        read_at: now,
+        status: 'read',
+        updated_at: now
+      })
+      .where('conversation_id', '=', conversation.id)
+      .where('sender_id', '!=', userId)
+      .where('read_at', 'is', null)
+      .where('status', 'in', ['queued', 'sent', 'delivered'])
+      .returning(['id'])
+      .execute();
+
+    writeSecurityAudit(app.log, {
+      action: 'conversation.messages.mark_read',
+      decision: 'allow',
+      actorId: userId,
+      targetId: conversation.id,
+      ip: request.ip,
+      metadata: {
+        updatedMessages: updated.length
+      }
+    });
+
+    return reply.send({
+      conversationId: conversation.id,
+      updatedMessages: updated.length,
+      readAt: now.toISOString()
     });
   });
 }
