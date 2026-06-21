@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
-import '../conversations/conversation_inbox_screen.dart';
+import '../conversations/session_conversation_inbox.dart';
 import 'account_login_screen.dart';
 import 'register_screen.dart';
 
@@ -70,7 +70,7 @@ class AccountScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => signedIn
-                    ? const ConversationInboxScreen()
+                    ? const SessionConversationInbox()
                     : const AccountLoginScreen(),
               ),
             ),
