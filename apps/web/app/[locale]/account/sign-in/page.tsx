@@ -1,3 +1,5 @@
+import { AccountAuthForm } from '../../../../components/account-auth-form';
+
 export default function SignInPage({ params }: { params: { locale: string } }) {
   const isArabic = params.locale === 'ar';
 
@@ -13,14 +15,10 @@ export default function SignInPage({ params }: { params: { locale: string } }) {
         <h1>{isArabic ? 'ادخل إلى حسابك' : 'Access your account'}</h1>
         <p>
           {isArabic
-            ? 'سيتم ربط هذه الشاشة بطبقة الجلسات الآمنة في الخطوة التالية.'
-            : 'This screen will connect to the secure session layer in the next implementation step.'}
+            ? 'سجّل الدخول عبر جلسة آمنة مع فحص تلقائي ضد النشاط الآلي الضار.'
+            : 'Sign in through a secure session with automated abuse protection.'}
         </p>
-        <div className="form-grid">
-          <label>{isArabic ? 'البريد الإلكتروني' : 'Email'}<input type="email" placeholder="you@example.com" /></label>
-          <label>{isArabic ? 'كلمة المرور' : 'Password'}<input type="password" placeholder="••••••••••" /></label>
-          <button className="button-primary" type="button">{isArabic ? 'دخول' : 'Sign in'}</button>
-        </div>
+        <AccountAuthForm locale={params.locale} mode="login" />
       </section>
     </main>
   );

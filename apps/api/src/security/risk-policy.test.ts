@@ -83,3 +83,37 @@ const verifiedChallenge = await checkHumanProtectionWithChallenge(
 assert.equal(verifiedChallenge.decision, 'allow');
 assert.equal(verifiedChallenge.riskScore, 55);
 assert.ok(verifiedChallenge.reasonCodes.includes('challenge_verified'));
+
+const proactiveVerified = await checkHumanProtectionWithChallenge(
+  {
+    action: 'account.login',
+    ip: '127.0.0.1',
+    userAgent: 'SuqnaaTest/1.0',
+    challengeResponse: 'valid-test-response'
+  },
+  new StubVerifier({
+    success: true,
+    provider: 'test',
+    reasonCodes: []
+  })
+);
+assert.equal(proactiveVerified.decision, 'allow');
+assert.equal(proactiveVerified.riskScore, 20);
+assert.ok(proactiveVerified.reasonCodes.includes('challenge_verified'));
+
+const proactiveRejected = await checkHumanProtectionWithChallenge(
+  {
+    action: 'account.login',
+    ip: '127.0.0.1',
+    userAgent: 'SuqnaaTest/1.0',
+    challengeResponse: 'invalid-test-response'
+  },
+  new StubVerifier({
+    success: false,
+    provider: 'test',
+    reasonCodes: ['challenge_failed']
+  })
+);
+assert.equal(proactiveRejected.decision, 'challenge');
+assert.equal(proactiveRejected.riskScore, 20);
+assert.ok(proactiveRejected.reasonCodes.includes('challenge_failed'));

@@ -3,9 +3,15 @@ import { z } from 'zod';
 import { createAccessToken } from '../auth/access.js';
 import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-token.js';
 import { db } from '../db/index.js';
-import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
+import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
+import {
+  checkHumanProtectionWithChallenge,
+  humanProtectionResponse
+} from '../security/human-protection.js';
 import { hashPassword, verifyPassword } from '../security/password.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+
+const challengeVerifier = new NoopChallengeVerifier();
 
 const registerBody = z.object({
   email: z.string().email().optional(),
@@ -79,11 +85,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(429).send(rateLimitResponse(limit));
     }
 
-    const protection = checkHumanProtection({
-      action: 'account.register',
-      ip: request.ip,
-      userAgent: firstHeader(request.headers['user-agent'])
-    });
+    const protection = await checkHumanProtectionWithChallenge(
+      {
+        action: 'account.register',
+        ip: request.ip,
+        userAgent: firstHeader(request.headers['user-agent']),
+        challengeResponse: firstHeader(request.headers['x-suqnaa-human-check'])
+      },
+      challengeVerifier
+    );
 
     if (protection.decision !== 'allow') {
       return reply.code(403).send(humanProtectionResponse(protection));
@@ -130,11 +140,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(429).send(rateLimitResponse(limit));
     }
 
-    const protection = checkHumanProtection({
-      action: 'account.login',
-      ip: request.ip,
-      userAgent: firstHeader(request.headers['user-agent'])
-    });
+    const protection = await checkHumanProtectionWithChallenge(
+      {
+        action: 'account.login',
+        ip: request.ip,
+        userAgent: firstHeader(request.headers['user-agent']),
+        challengeResponse: firstHeader(request.headers['x-suqnaa-human-check'])
+      },
+      challengeVerifier
+    );
 
     if (protection.decision !== 'allow') {
       return reply.code(403).send(humanProtectionResponse(protection));

@@ -73,8 +73,9 @@ export async function checkHumanProtectionWithChallenge(
   verifier: ChallengeVerifier
 ): Promise<ProtectionResult> {
   const result = checkHumanProtection(input);
+  const suppliedChallenge = Boolean(input.challengeResponse?.trim());
 
-  if (result.decision !== 'challenge') {
+  if (result.decision !== 'challenge' && !suppliedChallenge) {
     return result;
   }
 
@@ -86,8 +87,9 @@ export async function checkHumanProtectionWithChallenge(
 
   if (!verification.success) {
     return {
-      ...result,
-      reasonCodes: [...result.reasonCodes, ...verification.reasonCodes]
+      decision: 'challenge',
+      reasonCodes: [...result.reasonCodes, ...verification.reasonCodes],
+      riskScore: result.riskScore
     };
   }
 

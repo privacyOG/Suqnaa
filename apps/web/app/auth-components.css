@@ -1,0 +1,36 @@
+.turnstile-shell {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+}
+
+.auth-status,
+.auth-error {
+  margin: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  line-height: 1.45;
+}
+
+.auth-status {
+  background: #f4f7ff;
+  color: var(--suqnaa-blue);
+}
+
+.auth-error {
+  background: #fff1ef;
+  color: #9f1f16;
+  border: 1px solid rgba(159, 31, 22, 0.18);
+}
+
+.form-grid button:disabled,
+.actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+[dir='rtl'] .turnstile-shell {
+  justify-content: flex-end;
+}
