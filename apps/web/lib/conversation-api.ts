@@ -70,19 +70,21 @@ function pagedPath(path: string, options: CursorPageOptions = {}) {
 }
 
 export function getConversationPage(
-  accessToken: string,
   options: CursorPageOptions = {}
 ): Promise<ConversationListResponse> {
-  return getAuthed(pagedPath('/v1/conversations', options), accessToken);
+  return getAuthed<ConversationListResponse>(
+    pagedPath('/v1/conversations', options)
+  );
 }
 
 export function getConversationHistory(
-  accessToken: string,
   conversationId: string,
   options: CursorPageOptions = {}
 ): Promise<ConversationHistoryResponse> {
-  return getAuthed(
-    pagedPath(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`, options),
-    accessToken
+  return getAuthed<ConversationHistoryResponse>(
+    pagedPath(
+      `/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
+      options
+    )
   );
 }
