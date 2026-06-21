@@ -1,24 +1,10 @@
-name: Typecheck Diagnostics
+name: Temporary Diagnostics Cleanup
 
 on:
-  pull_request:
   workflow_dispatch:
 
 jobs:
-  diagnose:
+  placeholder:
     runs-on: ubuntu-latest
     steps:
-      - name: Concise typecheck
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          BRANCH: ${{ github.head_ref }}
-        run: |
-          git clone --depth 1 --branch "$BRANCH" "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo >/dev/null 2>&1
-          cd repo
-          corepack enable
-          corepack prepare pnpm@9.12.0 --activate >/dev/null 2>&1
-          pnpm install --frozen-lockfile=false >/dev/null 2>&1
-          set -o pipefail
-          pnpm typecheck 2>&1 | tail -n 40
+      - run: echo "No diagnostic action configured"
