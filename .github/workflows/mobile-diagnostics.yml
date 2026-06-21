@@ -1,0 +1,34 @@
+name: Mobile Diagnostics
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: apps/mobile
+        run: flutter pub get
+      - working-directory: apps/mobile
+        run: flutter gen-l10n
+      - name: Capture analyzer output
+        working-directory: apps/mobile
+        shell: bash
+        run: |
+          set +e
+          flutter analyze > flutter-analyze.txt 2>&1
+          status=$?
+          echo "$status" > flutter-analyze-exit-code.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-analyzer-output
+          path: |
+            apps/mobile/flutter-analyze.txt
+            apps/mobile/flutter-analyze-exit-code.txt
+          retention-days: 2
