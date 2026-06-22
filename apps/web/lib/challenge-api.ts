@@ -4,6 +4,7 @@ export interface ChallengeActions {
   listingCreate: string;
   listingStatusUpdate: string;
   messageCreate: string;
+  offerCreate: string;
 }
 
 export interface ChallengeConfiguration {
