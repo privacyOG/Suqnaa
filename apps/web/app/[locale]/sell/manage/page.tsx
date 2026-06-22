@@ -18,6 +18,7 @@ export default async function ManageListingsPage({ params }: { params: { locale:
         <a className="brand-word" href={`/${params.locale}`}>Suqnaa · سوقنا</a>
         <div className="nav-links">
           <a href={`/${params.locale}/sell`}>{isArabic ? 'إعلان جديد' : 'New listing'}</a>
+          <a href={`/${params.locale}/messages`}>{isArabic ? 'الرسائل' : 'Messages'}</a>
           <a href={`/${params.locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
         </div>
       </nav>
