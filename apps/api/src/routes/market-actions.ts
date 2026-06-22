@@ -30,12 +30,9 @@ const offerBody = z.object({
 });
 
 const orderBody = z.object({
-  counterpartyId: z.string().uuid(),
-  listingId: z.string().uuid().optional(),
-  marketEventId: z.string().uuid().optional(),
-  amount: z.number().positive(),
-  currencyCode: z.string().length(3),
-  paymentMethod: z.enum(['card', 'bank_transfer', 'wallet', 'xmr'])
+  offerId: z.string().uuid(),
+  paymentMethod: z.enum(['card', 'bank_transfer', 'wallet', 'xmr']),
+  clientOrderId: z.string().uuid()
 });
 
 const reviewBody = z.object({
@@ -48,6 +45,15 @@ const identityBody = z.object({
   level: z.enum(['basic', 'seller', 'high_value_seller', 'business']),
   countryCode: z.string().length(2)
 });
+
+class MarketActionError extends Error {
+  constructor(
+    readonly statusCode: 404 | 409,
+    readonly payload: Record<string, unknown>
+  ) {
+    super(String(payload.error ?? 'Marketplace action failed'));
+  }
+}
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -124,6 +130,42 @@ function offerResponse(offer: Record<string, unknown>, idempotent: boolean) {
     }
   };
 }
+
+function orderResponse(order: Record<string, unknown>, idempotent: boolean) {
+  return {
+    accepted: true,
+    idempotent,
+    order: {
+      id: order.id,
+      offerId: order.offer_id,
+      listingId: order.listing_id,
+      buyerId: order.buyer_id,
+      sellerId: order.seller_id,
+      amount: order.amount,
+      currencyCode: order.currency_code,
+      status: order.status,
+      paymentMethod: order.payment_method,
+      clientOrderId: order.client_order_id,
+      createdAt: order.created_at,
+      updatedAt: order.updated_at
+    }
+  };
+}
+
+const orderColumns = [
+  'id',
+  'offer_id',
+  'listing_id',
+  'buyer_id',
+  'seller_id',
+  'amount',
+  'currency_code',
+  'status',
+  'payment_method',
+  'client_order_id',
+  'created_at',
+  'updated_at'
+] as const;
 
 export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
   app.post('/market/timed-sale', { preHandler: requireUser }, async (request, reply) => {
@@ -315,19 +357,145 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/market/orders', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
+    const buyerId = authRequest.user.sub;
     const body = orderBody.parse(request.body);
 
-    if (body.counterpartyId === authRequest.user.sub) {
-      return reply.code(400).send({ error: 'Counterparty must be different' });
+    const idempotentOrder = await db.selectFrom('transactions')
+      .select(orderColumns)
+      .where('buyer_id', '=', buyerId)
+      .where('client_order_id', '=', body.clientOrderId)
+      .executeTakeFirst();
+    if (idempotentOrder) {
+      return reply.send(orderResponse(idempotentOrder, true));
     }
-    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.orders', 30, 100, 60 * 60 * 1000)) {
-      return;
-    }
-    if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'order.create')) {
+
+    if (!enforceActionLimit(request, reply, buyerId, 'market.orders', 30, 100, 60 * 60 * 1000)) {
       return;
     }
 
-    return reply.code(202).send({ accepted: true, actorId: authRequest.user.sub, request: body });
+    const protection = await checkHumanProtectionWithChallenge(
+      {
+        action: 'order.create',
+        accountId: buyerId,
+        ip: request.ip,
+        userAgent: firstHeader(request.headers['user-agent']),
+        challengeResponse: firstHeader(request.headers['x-suqnaa-human-check'])
+      },
+      challengeVerifier
+    );
+    if (protection.decision !== 'allow') {
+      writeSecurityAudit(app.log, {
+        action: 'order.create',
+        decision: protection.decision,
+        actorId: buyerId,
+        targetId: body.offerId,
+        ip: request.ip,
+        riskScore: protection.riskScore,
+        reasonCodes: protection.reasonCodes
+      });
+      return reply.code(403).send(humanProtectionResponse(protection));
+    }
+
+    try {
+      const result = await db.transaction().execute(async (transaction) => {
+        const offer = await transaction.selectFrom('offers')
+          .select(['id', 'listing_id', 'buyer_id', 'amount', 'currency_code', 'status'])
+          .where('id', '=', body.offerId)
+          .executeTakeFirst();
+        if (!offer || offer.buyer_id !== buyerId) {
+          throw new MarketActionError(404, { error: 'Accepted offer not found' });
+        }
+
+        const existing = await transaction.selectFrom('transactions')
+          .select(orderColumns)
+          .where('offer_id', '=', offer.id)
+          .executeTakeFirst();
+        if (existing) {
+          return { order: existing, idempotent: true };
+        }
+
+        if (offer.status !== 'accepted') {
+          throw new MarketActionError(409, {
+            error: 'Order requires an accepted offer',
+            currentStatus: offer.status
+          });
+        }
+
+        const listing = await transaction.selectFrom('listings')
+          .select(['id', 'seller_id', 'status'])
+          .where('id', '=', offer.listing_id)
+          .executeTakeFirst();
+        if (!listing) {
+          throw new MarketActionError(404, { error: 'Listing not found' });
+        }
+        if (listing.status !== 'reserved') {
+          throw new MarketActionError(409, {
+            error: 'Listing is not reserved for this offer',
+            listingStatus: listing.status
+          });
+        }
+
+        const inserted = await transaction.insertInto('transactions')
+          .values({
+            listing_id: listing.id,
+            offer_id: offer.id,
+            buyer_id: buyerId,
+            seller_id: listing.seller_id,
+            amount: offer.amount,
+            currency_code: offer.currency_code,
+            status: 'pending',
+            payment_method: body.paymentMethod,
+            client_order_id: body.clientOrderId,
+            payment_provider: null,
+            payment_reference: null,
+            updated_at: new Date()
+          })
+          .onConflict((conflict) => conflict.doNothing())
+          .returning(orderColumns)
+          .executeTakeFirst();
+
+        if (inserted) {
+          return { order: inserted, idempotent: false };
+        }
+
+        const raced = await transaction.selectFrom('transactions')
+          .select(orderColumns)
+          .where((expression) => expression.or([
+            expression('offer_id', '=', offer.id),
+            expression('client_order_id', '=', body.clientOrderId)
+          ]))
+          .executeTakeFirst();
+        if (!raced || raced.buyer_id !== buyerId) {
+          throw new MarketActionError(409, { error: 'Order changed; refresh and try again' });
+        }
+        return { order: raced, idempotent: true };
+      });
+
+      writeSecurityAudit(app.log, {
+        action: 'order.create',
+        decision: 'allow',
+        actorId: buyerId,
+        targetId: result.order.id,
+        ip: request.ip,
+        riskScore: protection.riskScore,
+        reasonCodes: protection.reasonCodes,
+        metadata: {
+          offerId: result.order.offer_id,
+          listingId: result.order.listing_id,
+          paymentMethod: result.order.payment_method,
+          idempotent: result.idempotent
+        }
+      });
+
+      return reply
+        .code(result.idempotent ? 200 : 201)
+        .send(orderResponse(result.order, result.idempotent));
+    } catch (error) {
+      if (error instanceof MarketActionError) {
+        return reply.code(error.statusCode).send(error.payload);
+      }
+      throw error;
+    }
   });
 
   app.post('/market/reviews', { preHandler: requireUser }, async (request, reply) => {
