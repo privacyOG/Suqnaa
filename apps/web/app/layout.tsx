@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import './auth-components.css';
 import './marketplace-components.css';
+import './conversation-components.css';
 
 export const metadata: Metadata = {
   title: 'Suqnaa | Trusted marketplace',
