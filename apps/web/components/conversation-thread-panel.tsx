@@ -108,6 +108,7 @@ export function ConversationThreadPanel({
 }: ConversationThreadPanelProps) {
   const isArabic = locale === 'ar';
   const listEndRef = useRef<HTMLDivElement | null>(null);
+  const shouldScrollRef = useRef(true);
   const [conversation, setConversation] = useState<ConversationHistoryResponse['conversation'] | null>(null);
   const [counterpartName, setCounterpartName] = useState<string | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
@@ -149,6 +150,7 @@ export function ConversationThreadPanel({
 
   const loadHistory = useCallback(async (cursor?: string) => {
     const append = Boolean(cursor);
+    shouldScrollRef.current = !append;
     append ? setLoadingOlder(true) : setLoading(true);
     setError(null);
 
@@ -197,8 +199,9 @@ export function ConversationThreadPanel({
   }, [loadHistory]);
 
   useEffect(() => {
-    if (!loading && messages.length > 0) {
+    if (!loading && messages.length > 0 && shouldScrollRef.current) {
       listEndRef.current?.scrollIntoView({ block: 'end' });
+      shouldScrollRef.current = false;
     }
   }, [loading, messages.length]);
 
@@ -267,6 +270,7 @@ export function ConversationThreadPanel({
         conversationId,
         clientMessageId
       );
+      shouldScrollRef.current = true;
       setMessages((current) => [created, ...current]);
       formElement.reset();
     } catch (caught) {
