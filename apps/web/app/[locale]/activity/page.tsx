@@ -33,6 +33,11 @@ export default async function ActivityPage({ params }: { params: { locale: strin
               ? 'راجع العروض الواردة على إعلاناتك، تابع عروضك، وأنشئ طلباً فقط بعد قبول البائع.'
               : 'Review offers on your listings, track offers you made, and create an order only after seller acceptance.'}
           </p>
+          <div className="actions">
+            <a className="button-primary" href={`/${params.locale}/activity/orders`}>
+              {isArabic ? 'عرض سجل الطلبات' : 'View order history'}
+            </a>
+          </div>
         </div>
         {user ? (
           <div className="seller-identity-card">
