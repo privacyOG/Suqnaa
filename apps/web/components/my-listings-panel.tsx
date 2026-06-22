@@ -226,15 +226,23 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
         status,
         challengeToken ?? undefined
       );
-      setListings((current) => current.map((item) =>
-        item.id === listing.id
-          ? {
-              ...item,
-              status: response.listing.status,
-              updatedAt: response.listing.updatedAt ?? item.updatedAt
-            }
-          : item
-      ));
+      const updatedStatus = response.listing.status;
+
+      setListings((current) => {
+        if (filter !== 'all' && filter !== updatedStatus) {
+          return current.filter((item) => item.id !== listing.id);
+        }
+
+        return current.map((item) =>
+          item.id === listing.id
+            ? {
+                ...item,
+                status: updatedStatus,
+                updatedAt: response.listing.updatedAt ?? item.updatedAt
+              }
+            : item
+        );
+      });
     } catch (caught) {
       setError(failureMessage(caught, isArabic));
     } finally {
