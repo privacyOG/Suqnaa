@@ -4,10 +4,11 @@
 
 - API authentication with password hashing, short-lived access tokens, refresh-session rotation, logout revocation, and account lookup.
 - Human-protection policy, provider-neutral challenge verification, Cloudflare Turnstile configuration, and security audit logging.
-- Bounded in-memory rate limiting for authentication, listings, messages, conversations, offers, and market actions.
+- Bounded in-memory rate limiting for authentication, listings, messages, conversations, offers, market actions, and protected activity reads.
 - Authenticated listing creation, seller-owned listing management, conversations, messages, persisted buyer offers, atomic seller decisions, accepted-offer orders, reviews, identity checks, and timed-sale actions.
 - Same-origin web session cookies with automatic refresh rotation and one-retry authenticated proxy transport.
-- Live bilingual web registration, login, account, public marketplace, listing detail, Sell, My Listings, marketplace activity, conversation inbox, message-history, Message seller, and Make offer interfaces.
+- Live bilingual web registration, login, account, public marketplace, listing detail, Sell, My Listings, marketplace activity, order history/detail, conversation inbox, message-history, Message seller, and Make offer interfaces.
+- Participant-only buyer and seller activity records with derived payment and fulfilment progress.
 - Mobile authentication, account, listing, and conversation foundations with CI coverage.
 - PostgreSQL/PostGIS schema, seeded marketplace categories, local Docker infrastructure, and CI workflows.
 
@@ -21,15 +22,16 @@
 6. Accepting reserves the listing and rejects competing pending offers.
 7. Buyers may cancel only pending offers or create one order from an accepted offer.
 8. Order participants, amount, currency, and listing are derived from persisted records rather than browser input.
-9. The Sell page creates a protected listing draft without exposing bearer tokens.
-10. My Listings loads only that seller's records and supports the API's allowed state transitions.
-11. Messages lists only conversations where the account is a participant.
-12. Conversation threads load protected history, acknowledge reads, and send idempotent challenge-bound messages.
-13. Expired access sessions rotate automatically and retry the protected request once.
+9. Buyers and sellers can open participant-only order history and detail views with lifecycle progress.
+10. The Sell page creates a protected listing draft without exposing bearer tokens.
+11. My Listings loads only that seller's records and supports the API's allowed state transitions.
+12. Messages lists only conversations where the account is a participant.
+13. Conversation threads load protected history, acknowledge reads, and send idempotent challenge-bound messages.
+14. Expired access sessions rotate automatically and retry the protected request once.
 
 ## Next implementation targets
 
-- Seller and buyer transaction detail views with fulfilment progress.
+- Fulfilment state transitions and participant acknowledgements.
 - Real protected-checkout provider integration and payment-intent creation.
 - Listing image upload, signed public image delivery, and full search filters.
 - Shared production rate-limit storage for multi-instance deployments.
