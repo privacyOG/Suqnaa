@@ -5,7 +5,8 @@ export const challengeActions = {
   accountRegister: toTurnstileAction('account.register'),
   listingCreate: toTurnstileAction('listing.create'),
   listingStatusUpdate: toTurnstileAction('listing.status_update'),
-  messageCreate: toTurnstileAction('message.create')
+  messageCreate: toTurnstileAction('message.create'),
+  offerCreate: toTurnstileAction('offer.create')
 } as const;
 
 export interface PublicChallengeConfiguration {
