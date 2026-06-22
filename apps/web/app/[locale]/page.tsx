@@ -31,6 +31,7 @@ export default function LocalizedHomePage({ params }: { params: { locale: string
         <a className="brand-word" href={`/${locale}`}>Suqnaa · سوقنا</a>
         <div className="nav-links">
           <a href={`/${locale}/sell`}>{isArabic ? 'بيع' : 'Sell'}</a>
+          <a href={`/${locale}/messages`}>{isArabic ? 'الرسائل' : 'Messages'}</a>
           <a href={`/${locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
           <a className="language-link" href={messages.nav.languageHref}>{messages.nav.language}</a>
         </div>
