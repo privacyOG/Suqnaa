@@ -48,6 +48,9 @@ export default async function AccountPage({ params }: { params: { locale: string
                 <a className="button-primary" href={`/${params.locale}/sell`}>
                   {isArabic ? 'إنشاء إعلان' : 'Create listing'}
                 </a>
+                <a className="button-secondary" href={`/${params.locale}/sell/manage`}>
+                  {isArabic ? 'إعلاناتي' : 'My listings'}
+                </a>
                 <SignOutButton locale={params.locale} />
               </>
             ) : needsRotation ? (

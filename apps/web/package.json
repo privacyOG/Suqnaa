@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:session": "echo session-policy && tsx -e \"import assert from 'node:assert/strict'; import { isSameOriginMutation, validToken } from './lib/web-session.ts'; assert.equal(validToken('abc', 3), true); const same = new Request('https://suqnaa.com/api/state', { method: 'POST', headers: { origin: 'https://suqnaa.com' } }); assert.equal(isSameOriginMutation(same, true), true); const missing = new Request('https://suqnaa.com/api/state', { method: 'POST' }); assert.equal(isSameOriginMutation(missing, true), false);\" && echo route-policy && tsx lib/protected-route-policy.test.ts && echo browser-transport && tsx lib/authed-api.test.ts"
+    "test:session": "echo session-policy && tsx -e \"import assert from 'node:assert/strict'; import { isSameOriginMutation, validToken } from './lib/web-session.ts'; assert.equal(validToken('abc', 3), true); const same = new Request('https://suqnaa.com/api/state', { method: 'POST', headers: { origin: 'https://suqnaa.com' } }); assert.equal(isSameOriginMutation(same, true), true); const missing = new Request('https://suqnaa.com/api/state', { method: 'POST' }); assert.equal(isSameOriginMutation(missing, true), false);\" && echo route-policy && tsx lib/protected-route-policy.test.ts && echo browser-transport && tsx lib/authed-api.test.ts && echo seller-listings && tsx lib/listing-api.test.ts"
   },
   "dependencies": {
     "next": "14.2.23",

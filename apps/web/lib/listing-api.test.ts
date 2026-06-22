@@ -1,0 +1,115 @@
+import assert from 'node:assert/strict';
+import {
+  createListingDraft,
+  getMyListings,
+  updateListingStatus
+} from './listing-api';
+
+async function run() {
+  const originalFetch = globalThis.fetch;
+
+  try {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+
+    globalThis.fetch = (async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({
+        listings: [],
+        pagination: { hasMore: false, nextCursor: null }
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }) as typeof fetch;
+
+    await getMyListings({
+      status: 'draft',
+      limit: 10,
+      before: '2026-06-22T00:00:00.000Z'
+    });
+    assert.equal(
+      capturedUrl,
+      '/api/authed/v1/listings/mine?status=draft&limit=10&before=2026-06-22T00%3A00%3A00.000Z'
+    );
+    assert.equal(capturedInit?.method, 'GET');
+    assert.equal(capturedInit?.credentials, 'same-origin');
+    assert.equal(new Headers(capturedInit?.headers).has('authorization'), false);
+
+    globalThis.fetch = (async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({
+        listing: {
+          id: '123e4567-e89b-42d3-a456-426614174000',
+          title: 'Test phone',
+          status: 'draft',
+          created_at: '2026-06-22T00:00:00.000Z'
+        }
+      }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' }
+      });
+    }) as typeof fetch;
+
+    await createListingDraft({
+      title: 'Test phone',
+      description: 'A clear listing description.',
+      priceAmount: 100,
+      currencyCode: 'AUD',
+      condition: 'good',
+      countryCode: 'AU',
+      allowPickup: true,
+      allowDelivery: false
+    }, 'human-check');
+    assert.equal(capturedUrl, '/api/authed/v1/listings');
+    assert.equal(capturedInit?.method, 'POST');
+    assert.equal(new Headers(capturedInit?.headers).get('x-suqnaa-human-check'), 'human-check');
+    assert.deepEqual(
+      JSON.parse(String(capturedInit?.body)),
+      {
+        title: 'Test phone',
+        description: 'A clear listing description.',
+        priceAmount: 100,
+        currencyCode: 'AUD',
+        condition: 'good',
+        countryCode: 'AU',
+        allowPickup: true,
+        allowDelivery: false
+      }
+    );
+
+    globalThis.fetch = (async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({
+        listing: {
+          id: '123e4567-e89b-42d3-a456-426614174000',
+          status: 'active',
+          unchanged: false
+        }
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }) as typeof fetch;
+
+    await updateListingStatus(
+      '123e4567-e89b-42d3-a456-426614174000',
+      'active',
+      'status-check'
+    );
+    assert.equal(
+      capturedUrl,
+      '/api/authed/v1/listings/123e4567-e89b-42d3-a456-426614174000/status'
+    );
+    assert.equal(capturedInit?.method, 'POST');
+    assert.equal(new Headers(capturedInit?.headers).get('x-suqnaa-human-check'), 'status-check');
+    assert.equal(capturedInit?.body, JSON.stringify({ status: 'active' }));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+void run();

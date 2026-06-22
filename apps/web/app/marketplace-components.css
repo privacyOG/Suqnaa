@@ -1,0 +1,368 @@
+.listing-editor-card {
+  max-width: 860px;
+}
+
+.seller-session-summary,
+.seller-identity-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #f4f7ff;
+  border: 1px solid rgba(11, 70, 216, 0.12);
+}
+
+.seller-session-summary {
+  margin-top: 22px;
+}
+
+.seller-session-summary span,
+.seller-identity-card span,
+.seller-session-summary small,
+.seller-identity-card small {
+  color: var(--suqnaa-muted);
+}
+
+.seller-session-summary strong,
+.seller-identity-card strong {
+  color: var(--suqnaa-blue);
+  font-size: 18px;
+}
+
+.listing-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.delivery-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+}
+
+.delivery-options legend {
+  padding: 0 8px;
+  font-weight: 800;
+}
+
+.form-grid .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.form-grid .checkbox-label input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
+.listing-success {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #ecfdf3;
+  border: 1px solid rgba(18, 183, 106, 0.24);
+}
+
+.listing-success strong {
+  color: #087443;
+}
+
+.listing-success a {
+  width: fit-content;
+  color: var(--suqnaa-blue);
+  font-weight: 800;
+}
+
+.signed-out-panel {
+  margin-top: 24px;
+}
+
+.seller-page {
+  background: linear-gradient(135deg, #ffffff 0%, #f4f7ff 58%, var(--suqnaa-ivory) 100%);
+}
+
+.seller-page-header {
+  max-width: 1180px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.seller-page-header h1 {
+  max-width: 760px;
+  font-size: clamp(42px, 7vw, 76px);
+}
+
+.seller-page-header p {
+  max-width: 700px;
+  color: var(--suqnaa-muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.seller-identity-card {
+  min-width: 240px;
+  background: #fff;
+}
+
+.seller-session-panel,
+.seller-dashboard {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.seller-session-panel {
+  padding: 24px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.seller-dashboard {
+  display: grid;
+  gap: 20px;
+}
+
+.seller-dashboard-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.seller-dashboard-toolbar > div,
+.seller-dashboard-toolbar label {
+  display: grid;
+  gap: 6px;
+}
+
+.seller-dashboard-toolbar strong {
+  font-size: 24px;
+}
+
+.seller-dashboard-toolbar span {
+  color: var(--suqnaa-muted);
+}
+
+.seller-dashboard-toolbar select {
+  min-width: 180px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  padding: 11px 14px;
+  background: #fff;
+}
+
+.seller-security-check {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: #fffaf0;
+  border: 1px solid rgba(217, 164, 65, 0.28);
+}
+
+.seller-security-check p {
+  margin: 0;
+  color: var(--suqnaa-muted);
+}
+
+.seller-listing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.seller-listing-card {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08);
+}
+
+.seller-listing-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.seller-listing-heading h2 {
+  margin: 10px 0 0;
+  font-size: 23px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.seller-listing-heading > strong {
+  flex: 0 0 auto;
+  color: var(--suqnaa-blue);
+  font-size: 19px;
+}
+
+.listing-status {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: var(--suqnaa-muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.listing-status-active {
+  background: #ecfdf3;
+  color: #087443;
+}
+
+.listing-status-draft {
+  background: #f4f7ff;
+  color: var(--suqnaa-blue);
+}
+
+.listing-status-reserved {
+  background: #fff7e8;
+  color: #9a6700;
+}
+
+.listing-status-sold {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.listing-status-removed,
+.listing-status-expired {
+  background: #fff1ef;
+  color: #9f1f16;
+}
+
+.seller-listing-description {
+  margin: 0;
+  color: var(--suqnaa-muted);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.seller-listing-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.seller-listing-meta div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.seller-listing-meta dt {
+  color: var(--suqnaa-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.seller-listing-meta dd {
+  margin: 5px 0 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.listing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.listing-actions button,
+.load-more-button {
+  cursor: pointer;
+}
+
+.listing-actions button:disabled,
+.load-more-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.danger-button {
+  color: #9f1f16;
+  border-color: rgba(159, 31, 22, 0.2);
+}
+
+.listing-final-status {
+  margin: 0;
+  color: var(--suqnaa-muted);
+  font-size: 14px;
+}
+
+.empty-listings {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 28px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.empty-listings strong {
+  font-size: 22px;
+}
+
+.empty-listings p {
+  margin: 0 0 8px;
+  color: var(--suqnaa-muted);
+}
+
+.load-more-button {
+  justify-self: center;
+}
+
+[dir='rtl'] .listing-status {
+  letter-spacing: 0;
+}
+
+@media (max-width: 860px) {
+  .listing-form .form-row,
+  .seller-listing-grid,
+  .seller-listing-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-page-header,
+  .seller-dashboard-toolbar,
+  .seller-listing-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .seller-identity-card,
+  .seller-dashboard-toolbar select {
+    min-width: 0;
+    width: 100%;
+  }
+}
