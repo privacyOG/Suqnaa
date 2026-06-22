@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
-import { MyListingsPanel } from '../../../../components/my-listings-panel';
-import { SessionRefresh } from '../../../../components/session-refresh';
-import { isLocale } from '../../../../i18n/locales';
-import { loadAccountSessionState } from '../../../../lib/account-session-state';
+import { OfferWorkflowPanel } from '../../../components/offer-workflow-panel';
+import { SessionRefresh } from '../../../components/session-refresh';
+import { isLocale } from '../../../i18n/locales';
+import { loadAccountSessionState } from '../../../lib/account-session-state';
 
-export default async function ManageListingsPage({ params }: { params: { locale: string } }) {
+export default async function ActivityPage({ params }: { params: { locale: string } }) {
   if (!isLocale(params.locale)) {
     notFound();
   }
@@ -13,38 +13,38 @@ export default async function ManageListingsPage({ params }: { params: { locale:
   const { user, needsRotation } = await loadAccountSessionState();
 
   return (
-    <main className="page-shell seller-page">
+    <main className="page-shell offers-page">
       <nav className="top-nav">
         <a className="brand-word" href={`/${params.locale}`}>Suqnaa · سوقنا</a>
         <div className="nav-links">
-          <a href={`/${params.locale}/sell`}>{isArabic ? 'إعلان جديد' : 'New listing'}</a>
-          <a href={`/${params.locale}/activity`}>{isArabic ? 'العروض والطلبات' : 'Offers and orders'}</a>
+          <a href={`/${params.locale}/listings`}>{isArabic ? 'السوق' : 'Marketplace'}</a>
+          <a href={`/${params.locale}/sell/manage`}>{isArabic ? 'إعلاناتي' : 'My listings'}</a>
           <a href={`/${params.locale}/messages`}>{isArabic ? 'الرسائل' : 'Messages'}</a>
           <a href={`/${params.locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
         </div>
       </nav>
 
-      <header className="seller-page-header">
+      <header className="offers-page-header">
         <div>
-          <div className="eyebrow">{isArabic ? 'لوحة البائع' : 'Seller dashboard'}</div>
-          <h1>{isArabic ? 'إدارة إعلاناتك' : 'Manage your listings'}</h1>
+          <div className="eyebrow">{isArabic ? 'العروض والطلبات' : 'Offers and orders'}</div>
+          <h1>{isArabic ? 'أدر عروض البيع والشراء بأمان' : 'Manage buying and selling offers securely'}</h1>
           <p>
             {isArabic
-              ? 'راجع المسودات، انشر الإعلانات، وحدّث حالة المنتجات من مكان واحد.'
-              : 'Review drafts, publish listings, and update item availability from one place.'}
+              ? 'راجع العروض الواردة على إعلاناتك، تابع عروضك، وأنشئ طلباً فقط بعد قبول البائع.'
+              : 'Review offers on your listings, track offers you made, and create an order only after seller acceptance.'}
           </p>
         </div>
         {user ? (
           <div className="seller-identity-card">
-            <span>{isArabic ? 'البائع' : 'Seller'}</span>
+            <span>{isArabic ? 'الحساب' : 'Account'}</span>
             <strong>{user.display_name}</strong>
-            <small>{isArabic ? `حالة الحساب: ${user.status}` : `Account status: ${user.status}`}</small>
+            <small>{isArabic ? `الحالة: ${user.status}` : `Status: ${user.status}`}</small>
           </div>
         ) : null}
       </header>
 
       {user ? (
-        <MyListingsPanel locale={params.locale} />
+        <OfferWorkflowPanel locale={params.locale} />
       ) : needsRotation ? (
         <div className="seller-session-panel">
           <SessionRefresh locale={params.locale} />
@@ -53,8 +53,8 @@ export default async function ManageListingsPage({ params }: { params: { locale:
         <div className="signed-out-panel seller-session-panel">
           <p className="auth-error">
             {isArabic
-              ? 'سجّل الدخول لعرض إعلاناتك.'
-              : 'Sign in to view your listings.'}
+              ? 'سجّل الدخول لعرض العروض والطلبات.'
+              : 'Sign in to view offers and orders.'}
           </p>
           <div className="actions">
             <a className="button-primary" href={`/${params.locale}/account/sign-in`}>
