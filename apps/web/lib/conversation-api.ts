@@ -5,30 +5,44 @@ export interface CursorPageOptions {
   before?: string;
 }
 
-export interface ConversationListResponse {
-  conversations: Array<{
+export interface ConversationSummary {
+  id: string;
+  listingId: string | null;
+  counterpart: {
     id: string;
-    listingId: string | null;
-    counterpart: {
-      id: string;
-      displayName: string;
-      status: string;
-    } | null;
-    latestMessage: {
-      id: string;
-      senderId: string;
-      body: string;
-      status: string;
-      createdAt: string;
-    } | null;
-    unreadCount: number;
+    displayName: string;
+    status: string;
+  } | null;
+  latestMessage: {
+    id: string;
+    senderId: string;
+    body: string;
+    status: string;
     createdAt: string;
-    updatedAt: string;
-  }>;
+  } | null;
+  unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationListResponse {
+  conversations: ConversationSummary[];
   pagination: {
     hasMore: boolean;
     nextCursor: string | null;
   };
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  body: string;
+  clientMessageId: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  readAt: string | null;
 }
 
 export interface ConversationHistoryResponse {
@@ -38,17 +52,7 @@ export interface ConversationHistoryResponse {
     buyerId: string;
     sellerId: string;
   };
-  messages: Array<{
-    id: string;
-    conversationId: string;
-    senderId: string;
-    body: string;
-    clientMessageId: string | null;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-    readAt: string | null;
-  }>;
+  messages: ConversationMessage[];
   pagination: {
     hasMore: boolean;
     nextCursor: string | null;

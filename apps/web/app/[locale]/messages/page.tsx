@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
-import { MyListingsPanel } from '../../../../components/my-listings-panel';
-import { SessionRefresh } from '../../../../components/session-refresh';
-import { isLocale } from '../../../../i18n/locales';
-import { loadAccountSessionState } from '../../../../lib/account-session-state';
+import { ConversationInboxPanel } from '../../../components/conversation-inbox-panel';
+import { SessionRefresh } from '../../../components/session-refresh';
+import { isLocale } from '../../../i18n/locales';
+import { loadAccountSessionState } from '../../../lib/account-session-state';
 
-export default async function ManageListingsPage({ params }: { params: { locale: string } }) {
+export default async function MessagesPage({ params }: { params: { locale: string } }) {
   if (!isLocale(params.locale)) {
     notFound();
   }
@@ -13,37 +13,39 @@ export default async function ManageListingsPage({ params }: { params: { locale:
   const { user, needsRotation } = await loadAccountSessionState();
 
   return (
-    <main className="page-shell seller-page">
+    <main className="page-shell messages-page">
       <nav className="top-nav">
         <a className="brand-word" href={`/${params.locale}`}>Suqnaa · سوقنا</a>
         <div className="nav-links">
-          <a href={`/${params.locale}/sell`}>{isArabic ? 'إعلان جديد' : 'New listing'}</a>
-          <a href={`/${params.locale}/messages`}>{isArabic ? 'الرسائل' : 'Messages'}</a>
+          <a href={`/${params.locale}/sell/manage`}>{isArabic ? 'إعلاناتي' : 'My listings'}</a>
           <a href={`/${params.locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
         </div>
       </nav>
 
-      <header className="seller-page-header">
+      <header className="messages-page-header">
         <div>
-          <div className="eyebrow">{isArabic ? 'لوحة البائع' : 'Seller dashboard'}</div>
-          <h1>{isArabic ? 'إدارة إعلاناتك' : 'Manage your listings'}</h1>
+          <div className="eyebrow">{isArabic ? 'الرسائل' : 'Messages'}</div>
+          <h1>{isArabic ? 'محادثاتك في مكان واحد' : 'Your marketplace conversations'}</h1>
           <p>
             {isArabic
-              ? 'راجع المسودات، انشر الإعلانات، وحدّث حالة المنتجات من مكان واحد.'
-              : 'Review drafts, publish listings, and update item availability from one place.'}
+              ? 'تابع رسائل المشترين والبائعين، وشاهد المحادثات غير المقروءة بأمان.'
+              : 'Keep up with buyers and sellers and review unread conversations securely.'}
           </p>
         </div>
         {user ? (
           <div className="seller-identity-card">
-            <span>{isArabic ? 'البائع' : 'Seller'}</span>
+            <span>{isArabic ? 'الحساب' : 'Account'}</span>
             <strong>{user.display_name}</strong>
-            <small>{isArabic ? `حالة الحساب: ${user.status}` : `Account status: ${user.status}`}</small>
+            <small>{isArabic ? `الحالة: ${user.status}` : `Status: ${user.status}`}</small>
           </div>
         ) : null}
       </header>
 
       {user ? (
-        <MyListingsPanel locale={params.locale} />
+        <ConversationInboxPanel
+          locale={params.locale}
+          currentUserId={user.id}
+        />
       ) : needsRotation ? (
         <div className="seller-session-panel">
           <SessionRefresh locale={params.locale} />
@@ -52,8 +54,8 @@ export default async function ManageListingsPage({ params }: { params: { locale:
         <div className="signed-out-panel seller-session-panel">
           <p className="auth-error">
             {isArabic
-              ? 'سجّل الدخول لعرض إعلاناتك.'
-              : 'Sign in to view your listings.'}
+              ? 'سجّل الدخول لعرض محادثاتك.'
+              : 'Sign in to view your conversations.'}
           </p>
           <div className="actions">
             <a className="button-primary" href={`/${params.locale}/account/sign-in`}>
