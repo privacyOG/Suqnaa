@@ -47,17 +47,6 @@ export function submitListingOffer(
   );
 }
 
-export function createOrder(
-  input: JsonBody,
-  challengeResponse?: string
-): Promise<Record<string, unknown>> {
-  return postAuthed(
-    '/v1/market/orders',
-    input,
-    challengeResponse
-  );
-}
-
 export function submitReview(
   input: JsonBody,
   challengeResponse?: string
