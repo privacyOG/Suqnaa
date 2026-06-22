@@ -1,5 +1,30 @@
 import { postAuthed, type JsonBody } from './authed-api';
 
+export interface ListingOfferInput extends JsonBody {
+  listingId: string;
+  amount: number;
+  currencyCode: string;
+  message?: string;
+  clientOfferId: string;
+}
+
+export interface ListingOfferResponse {
+  accepted: boolean;
+  idempotent: boolean;
+  offer: {
+    id: string;
+    listingId: string;
+    buyerId: string;
+    amount: string | number;
+    currencyCode: string;
+    status: string;
+    message: string | null;
+    clientOfferId: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
 export function createTimedSale(
   input: JsonBody,
   challengeResponse?: string
@@ -11,11 +36,11 @@ export function createTimedSale(
   );
 }
 
-export function submitOffer(
-  input: JsonBody,
+export function submitListingOffer(
+  input: ListingOfferInput,
   challengeResponse?: string
-): Promise<Record<string, unknown>> {
-  return postAuthed(
+): Promise<ListingOfferResponse> {
+  return postAuthed<ListingOfferResponse>(
     '/v1/market/offers',
     input,
     challengeResponse
