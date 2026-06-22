@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:security": "tsx src/security/human-protection.test.ts && tsx src/security/risk-policy.test.ts && tsx src/security/turnstile-verifier.test.ts && tsx src/security/challenge-config.test.ts && tsx src/security/rate-limit.test.ts"
+    "test:security": "tsx src/security/human-protection.test.ts && tsx src/security/risk-policy.test.ts && tsx src/security/turnstile-verifier.test.ts && tsx src/security/challenge-config.test.ts && tsx src/security/rate-limit.test.ts && tsx src/market/order-progress.test.ts"
   },
   "dependencies": {
     "argon2": "0.41.1",
