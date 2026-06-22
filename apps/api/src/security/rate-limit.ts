@@ -30,14 +30,39 @@ export interface RateLimitStore {
   entries(): IterableIterator<[string, RateLimitCounter]>;
 }
 
+export interface InMemoryRateLimitStoreOptions {
+  maxEntries?: number;
+}
+
+const defaultMaxEntries = 10_000;
+
 export class InMemoryRateLimitStore implements RateLimitStore {
   private readonly counters = new Map<string, RateLimitCounter>();
+  readonly maxEntries: number;
+
+  constructor(options: InMemoryRateLimitStoreOptions = {}) {
+    const configuredMaxEntries = options.maxEntries ?? defaultMaxEntries;
+
+    if (!Number.isInteger(configuredMaxEntries) || configuredMaxEntries <= 0) {
+      throw new Error('maxEntries must be a positive integer');
+    }
+
+    this.maxEntries = configuredMaxEntries;
+  }
+
+  get size(): number {
+    return this.counters.size;
+  }
 
   get(key: string): RateLimitCounter | undefined {
     return this.counters.get(key);
   }
 
   set(key: string, value: RateLimitCounter): void {
+    if (!this.counters.has(key) && this.counters.size >= this.maxEntries) {
+      this.evictEarliestReset();
+    }
+
     this.counters.set(key, value);
   }
 
@@ -47,6 +72,22 @@ export class InMemoryRateLimitStore implements RateLimitStore {
 
   entries(): IterableIterator<[string, RateLimitCounter]> {
     return this.counters.entries();
+  }
+
+  private evictEarliestReset(): void {
+    let selectedKey: string | undefined;
+    let earliestResetAt = Number.POSITIVE_INFINITY;
+
+    for (const [key, counter] of this.counters.entries()) {
+      if (counter.resetAt < earliestResetAt) {
+        earliestResetAt = counter.resetAt;
+        selectedKey = key;
+      }
+    }
+
+    if (selectedKey) {
+      this.counters.delete(selectedKey);
+    }
   }
 }
 
