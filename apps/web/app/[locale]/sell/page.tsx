@@ -18,6 +18,7 @@ export default async function SellPage({ params }: { params: { locale: string } 
         <a className="brand-word" href={`/${params.locale}`}>Suqnaa · سوقنا</a>
         <div className="nav-links">
           <a href={`/${params.locale}/sell/manage`}>{isArabic ? 'إعلاناتي' : 'My listings'}</a>
+          <a href={`/${params.locale}/messages`}>{isArabic ? 'الرسائل' : 'Messages'}</a>
           <a href={`/${params.locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
         </div>
       </nav>
