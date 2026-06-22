@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
@@ -28,6 +28,11 @@ const allowedStatusTransitions: Record<ListingStatus, ReadonlySet<ListingStatus>
   expired: new Set<ListingStatus>(['active', 'removed']),
   removed: new Set<ListingStatus>()
 };
+
+const publicListingsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  before: z.string().datetime().optional()
+});
 
 const myListingsQuery = z.object({
   status: listingStatus.optional(),
@@ -69,6 +74,54 @@ function limitedListingAction(request: FastifyRequest, accountId: string) {
   });
 
   return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
+}
+
+function enforcePublicListingLimit(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  group: string,
+  limit: number
+): boolean {
+  const result = checkRateLimit({
+    group,
+    identifiers: [`ip:${request.ip}`],
+    limit,
+    windowMs: 5 * 60 * 1000
+  });
+
+  if (result.allowed) {
+    return true;
+  }
+
+  reply.header('Retry-After', String(result.retryAfterSeconds));
+  reply.code(429).send(rateLimitResponse(result));
+  return false;
+}
+
+function listingSummary(listing: Record<string, unknown>, seller: Record<string, unknown> | undefined) {
+  return {
+    id: listing.id,
+    title: listing.title,
+    description: listing.description,
+    priceAmount: listing.price_amount,
+    currencyCode: listing.currency_code,
+    condition: listing.condition,
+    countryCode: listing.country_code,
+    region: listing.region,
+    city: listing.city,
+    suburb: listing.suburb,
+    allowPickup: listing.allow_pickup,
+    allowDelivery: listing.allow_delivery,
+    publishedAt: listing.published_at,
+    createdAt: listing.created_at,
+    seller: seller
+      ? {
+          id: seller.id,
+          displayName: seller.display_name,
+          status: seller.status
+        }
+      : null
+  };
 }
 
 export async function listingRoutes(app: FastifyInstance): Promise<void> {
@@ -210,10 +263,12 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(403).send(humanProtectionResponse(protection));
     }
 
+    const now = new Date();
     const updated = await db.updateTable('listings')
       .set({
         status: body.status,
-        updated_at: new Date()
+        updated_at: now,
+        ...(body.status === 'active' ? { published_at: now } : {})
       })
       .where('id', '=', existing.id)
       .where('seller_id', '=', authRequest.user.sub)
@@ -250,15 +305,176 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
-  app.get('/listings', async () => {
-    const listings = await db.selectFrom('listings')
-      .select(['id', 'title', 'price_amount', 'currency_code', 'condition', 'city', 'country_code', 'created_at'])
-      .where('status', '=', 'active')
-      .orderBy('created_at', 'desc')
-      .limit(50)
-      .execute();
+  app.get('/listings', async (request, reply) => {
+    if (!enforcePublicListingLimit(request, reply, 'listing.public_list', 300)) {
+      return;
+    }
 
-    return { listings };
+    const query = publicListingsQuery.parse(request.query);
+    let listingsQuery = db.selectFrom('listings')
+      .select([
+        'id',
+        'seller_id',
+        'title',
+        'description',
+        'price_amount',
+        'currency_code',
+        'condition',
+        'country_code',
+        'region',
+        'city',
+        'suburb',
+        'allow_pickup',
+        'allow_delivery',
+        'published_at',
+        'created_at'
+      ])
+      .where('status', '=', 'active');
+
+    if (query.before) {
+      listingsQuery = listingsQuery.where('created_at', '<', new Date(query.before));
+    }
+
+    const rows = await listingsQuery
+      .orderBy('created_at', 'desc')
+      .limit(query.limit + 1)
+      .execute();
+    const hasMore = rows.length > query.limit;
+    const page = rows.slice(0, query.limit);
+    const summaries = await Promise.all(page.map(async (listing) => {
+      const seller = await db.selectFrom('users')
+        .select(['id', 'display_name', 'status'])
+        .where('id', '=', listing.seller_id)
+        .executeTakeFirst();
+      return listingSummary(listing, seller);
+    }));
+    const last = page.at(-1);
+
+    return reply.send({
+      listings: summaries,
+      pagination: {
+        hasMore,
+        nextCursor: hasMore && last
+          ? new Date(last.created_at).toISOString()
+          : null
+      }
+    });
+  });
+
+  app.get('/listings/:listingId', async (request, reply) => {
+    if (!enforcePublicListingLimit(request, reply, 'listing.public_detail', 300)) {
+      return;
+    }
+
+    const params = listingParams.parse(request.params);
+    const listing = await db.selectFrom('listings')
+      .select([
+        'id',
+        'seller_id',
+        'category_id',
+        'title',
+        'description',
+        'price_amount',
+        'currency_code',
+        'condition',
+        'status',
+        'country_code',
+        'region',
+        'city',
+        'suburb',
+        'allow_pickup',
+        'allow_delivery',
+        'published_at',
+        'expires_at',
+        'created_at',
+        'updated_at'
+      ])
+      .where('id', '=', params.listingId)
+      .where('status', '=', 'active')
+      .executeTakeFirst();
+
+    if (!listing) {
+      return reply.code(404).send({ error: 'Listing not found' });
+    }
+
+    const [seller, profile, verification, category, mediaCount] = await Promise.all([
+      db.selectFrom('users')
+        .select(['id', 'display_name', 'status', 'email_verified_at', 'phone_verified_at'])
+        .where('id', '=', listing.seller_id)
+        .executeTakeFirst(),
+      db.selectFrom('user_profiles')
+        .select(['trust_score', 'is_business', 'business_name', 'city', 'country_code'])
+        .where('user_id', '=', listing.seller_id)
+        .executeTakeFirst(),
+      db.selectFrom('verification_checks')
+        .select(['status', 'level', 'reviewed_at', 'expires_at'])
+        .where('user_id', '=', listing.seller_id)
+        .orderBy('created_at', 'desc')
+        .executeTakeFirst(),
+      listing.category_id
+        ? db.selectFrom('categories')
+            .select(['id', 'slug', 'name_en', 'name_ar'])
+            .where('id', '=', listing.category_id)
+            .executeTakeFirst()
+        : Promise.resolve(undefined),
+      db.selectFrom('listing_media')
+        .select((expression) => expression.fn.countAll<number>().as('count'))
+        .where('listing_id', '=', listing.id)
+        .executeTakeFirst()
+    ]);
+
+    if (!seller || seller.status === 'suspended' || seller.status === 'closed') {
+      return reply.code(404).send({ error: 'Listing not found' });
+    }
+
+    return reply.send({
+      listing: {
+        id: listing.id,
+        title: listing.title,
+        description: listing.description,
+        priceAmount: listing.price_amount,
+        currencyCode: listing.currency_code,
+        condition: listing.condition,
+        status: listing.status,
+        countryCode: listing.country_code,
+        region: listing.region,
+        city: listing.city,
+        suburb: listing.suburb,
+        allowPickup: listing.allow_pickup,
+        allowDelivery: listing.allow_delivery,
+        publishedAt: listing.published_at,
+        expiresAt: listing.expires_at,
+        createdAt: listing.created_at,
+        updatedAt: listing.updated_at,
+        mediaCount: Number(mediaCount?.count ?? 0),
+        category: category
+          ? {
+              id: category.id,
+              slug: category.slug,
+              nameEn: category.name_en,
+              nameAr: category.name_ar
+            }
+          : null,
+        seller: {
+          id: seller.id,
+          displayName: seller.display_name,
+          status: seller.status,
+          emailVerified: Boolean(seller.email_verified_at),
+          phoneVerified: Boolean(seller.phone_verified_at),
+          trustScore: Number(profile?.trust_score ?? 0),
+          isBusiness: Boolean(profile?.is_business),
+          businessName: profile?.business_name ?? null,
+          city: profile?.city ?? null,
+          countryCode: profile?.country_code ?? null,
+          verification: {
+            status: verification?.status ?? 'unverified',
+            level: verification?.level ?? null,
+            reviewedAt: verification?.reviewed_at ?? null,
+            expiresAt: verification?.expires_at ?? null
+          }
+        }
+      }
+    });
   });
 
   app.post('/listings', { preHandler: requireUser }, async (request, reply) => {

@@ -30,6 +30,7 @@ export default function LocalizedHomePage({ params }: { params: { locale: string
       <nav className="top-nav">
         <a className="brand-word" href={`/${locale}`}>Suqnaa · سوقنا</a>
         <div className="nav-links">
+          <a href={`/${locale}/listings`}>{isArabic ? 'السوق' : 'Marketplace'}</a>
           <a href={`/${locale}/sell`}>{isArabic ? 'بيع' : 'Sell'}</a>
           <a href={`/${locale}/messages`}>{isArabic ? 'الرسائل' : 'Messages'}</a>
           <a href={`/${locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
@@ -44,8 +45,12 @@ export default function LocalizedHomePage({ params }: { params: { locale: string
           <h1>{messages.hero.title}</h1>
           <p>{messages.hero.body}</p>
           <div className="actions">
-            <a className="button-primary" href={`/${locale}/sell`}>{isArabic ? 'ابدأ البيع' : 'Start selling'}</a>
-            <a className="button-secondary" href={`/${locale}/account`}>{isArabic ? 'إنشاء حساب' : 'Create account'}</a>
+            <a className="button-primary" href={`/${locale}/listings`}>
+              {isArabic ? 'تصفح السوق' : 'Browse marketplace'}
+            </a>
+            <a className="button-secondary" href={`/${locale}/sell`}>
+              {isArabic ? 'ابدأ البيع' : 'Start selling'}
+            </a>
           </div>
         </div>
 

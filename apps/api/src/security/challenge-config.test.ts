@@ -31,5 +31,6 @@ assert.deepEqual(enabled.actions, {
   accountRegister: 'account_register',
   listingCreate: 'listing_create',
   listingStatusUpdate: 'listing_status_update',
-  messageCreate: 'message_create'
+  messageCreate: 'message_create',
+  offerCreate: 'offer_create'
 });
