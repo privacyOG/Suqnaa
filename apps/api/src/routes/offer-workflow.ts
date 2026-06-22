@@ -319,7 +319,15 @@ export async function offerWorkflowRoutes(app: FastifyInstance): Promise<void> {
     try {
       const result = await db.transaction().execute(async (transaction) => {
         const offer = await transaction.selectFrom('offers')
-          .select(['id', 'listing_id', 'buyer_id', 'status', 'amount', 'currency_code'])
+          .select([
+            'id',
+            'listing_id',
+            'buyer_id',
+            'status',
+            'amount',
+            'currency_code',
+            'updated_at'
+          ])
           .where('id', '=', params.offerId)
           .executeTakeFirst();
         if (!offer) {
