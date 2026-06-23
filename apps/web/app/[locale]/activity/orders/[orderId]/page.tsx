@@ -7,9 +7,11 @@ import { loadAccountSessionState } from '../../../../../lib/account-session-stat
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default async function OrderDetailPage({
-  params
+  params,
+  searchParams
 }: {
   params: { locale: string; orderId: string };
+  searchParams: { redirect_status?: string; paid?: string };
 }) {
   if (!isLocale(params.locale) || !uuidPattern.test(params.orderId)) {
     notFound();
@@ -17,6 +19,7 @@ export default async function OrderDetailPage({
 
   const isArabic = params.locale === 'ar';
   const { user, needsRotation } = await loadAccountSessionState();
+  const paymentSucceeded = searchParams.redirect_status === 'succeeded' || searchParams.paid === '1';
 
   return (
     <main className="page-shell offers-page">
@@ -41,6 +44,19 @@ export default async function OrderDetailPage({
           </p>
         </div>
       </header>
+
+      {paymentSucceeded ? (
+        <div className="buyer-session-panel" style={{ borderColor: '#22c55e', background: '#f0fdf4' }}>
+          <strong style={{ color: '#16a34a' }}>
+            {isArabic ? 'تم استلام الدفع' : 'Payment received'}
+          </strong>
+          <p>
+            {isArabic
+              ? 'تم تأكيد دفعتك وسيتم تحديث حالة الطلب قريباً.'
+              : 'Your payment has been confirmed and the order status will update shortly.'}
+          </p>
+        </div>
+      ) : null}
 
       {user ? (
         <OrderActivityDetail locale={params.locale} orderId={params.orderId} />
