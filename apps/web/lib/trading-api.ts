@@ -1,5 +1,13 @@
 import { postAuthed, type JsonBody } from './authed-api';
 
+export interface CardIntentResponse {
+  clientSecret: string;
+}
+
+export function createCardIntent(orderId: string): Promise<CardIntentResponse> {
+  return postAuthed<CardIntentResponse>('/v1/checkout/card-intent', { orderId });
+}
+
 export interface ListingOfferInput extends JsonBody {
   listingId: string;
   amount: number;

@@ -1,6 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../api/public_listing_api.dart';
+import '../../api/trading_api.dart';
 import '../../brand/brand.dart';
+import '../../config/mobile_environment.dart';
+import '../../session/session_scope.dart';
+import '../account/account_login_screen.dart';
 
 class ListingDetailScreen extends StatefulWidget {
   const ListingDetailScreen({
@@ -18,6 +23,9 @@ class ListingDetailScreen extends StatefulWidget {
 
 class _ListingDetailScreenState extends State<ListingDetailScreen> {
   final _api = PublicListingApi();
+  late final TradingApi _tradingApi = TradingApi(
+    baseUrl: Uri.parse(MobileEnvironment.apiBaseUrl),
+  );
   Map<String, dynamic>? _listing;
   bool _loading = true;
   String? _error;
@@ -75,8 +83,59 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     return labels[condition] ?? condition;
   }
 
+  Future<void> _showMakeOffer(Map<String, dynamic> listing) async {
+    final session = SessionScope.of(context);
+
+    if (!session.isSignedIn) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AccountLoginScreen()),
+      );
+      if (!mounted) return;
+      // Re-read session after potential sign-in
+      if (!SessionScope.of(context).isSignedIn) return;
+    }
+
+    if (!mounted) return;
+
+    final askingPrice = double.tryParse(listing['priceAmount'].toString()) ?? 0;
+    final currency = listing['currencyCode'] as String? ?? 'AUD';
+    final controller = TextEditingController(
+      text: askingPrice > 0 ? askingPrice.toStringAsFixed(2) : '',
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => _MakeOfferSheet(
+        listing: listing,
+        askingPrice: askingPrice,
+        currency: currency,
+        controller: controller,
+        tradingApi: _tradingApi,
+        onSuccess: () {
+          Navigator.of(sheetContext).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Offer submitted!')),
+          );
+        },
+      ),
+    );
+    controller.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final session = SessionScope.of(context);
+    final listing = _listing;
+    final isSeller = listing != null &&
+        session.userId != null &&
+        listing['seller'] is Map &&
+        (listing['seller'] as Map)['id'] == session.userId;
+
     return Scaffold(
       backgroundColor: SuqnaaBrand.ivory,
       appBar: AppBar(
@@ -87,6 +146,25 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
           overflow: TextOverflow.ellipsis,
         ),
       ),
+      bottomNavigationBar: (!_loading && _error == null && listing != null && !isSeller)
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: () => _showMakeOffer(listing),
+                  icon: const Icon(Icons.handshake_outlined),
+                  label: const Text('Make offer'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SuqnaaBrand.blue,
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -309,6 +387,187 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
             fontWeight: FontWeight.w900,
             color: SuqnaaBrand.blue,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MakeOfferSheet extends StatefulWidget {
+  const _MakeOfferSheet({
+    required this.listing,
+    required this.askingPrice,
+    required this.currency,
+    required this.controller,
+    required this.tradingApi,
+    required this.onSuccess,
+  });
+
+  final Map<String, dynamic> listing;
+  final double askingPrice;
+  final String currency;
+  final TextEditingController controller;
+  final TradingApi tradingApi;
+  final VoidCallback onSuccess;
+
+  @override
+  State<_MakeOfferSheet> createState() => _MakeOfferSheetState();
+}
+
+class _MakeOfferSheetState extends State<_MakeOfferSheet> {
+  final _formKey = GlobalKey<FormState>();
+  bool _submitting = false;
+  String? _error;
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate() || _submitting) return;
+
+    final amount = double.tryParse(widget.controller.text.trim());
+    if (amount == null) return;
+
+    final session = SessionScope.of(context);
+    if (!session.isSignedIn) return;
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    try {
+      await widget.tradingApi.submitOffer(
+        session.access.value,
+        {
+          'listingId': widget.listing['id'],
+          'amount': amount,
+          'currencyCode': widget.currency,
+          'clientOfferId': _generateUuid(),
+        },
+      );
+      if (mounted) {
+        widget.onSuccess();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Could not submit offer. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  static String _generateUuid() {
+    final rand = math.Random.secure();
+    final bytes = List<int>.generate(16, (_) => rand.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    String hex(int b) => b.toRadixString(16).padLeft(2, '0');
+    return '${bytes.sublist(0, 4).map(hex).join()}-'
+        '${bytes.sublist(4, 6).map(hex).join()}-'
+        '${bytes.sublist(6, 8).map(hex).join()}-'
+        '${bytes.sublist(8, 10).map(hex).join()}-'
+        '${bytes.sublist(10).map(hex).join()}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Make an offer',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            if (widget.askingPrice > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Asking price: ${widget.askingPrice.toStringAsFixed(2)} ${widget.currency}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ),
+            TextFormField(
+              controller: widget.controller,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Your offer (${widget.currency})',
+                hintText: '0.00',
+                filled: true,
+                fillColor: const Color(0xFFF5F7FD),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              validator: (value) {
+                final amount = double.tryParse(value?.trim() ?? '');
+                if (amount == null || amount <= 0) {
+                  return 'Enter a valid amount greater than 0';
+                }
+                if (widget.askingPrice > 0 && amount > widget.askingPrice) {
+                  return 'Offer cannot exceed the asking price';
+                }
+                return null;
+              },
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                ),
+              ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _submitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: SuqnaaBrand.blue,
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Submit offer'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Keep all communication and payment inside Suqnaa.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );

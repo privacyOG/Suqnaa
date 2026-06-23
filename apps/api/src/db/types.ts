@@ -21,4 +21,5 @@ export interface Database {
   messages: TableShape;
   offers: TableShape;
   transactions: TableShape;
+  payment_intents: TableShape;
 }

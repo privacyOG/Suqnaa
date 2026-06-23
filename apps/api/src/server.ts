@@ -13,6 +13,7 @@ import { marketActionRoutes } from './routes/market-actions.js';
 import { messageRoutes } from './routes/messages.js';
 import { offerWorkflowRoutes } from './routes/offer-workflow.js';
 import { orderActivityRoutes } from './routes/order-activity.js';
+import { checkoutRoutes } from './routes/checkout.js';
 import { sessionManagementRoutes } from './routes/session-management.js';
 
 const app = Fastify({
@@ -67,6 +68,7 @@ await app.register(marketActionRoutes, { prefix: '/v1' });
 await app.register(offerWorkflowRoutes, { prefix: '/v1' });
 await app.register(orderActivityRoutes, { prefix: '/v1' });
 await app.register(messageRoutes, { prefix: '/v1' });
+await app.register(checkoutRoutes, { prefix: '/v1' });
 await app.register(sessionManagementRoutes, { prefix: '/v1' });
 
 try {

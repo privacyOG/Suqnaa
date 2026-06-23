@@ -22,7 +22,9 @@ const schema = z.object({
   S3_BUCKET: z.string().default('suqnaa-local'),
   S3_ACCESS_KEY: z.string().default('suqnaa'),
   S3_SECRET_KEY: z.string().default('suqnaa_dev_password'),
-  WEB_ORIGIN: z.string().default('http://localhost:3000')
+  WEB_ORIGIN: z.string().default('http://localhost:3000'),
+  STRIPE_SECRET_KEY: z.string().default(''),
+  STRIPE_WEBHOOK_SECRET: z.string().default('')
 });
 
 export const env = schema.parse(process.env);
