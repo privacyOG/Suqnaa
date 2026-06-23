@@ -10,6 +10,9 @@
     "test:security": "tsx src/security/human-protection.test.ts && tsx src/security/risk-policy.test.ts && tsx src/security/turnstile-verifier.test.ts && tsx src/security/challenge-config.test.ts && tsx src/security/rate-limit.test.ts && tsx src/market/order-progress.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
+    "@fastify/multipart": "^10.0.0",
     "argon2": "0.41.1",
     "dotenv": "16.4.7",
     "fastify": "5.2.1",

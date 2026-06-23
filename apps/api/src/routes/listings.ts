@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { sql } from 'kysely';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
@@ -6,6 +7,15 @@ import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import {
+  uploadBuffer,
+  getDeliveryUrl,
+  deleteObject,
+  listingMediaKey,
+  isAllowedImageType,
+  MAX_IMAGE_BYTES,
+  MAX_MEDIA_PER_LISTING
+} from '../services/storage.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
@@ -14,6 +24,11 @@ type ListingStatus = z.infer<typeof listingStatus>;
 
 const listingParams = z.object({
   listingId: z.string().uuid()
+});
+
+const mediaParams = z.object({
+  listingId: z.string().uuid(),
+  mediaId: z.string().uuid()
 });
 
 const listingStatusBody = z.object({
@@ -31,7 +46,15 @@ const allowedStatusTransitions: Record<ListingStatus, ReadonlySet<ListingStatus>
 
 const publicListingsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  before: z.string().datetime().optional()
+  before: z.string().datetime().optional(),
+  q: z.string().trim().max(200).optional(),
+  categoryId: z.string().uuid().optional(),
+  condition: z.enum(['new', 'like_new', 'good', 'fair', 'parts_or_repair']).optional(),
+  minPrice: z.coerce.number().nonnegative().optional(),
+  maxPrice: z.coerce.number().nonnegative().optional(),
+  currency: z.string().length(3).optional(),
+  country: z.string().length(2).optional(),
+  city: z.string().max(120).optional()
 });
 
 const myListingsQuery = z.object({
@@ -98,7 +121,7 @@ function enforcePublicListingLimit(
   return false;
 }
 
-function listingSummary(listing: Record<string, unknown>, seller: Record<string, unknown> | undefined) {
+function listingSummary(listing: Record<string, unknown>, seller: Record<string, unknown> | undefined, coverImageUrl?: string | null) {
   return {
     id: listing.id,
     title: listing.title,
@@ -114,6 +137,7 @@ function listingSummary(listing: Record<string, unknown>, seller: Record<string,
     allowDelivery: listing.allow_delivery,
     publishedAt: listing.published_at,
     createdAt: listing.created_at,
+    coverImageUrl: coverImageUrl ?? null,
     seller: seller
       ? {
           id: seller.id,
@@ -208,6 +232,134 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       }
     });
   });
+
+  // ── Media management (seller) ────────────────────────────────────────────
+
+  app.post('/listings/:listingId/media', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
+    const params = listingParams.parse(request.params);
+    const limited = limitedListingAction(request, authRequest.user.sub);
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const listing = await db.selectFrom('listings')
+      .select(['id', 'seller_id'])
+      .where('id', '=', params.listingId)
+      .executeTakeFirst();
+
+    if (!listing || listing.seller_id !== authRequest.user.sub) {
+      return reply.code(404).send({ error: 'Listing not found' });
+    }
+
+    const existingCount = await db.selectFrom('listing_media')
+      .select((e) => e.fn.countAll<number>().as('count'))
+      .where('listing_id', '=', params.listingId)
+      .executeTakeFirst();
+
+    if (Number(existingCount?.count ?? 0) >= MAX_MEDIA_PER_LISTING) {
+      return reply.code(422).send({ error: `Listings may have at most ${MAX_MEDIA_PER_LISTING} photos` });
+    }
+
+    let fileBuffer: Buffer;
+    let mimeType: string;
+    let sizeBytes: number;
+
+    try {
+      const file = await request.file();
+      if (!file) {
+        return reply.code(400).send({ error: 'No file in request' });
+      }
+
+      mimeType = file.mimetype;
+      if (!isAllowedImageType(mimeType)) {
+        return reply.code(415).send({ error: 'Only JPEG, PNG and WebP images are accepted' });
+      }
+
+      fileBuffer = await file.toBuffer();
+      sizeBytes = fileBuffer.byteLength;
+
+      if (sizeBytes > MAX_IMAGE_BYTES) {
+        return reply.code(413).send({ error: 'Image must be 10 MB or smaller' });
+      }
+    } catch {
+      return reply.code(400).send({ error: 'Could not read uploaded file' });
+    }
+
+    const sortOrder = Number(existingCount?.count ?? 0);
+    const objectKey = listingMediaKey(params.listingId, mimeType);
+
+    await uploadBuffer(objectKey, fileBuffer, mimeType);
+
+    const media = await db.insertInto('listing_media')
+      .values({
+        listing_id: params.listingId,
+        object_key: objectKey,
+        mime_type: mimeType,
+        size_bytes: sizeBytes,
+        sort_order: sortOrder
+      })
+      .returning(['id', 'object_key', 'mime_type', 'sort_order', 'created_at'])
+      .executeTakeFirstOrThrow();
+
+    const url = await getDeliveryUrl(media.object_key);
+
+    return reply.code(201).send({
+      media: {
+        id: media.id,
+        url,
+        mimeType: media.mime_type,
+        sortOrder: media.sort_order,
+        createdAt: media.created_at
+      }
+    });
+  });
+
+  app.post('/listings/:listingId/media/:mediaId/delete', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
+    const params = mediaParams.parse(request.params);
+    const limited = limitedListingAction(request, authRequest.user.sub);
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const listing = await db.selectFrom('listings')
+      .select(['id', 'seller_id'])
+      .where('id', '=', params.listingId)
+      .executeTakeFirst();
+
+    if (!listing || listing.seller_id !== authRequest.user.sub) {
+      return reply.code(404).send({ error: 'Listing not found' });
+    }
+
+    const media = await db.selectFrom('listing_media')
+      .select(['id', 'object_key'])
+      .where('id', '=', params.mediaId)
+      .where('listing_id', '=', params.listingId)
+      .executeTakeFirst();
+
+    if (!media) {
+      return reply.code(404).send({ error: 'Media not found' });
+    }
+
+    try {
+      await deleteObject(media.object_key);
+    } catch {
+      // If S3 delete fails, still remove from DB so UI stays consistent
+    }
+
+    await db.deleteFrom('listing_media')
+      .where('id', '=', media.id)
+      .execute();
+
+    return reply.send({ deleted: true });
+  });
+
+  // ── Listing status update ─────────────────────────────────────────────────
 
   app.post('/listings/:listingId/status', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
@@ -305,6 +457,8 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
+  // ── Public catalog ────────────────────────────────────────────────────────
+
   app.get('/listings', async (request, reply) => {
     if (!enforcePublicListingLimit(request, reply, 'listing.public_list', 300)) {
       return;
@@ -331,6 +485,33 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       ])
       .where('status', '=', 'active');
 
+    if (query.q) {
+      const searchTerm = query.q;
+      listingsQuery = listingsQuery.where(
+        sql<boolean>`to_tsvector('simple', title || ' ' || description) @@ plainto_tsquery('simple', ${searchTerm})`
+      );
+    }
+    if (query.categoryId) {
+      listingsQuery = listingsQuery.where('category_id', '=', query.categoryId);
+    }
+    if (query.condition) {
+      listingsQuery = listingsQuery.where('condition', '=', query.condition);
+    }
+    if (query.minPrice !== undefined) {
+      listingsQuery = listingsQuery.where('price_amount', '>=', String(query.minPrice));
+    }
+    if (query.maxPrice !== undefined) {
+      listingsQuery = listingsQuery.where('price_amount', '<=', String(query.maxPrice));
+    }
+    if (query.currency) {
+      listingsQuery = listingsQuery.where('currency_code', '=', query.currency.toUpperCase());
+    }
+    if (query.country) {
+      listingsQuery = listingsQuery.where('country_code', '=', query.country.toUpperCase());
+    }
+    if (query.city) {
+      listingsQuery = listingsQuery.where('city', 'ilike', `%${query.city}%`);
+    }
     if (query.before) {
       listingsQuery = listingsQuery.where('created_at', '<', new Date(query.before));
     }
@@ -341,17 +522,53 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       .execute();
     const hasMore = rows.length > query.limit;
     const page = rows.slice(0, query.limit);
-    const summaries = await Promise.all(page.map(async (listing) => {
-      const seller = await db.selectFrom('users')
-        .select(['id', 'display_name', 'status'])
-        .where('id', '=', listing.seller_id)
-        .executeTakeFirst();
-      return listingSummary(listing, seller);
-    }));
-    const last = page.at(-1);
 
+    const listingIds = page.map((l) => l.id);
+    const [sellerRows, allCoverMedia] = await Promise.all([
+      listingIds.length > 0
+        ? db.selectFrom('users')
+            .select(['id', 'display_name', 'status'])
+            .where('id', 'in', page.map((l) => l.seller_id))
+            .execute()
+        : Promise.resolve([]),
+      listingIds.length > 0
+        ? db.selectFrom('listing_media')
+            .select(['listing_id', 'object_key'])
+            .where('listing_id', 'in', listingIds)
+            .orderBy('sort_order', 'asc')
+            .execute()
+        : Promise.resolve([])
+    ]);
+
+    const sellerMap = new Map(sellerRows.map((s) => [s.id, s]));
+    const coverKeyMap = new Map<string, string>();
+    for (const m of allCoverMedia) {
+      if (!coverKeyMap.has(m.listing_id)) {
+        coverKeyMap.set(m.listing_id, m.object_key);
+      }
+    }
+
+    const coverUrlMap = new Map<string, string>();
+    await Promise.all(
+      Array.from(coverKeyMap.entries()).map(async ([listingId, objectKey]) => {
+        try {
+          const url = await getDeliveryUrl(objectKey);
+          coverUrlMap.set(listingId, url);
+        } catch {
+          // Delivery URL generation failure should not break the catalog
+        }
+      })
+    );
+
+    const last = page.at(-1);
     return reply.send({
-      listings: summaries,
+      listings: page.map((listing) =>
+        listingSummary(
+          listing,
+          sellerMap.get(listing.seller_id),
+          coverUrlMap.get(listing.id)
+        )
+      ),
       pagination: {
         hasMore,
         nextCursor: hasMore && last
@@ -360,6 +577,8 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       }
     });
   });
+
+  // ── Public listing detail ─────────────────────────────────────────────────
 
   app.get('/listings/:listingId', async (request, reply) => {
     if (!enforcePublicListingLimit(request, reply, 'listing.public_detail', 300)) {
@@ -397,7 +616,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ error: 'Listing not found' });
     }
 
-    const [seller, profile, verification, category, mediaCount] = await Promise.all([
+    const [seller, profile, verification, category, mediaRows] = await Promise.all([
       db.selectFrom('users')
         .select(['id', 'display_name', 'status', 'email_verified_at', 'phone_verified_at'])
         .where('id', '=', listing.seller_id)
@@ -418,14 +637,34 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
             .executeTakeFirst()
         : Promise.resolve(undefined),
       db.selectFrom('listing_media')
-        .select((expression) => expression.fn.countAll<number>().as('count'))
+        .select(['id', 'object_key', 'mime_type', 'width', 'height', 'sort_order'])
         .where('listing_id', '=', listing.id)
-        .executeTakeFirst()
+        .orderBy('sort_order', 'asc')
+        .execute()
     ]);
 
     if (!seller || seller.status === 'suspended' || seller.status === 'closed') {
       return reply.code(404).send({ error: 'Listing not found' });
     }
+
+    const mediaItems = await Promise.all(
+      mediaRows.map(async (m) => {
+        let url: string | null = null;
+        try {
+          url = await getDeliveryUrl(m.object_key);
+        } catch {
+          // URL generation failure should not break the listing page
+        }
+        return {
+          id: m.id,
+          url,
+          mimeType: m.mime_type,
+          width: m.width,
+          height: m.height,
+          sortOrder: m.sort_order
+        };
+      })
+    );
 
     return reply.send({
       listing: {
@@ -446,7 +685,8 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
         expiresAt: listing.expires_at,
         createdAt: listing.created_at,
         updatedAt: listing.updated_at,
-        mediaCount: Number(mediaCount?.count ?? 0),
+        mediaCount: mediaItems.length,
+        media: mediaItems,
         category: category
           ? {
               id: category.id,
@@ -476,6 +716,8 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       }
     });
   });
+
+  // ── Create listing draft ──────────────────────────────────────────────────
 
   app.post('/listings', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;

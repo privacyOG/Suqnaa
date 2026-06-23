@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
+import multipart from '@fastify/multipart';
 import { env } from './config/env.js';
+import { ensureBucket } from './services/storage.js';
 import { accountRoutes } from './routes/account.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
@@ -16,6 +18,8 @@ import { sessionManagementRoutes } from './routes/session-management.js';
 const app = Fastify({
   logger: env.NODE_ENV !== 'test'
 });
+
+await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
 const webOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
 
@@ -64,6 +68,12 @@ await app.register(offerWorkflowRoutes, { prefix: '/v1' });
 await app.register(orderActivityRoutes, { prefix: '/v1' });
 await app.register(messageRoutes, { prefix: '/v1' });
 await app.register(sessionManagementRoutes, { prefix: '/v1' });
+
+try {
+  await ensureBucket(env.WEB_ORIGIN);
+} catch (error) {
+  app.log.warn({ error }, 'Could not initialize storage bucket — uploads will be unavailable');
+}
 
 try {
   await app.listen({ host: env.API_HOST, port: env.API_PORT });
