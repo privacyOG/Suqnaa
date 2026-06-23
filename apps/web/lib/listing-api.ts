@@ -1,5 +1,13 @@
 import { getAuthed, postAuthed, type JsonBody } from './authed-api';
 
+export interface ListingMediaItem {
+  id: string;
+  url: string | null;
+  mimeType: string;
+  sortOrder: number;
+  createdAt?: string;
+}
+
 export type ListingCondition =
   | 'new'
   | 'like_new'
@@ -122,5 +130,46 @@ export function updateListingStatus(
     `/v1/listings/${encodeURIComponent(listingId)}/status`,
     { status },
     challengeResponse
+  );
+}
+
+export async function uploadListingMedia(
+  listingId: string,
+  file: File
+): Promise<{ media: ListingMediaItem }> {
+  const form = new FormData();
+  form.append('file', file);
+
+  const response = await fetch(
+    `/api/upload/${encodeURIComponent(listingId)}`,
+    {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: form
+    }
+  );
+
+  if (!response.ok) {
+    let message = 'Photo upload failed';
+    try {
+      const payload = await response.json() as { error?: string };
+      if (payload.error) {
+        message = payload.error;
+      }
+    } catch { /* ignore */ }
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<{ media: ListingMediaItem }>;
+}
+
+export function deleteListingMedia(
+  listingId: string,
+  mediaId: string
+): Promise<{ deleted: boolean }> {
+  return postAuthed<{ deleted: boolean }>(
+    `/v1/listings/${encodeURIComponent(listingId)}/media/${encodeURIComponent(mediaId)}/delete`,
+    {}
   );
 }

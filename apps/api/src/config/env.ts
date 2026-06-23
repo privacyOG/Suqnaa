@@ -16,7 +16,13 @@ const schema = z.object({
   ASSISTANT_ENABLED: z.coerce.boolean().default(false),
   ASSISTANT_PROVIDER: z.enum(['none', 'remote', 'local']).default('none'),
   ASSISTANT_BASE_URL: z.string().optional().default(''),
-  ASSISTANT_API_KEY: z.string().optional().default('')
+  ASSISTANT_API_KEY: z.string().optional().default(''),
+  S3_ENDPOINT: z.string().default('http://localhost:9000'),
+  S3_REGION: z.string().default('auto'),
+  S3_BUCKET: z.string().default('suqnaa-local'),
+  S3_ACCESS_KEY: z.string().default('suqnaa'),
+  S3_SECRET_KEY: z.string().default('suqnaa_dev_password'),
+  WEB_ORIGIN: z.string().default('http://localhost:3000')
 });
 
 export const env = schema.parse(process.env);

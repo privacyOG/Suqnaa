@@ -134,14 +134,27 @@ export default async function ListingDetailPage({
 
       <section className="listing-detail-layout">
         <div className="listing-detail-main">
-          <div className="listing-media-placeholder" aria-label={isArabic ? 'صورة الإعلان' : 'Listing image'}>
-            <span>{listing.title.slice(0, 1).toUpperCase()}</span>
-            <small>
-              {listing.mediaCount > 0
-                ? (isArabic ? `${listing.mediaCount} صور محفوظة بأمان` : `${listing.mediaCount} photos stored securely`)
-                : (isArabic ? 'لا توجد صور عامة بعد' : 'No public photos yet')}
-            </small>
-          </div>
+          {listing.media && listing.media.length > 0 ? (
+            <div className="listing-media-gallery" aria-label={isArabic ? 'صور الإعلان' : 'Listing photos'}>
+              {listing.media.map((item, index) =>
+                item.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={item.id}
+                    src={item.url}
+                    alt={`${listing.title} — ${isArabic ? 'صورة' : 'photo'} ${index + 1}`}
+                    className={`listing-media-img${index === 0 ? ' listing-media-img--cover' : ''}`}
+                    style={{ objectFit: 'cover' }}
+                  />
+                ) : null
+              )}
+            </div>
+          ) : (
+            <div className="listing-media-placeholder" aria-label={isArabic ? 'صورة الإعلان' : 'Listing image'}>
+              <span>{listing.title.slice(0, 1).toUpperCase()}</span>
+              <small>{isArabic ? 'لا توجد صور بعد' : 'No photos yet'}</small>
+            </div>
+          )}
 
           <article className="listing-description-card">
             <div className="listing-detail-tags">

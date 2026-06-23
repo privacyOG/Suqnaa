@@ -1,11 +1,14 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { AuthedRequestError } from '../lib/authed-api';
 import {
   createListingDraft,
+  uploadListingMedia,
+  deleteListingMedia,
   type ListingCondition,
-  type ListingDraftResponse
+  type ListingDraftResponse,
+  type ListingMediaItem
 } from '../lib/listing-api';
 import {
   getChallengeConfiguration,
@@ -48,6 +51,136 @@ function errorMessage(
   return isArabic
     ? 'تعذر حفظ الإعلان حالياً. حاول مرة أخرى.'
     : 'The listing could not be saved right now. Please try again.';
+}
+
+interface UploadedPhoto extends ListingMediaItem {
+  localPreview?: string;
+}
+
+function PhotoUploadSection({
+  listingId,
+  isArabic
+}: {
+  listingId: string;
+  isArabic: boolean;
+}) {
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    const remaining = 10 - photos.length;
+    const toUpload = Array.from(files).slice(0, remaining);
+
+    setUploading(true);
+    setUploadError(null);
+
+    for (const file of toUpload) {
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadError(isArabic ? 'حجم الصورة يجب أن يكون أقل من 10 ميجابايت.' : 'Each photo must be 10 MB or smaller.');
+        continue;
+      }
+
+      const localPreview = URL.createObjectURL(file);
+
+      try {
+        const result = await uploadListingMedia(listingId, file);
+        setPhotos((prev) => [
+          ...prev,
+          { ...result.media, localPreview }
+        ]);
+      } catch (err) {
+        URL.revokeObjectURL(localPreview);
+        const msg = err instanceof Error ? err.message : '';
+        setUploadError(
+          msg ||
+          (isArabic ? 'تعذر رفع الصورة. حاول مرة أخرى.' : 'Photo upload failed. Please try again.')
+        );
+      }
+    }
+
+    setUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
+
+  async function handleDelete(mediaId: string) {
+    try {
+      await deleteListingMedia(listingId, mediaId);
+      setPhotos((prev) => {
+        const removed = prev.find((p) => p.id === mediaId);
+        if (removed?.localPreview) {
+          URL.revokeObjectURL(removed.localPreview);
+        }
+        return prev.filter((p) => p.id !== mediaId);
+      });
+    } catch {
+      setUploadError(isArabic ? 'تعذر حذف الصورة.' : 'Could not delete the photo.');
+    }
+  }
+
+  return (
+    <div className="photo-upload-section">
+      <h3>{isArabic ? 'أضف صوراً للإعلان' : 'Add photos to your listing'}</h3>
+      <p className="photo-hint">
+        {isArabic
+          ? 'تزيد الصور من فرصة البيع. يمكنك رفع حتى 10 صور (JPEG أو PNG أو WebP).'
+          : 'Photos improve your chances of selling. Up to 10 images (JPEG, PNG or WebP).'}
+      </p>
+
+      {photos.length > 0 && (
+        <div className="photo-grid">
+          {photos.map((photo) => (
+            <div key={photo.id} className="photo-thumb">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.localPreview ?? photo.url ?? ''}
+                alt=""
+                width={96}
+                height={96}
+                style={{ objectFit: 'cover', borderRadius: 8 }}
+              />
+              <button
+                type="button"
+                className="photo-delete-btn"
+                aria-label={isArabic ? 'حذف الصورة' : 'Delete photo'}
+                onClick={() => handleDelete(photo.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {photos.length < 10 && (
+        <label className="photo-upload-label">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => handleFiles(e.target.files)}
+            disabled={uploading}
+          />
+          <span className="button-secondary">
+            {uploading
+              ? (isArabic ? 'جارٍ الرفع…' : 'Uploading…')
+              : (isArabic ? 'اختر صوراً' : 'Choose photos')}
+          </span>
+        </label>
+      )}
+
+      {uploadError && (
+        <p className="auth-error" role="alert">{uploadError}</p>
+      )}
+    </div>
+  );
 }
 
 export function SellListingForm({ locale }: SellListingFormProps) {
@@ -167,6 +300,32 @@ export function SellListingForm({ locale }: SellListingFormProps) {
     );
   }
 
+  if (created) {
+    return (
+      <div className="listing-created-shell">
+        <div className="listing-success" role="status">
+          <strong>{isArabic ? 'تم حفظ المسودة' : 'Draft saved'}</strong>
+          <span>{created.title}</span>
+        </div>
+
+        <PhotoUploadSection listingId={created.id} isArabic={isArabic} />
+
+        <div className="listing-post-create-actions">
+          <a className="button-primary" href={`/${locale}/sell/manage`}>
+            {isArabic ? 'إدارة إعلاناتي' : 'Manage my listings'}
+          </a>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => setCreated(null)}
+          >
+            {isArabic ? 'نشر إعلان آخر' : 'Create another listing'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form className="form-grid listing-form" onSubmit={handleSubmit}>
       <label>
@@ -277,16 +436,6 @@ export function SellListingForm({ locale }: SellListingFormProps) {
       ) : null}
 
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
-
-      {created ? (
-        <div className="listing-success" role="status">
-          <strong>{isArabic ? 'تم حفظ المسودة' : 'Draft saved'}</strong>
-          <span>{created.title}</span>
-          <a href={`/${locale}/sell/manage`}>
-            {isArabic ? 'إدارة إعلاناتي' : 'Manage my listings'}
-          </a>
-        </div>
-      ) : null}
 
       <button
         className="button-primary"
