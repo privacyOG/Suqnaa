@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'suqnaa_api.dart';
+import '../config/mobile_environment.dart';
 
 class PublicListingApi {
-  PublicListingApi({SuqnaaApi? api, http.Client? client})
-      : _baseUrl = (api ?? SuqnaaApi()).baseUrl,
+  PublicListingApi({Uri? baseUrl, http.Client? client})
+      : _baseUrl = baseUrl ?? Uri.parse(MobileEnvironment.apiBaseUrl),
         _client = client ?? http.Client();
 
   final Uri _baseUrl;
