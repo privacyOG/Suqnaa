@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
 import '../../brand/brand.dart';
 import '../account/account_screen.dart';
+import '../marketplace/marketplace_screen.dart';
 import '../sell/create_listing_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -18,6 +19,13 @@ class HomeScreen extends StatelessWidget {
         elevation: 0,
         title: Text(text.appName),
         actions: [
+          IconButton(
+            tooltip: 'Marketplace',
+            icon: const Icon(Icons.storefront_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MarketplaceScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Account',
             icon: const Icon(Icons.person_outline),
@@ -51,9 +59,20 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 18),
           _HeroCard(title: text.heroTitle, action: text.shopNow),
           const SizedBox(height: 24),
-          Text(
-            text.trendingNearYou,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                text.trendingNearYou,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MarketplaceScreen()),
+                ),
+                child: const Text('See all'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           const _ProductGrid(),
@@ -72,15 +91,22 @@ class _SearchBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: const Icon(Icons.search),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MarketplaceScreen()),
+      ),
+      child: AbsorbPointer(
+        child: TextField(
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: const Icon(Icons.search),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide.none,
+            ),
+          ),
         ),
       ),
     );
@@ -152,11 +178,18 @@ class _HeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            action,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MarketplaceScreen()),
+            ),
+            child: Text(
+              action,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.white,
+              ),
             ),
           ),
         ],

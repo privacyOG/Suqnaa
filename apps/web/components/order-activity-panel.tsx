@@ -391,7 +391,18 @@ export function OrderActivityDetail({ locale, orderId }: { locale: string; order
           <a className="button-secondary" href={`/${locale}/activity/orders`}>
             {isArabic ? 'العودة إلى الطلبات' : 'Back to orders'}
           </a>
-          {order.listing ? (
+          {order.status === 'pending' && order.role === 'buyer' && order.paymentMethod === 'card' ? (
+            <>
+              <a className="button-primary" href={`/${locale}/checkout/${order.id}`}>
+                {isArabic ? 'ادفع الآن' : 'Pay now'}
+              </a>
+              {order.listing ? (
+                <a className="button-secondary" href={`/${locale}/listings/${order.listing.id}`}>
+                  {isArabic ? 'عرض الإعلان' : 'View listing'}
+                </a>
+              ) : null}
+            </>
+          ) : order.listing ? (
             <a className="button-primary" href={`/${locale}/listings/${order.listing.id}`}>
               {isArabic ? 'عرض الإعلان' : 'View listing'}
             </a>

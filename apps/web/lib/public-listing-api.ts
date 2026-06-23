@@ -11,6 +11,15 @@ export interface PublicSellerSummary {
   status: string;
 }
 
+export interface PublicMediaItem {
+  id: string;
+  url: string | null;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  sortOrder: number;
+}
+
 export interface PublicListingSummary {
   id: string;
   title: string;
@@ -26,6 +35,7 @@ export interface PublicListingSummary {
   allowDelivery: boolean;
   publishedAt: string | null;
   createdAt: string;
+  coverImageUrl: string | null;
   seller: PublicSellerSummary | null;
 }
 
@@ -34,6 +44,7 @@ export interface PublicListingDetail extends Omit<PublicListingSummary, 'seller'
   expiresAt: string | null;
   updatedAt: string;
   mediaCount: number;
+  media: PublicMediaItem[];
   category: {
     id: string;
     slug: string;
@@ -98,6 +109,14 @@ async function readJson<T>(response: Response, fallback: string): Promise<T> {
 export async function getPublicListings(options: {
   limit?: number;
   before?: string;
+  q?: string;
+  categoryId?: string;
+  condition?: PublicListingCondition;
+  minPrice?: number;
+  maxPrice?: number;
+  currency?: string;
+  country?: string;
+  city?: string;
 } = {}): Promise<PublicListingsResponse> {
   const query = new URLSearchParams();
   if (options.limit !== undefined) {
@@ -105,6 +124,30 @@ export async function getPublicListings(options: {
   }
   if (options.before) {
     query.set('before', options.before);
+  }
+  if (options.q) {
+    query.set('q', options.q);
+  }
+  if (options.categoryId) {
+    query.set('categoryId', options.categoryId);
+  }
+  if (options.condition) {
+    query.set('condition', options.condition);
+  }
+  if (options.minPrice !== undefined) {
+    query.set('minPrice', String(options.minPrice));
+  }
+  if (options.maxPrice !== undefined) {
+    query.set('maxPrice', String(options.maxPrice));
+  }
+  if (options.currency) {
+    query.set('currency', options.currency);
+  }
+  if (options.country) {
+    query.set('country', options.country);
+  }
+  if (options.city) {
+    query.set('city', options.city);
   }
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
