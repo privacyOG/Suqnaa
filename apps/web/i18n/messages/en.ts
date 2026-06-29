@@ -31,5 +31,14 @@ export const en = {
   assistant: {
     title: 'Marketplace assistant',
     body: 'Get help writing listings, comparing items, and understanding safe trade steps.'
+  },
+  footer: {
+    tagline: 'Trusted local and regional trade, built with safety, fairness, and quality-first marketplace standards.',
+    terms: 'Terms',
+    privacy: 'Privacy',
+    prohibitedItems: 'Prohibited items',
+    safety: 'Safety',
+    contact: 'Contact',
+    status: 'Beta readiness content. Final policies must be reviewed before public launch.'
   }
 } as const;
