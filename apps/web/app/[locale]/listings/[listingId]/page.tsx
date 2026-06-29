@@ -6,6 +6,7 @@ import { loadAccountSessionState } from '../../../../lib/account-session-state';
 import {
   getPublicListing,
   PublicListingRequestError,
+  type PublicListingAvailabilityStatus,
   type PublicListingDetail
 } from '../../../../lib/public-listing-api';
 
@@ -50,6 +51,24 @@ function conditionLabel(condition: PublicListingDetail['condition'], isArabic: b
     parts_or_repair: ['Parts or repair', 'للقطع أو الإصلاح']
   };
   return labels[condition][isArabic ? 1 : 0];
+}
+
+function availabilityLabel(status: PublicListingAvailabilityStatus, isArabic: boolean): string {
+  const labels: Record<PublicListingAvailabilityStatus, [string, string]> = {
+    in_stock: ['In stock', 'متوفر'],
+    limited: ['Limited stock', 'كمية محدودة'],
+    out_of_stock: ['Out of stock', 'غير متوفر'],
+    service_available: ['Service available', 'خدمة متاحة']
+  };
+  return labels[status][isArabic ? 1 : 0];
+}
+
+function quantityLabel(listing: PublicListingDetail, isArabic: boolean): string {
+  if (listing.availableQuantity === null) {
+    return availabilityLabel(listing.availabilityStatus, isArabic);
+  }
+  const unit = listing.unitLabel ?? (isArabic ? 'عنصر' : 'item');
+  return `${listing.availableQuantity} ${unit}`;
 }
 
 function verificationLabel(status: string, isArabic: boolean): string {
@@ -113,6 +132,7 @@ export default async function ListingDetailPage({
     : (isArabic ? 'أخرى' : 'Other');
   const sellerDisplayName = listing.seller.businessName || listing.seller.displayName;
   const verifiedContact = listing.seller.emailVerified || listing.seller.phoneVerified;
+  const primaryPhoto = listing.media[0];
 
   return (
     <main className="page-shell catalog-page">
@@ -134,19 +154,38 @@ export default async function ListingDetailPage({
 
       <section className="listing-detail-layout">
         <div className="listing-detail-main">
-          <div className="listing-media-placeholder" aria-label={isArabic ? 'صورة الإعلان' : 'Listing image'}>
-            <span>{listing.title.slice(0, 1).toUpperCase()}</span>
-            <small>
-              {listing.mediaCount > 0
-                ? (isArabic ? `${listing.mediaCount} صور محفوظة بأمان` : `${listing.mediaCount} photos stored securely`)
-                : (isArabic ? 'لا توجد صور عامة بعد' : 'No public photos yet')}
-            </small>
-          </div>
+          {primaryPhoto ? (
+            <div className="listing-media-gallery" aria-label={isArabic ? 'صور الإعلان' : 'Listing photos'}>
+              <img
+                className="listing-media-main-photo"
+                src={primaryPhoto.url}
+                alt={primaryPhoto.altText ?? listing.title}
+              />
+              {listing.media.length > 1 ? (
+                <div className="listing-media-thumbnails">
+                  {listing.media.slice(1).map((media) => (
+                    <img
+                      key={media.id}
+                      src={media.url}
+                      alt={media.altText ?? listing.title}
+                      loading="lazy"
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="listing-media-placeholder" aria-label={isArabic ? 'صورة الإعلان' : 'Listing image'}>
+              <span>{listing.title.slice(0, 1).toUpperCase()}</span>
+              <small>{isArabic ? 'لا توجد صور عامة بعد' : 'No public photos yet'}</small>
+            </div>
+          )}
 
           <article className="listing-description-card">
             <div className="listing-detail-tags">
               <span>{categoryName}</span>
               <span>{conditionLabel(listing.condition, isArabic)}</span>
+              <span>{availabilityLabel(listing.availabilityStatus, isArabic)}</span>
               <span>{isArabic ? 'نشط' : 'Active'}</span>
             </div>
             <h1>{listing.title}</h1>
@@ -160,6 +199,14 @@ export default async function ListingDetailPage({
               <div>
                 <dt>{isArabic ? 'الحالة' : 'Condition'}</dt>
                 <dd>{conditionLabel(listing.condition, isArabic)}</dd>
+              </div>
+              <div>
+                <dt>{isArabic ? 'التوفر' : 'Availability'}</dt>
+                <dd>{quantityLabel(listing, isArabic)}</dd>
+              </div>
+              <div>
+                <dt>{isArabic ? 'الصور' : 'Photos'}</dt>
+                <dd>{listing.mediaCount}</dd>
               </div>
               <div>
                 <dt>{isArabic ? 'نشر في' : 'Published'}</dt>
