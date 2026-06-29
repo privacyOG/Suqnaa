@@ -5,6 +5,24 @@ export type PublicListingCondition =
   | 'fair'
   | 'parts_or_repair';
 
+export type PublicListingAvailabilityStatus =
+  | 'in_stock'
+  | 'limited'
+  | 'out_of_stock'
+  | 'service_available';
+
+export interface PublicListingMedia {
+  id: string;
+  url: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  sizeBytes: number;
+  sortOrder: number;
+  altText: string | null;
+  createdAt: string;
+}
+
 export interface PublicSellerSummary {
   id: string;
   displayName: string;
@@ -18,6 +36,9 @@ export interface PublicListingSummary {
   priceAmount: string | number;
   currencyCode: string;
   condition: PublicListingCondition;
+  availabilityStatus: PublicListingAvailabilityStatus;
+  availableQuantity: number | null;
+  unitLabel: string | null;
   countryCode: string;
   region: string | null;
   city: string | null;
@@ -26,6 +47,8 @@ export interface PublicListingSummary {
   allowDelivery: boolean;
   publishedAt: string | null;
   createdAt: string;
+  media: PublicListingMedia[];
+  mediaCount: number;
   seller: PublicSellerSummary | null;
 }
 
@@ -33,7 +56,6 @@ export interface PublicListingDetail extends Omit<PublicListingSummary, 'seller'
   status: 'active';
   expiresAt: string | null;
   updatedAt: string;
-  mediaCount: number;
   category: {
     id: string;
     slug: string;
@@ -77,6 +99,16 @@ const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   'http://localhost:4000';
 
+function withAbsoluteMediaUrls<T extends { media?: PublicListingMedia[] }>(listing: T): T {
+  return {
+    ...listing,
+    media: (listing.media ?? []).map((media) => ({
+      ...media,
+      url: media.url.startsWith('http') ? media.url : `${apiBaseUrl}${media.url}`
+    }))
+  };
+}
+
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
   let payload: unknown = {};
   try {
@@ -112,7 +144,11 @@ export async function getPublicListings(options: {
     cache: 'no-store',
     headers: { accept: 'application/json' }
   });
-  return readJson<PublicListingsResponse>(response, 'Unable to load listings');
+  const payload = await readJson<PublicListingsResponse>(response, 'Unable to load listings');
+  return {
+    ...payload,
+    listings: payload.listings.map(withAbsoluteMediaUrls)
+  };
 }
 
 export async function getPublicListing(listingId: string): Promise<PublicListingDetail> {
@@ -124,5 +160,5 @@ export async function getPublicListing(listingId: string): Promise<PublicListing
     response,
     'Unable to load listing'
   );
-  return payload.listing;
+  return withAbsoluteMediaUrls(payload.listing);
 }
