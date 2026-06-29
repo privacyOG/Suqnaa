@@ -18,7 +18,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Seller draft creation and listing management pages exist.
 - [x] Footer navigation links to draft Terms, Privacy, item rules, safety, and contact pages.
 - [x] Draft bilingual policy pages exist under `/{locale}/policy/{pageSlug}`.
-- [x] Seller listing form supports photo uploads, availability status, quantity, and unit label.
+- [x] Seller listing form supports category selection, photo uploads, availability status, quantity, and unit label.
 - [x] Public catalog and listing details can display uploaded listing photos.
 - [ ] Replace local development media storage with production object storage or signed media delivery.
 - [ ] Replace draft policy copy with final legally reviewed terms, privacy, item-rules, safety, and contact content.
@@ -69,7 +69,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Buyer-to-seller messaging and offer flows exist at code level.
 - [x] Listing photo upload and display exists for staging/development.
 - [x] Item and service availability fields exist.
-- [ ] Category selection must be exposed in the listing form.
+- [x] Category selection is exposed in the listing form.
 - [ ] Reporting flows for users/listings must be exposed in the web UI.
 - [ ] Admin review and takedown tools must be created before public launch.
 - [ ] Final item rules must be written and reviewed.
