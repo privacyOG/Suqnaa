@@ -3,6 +3,7 @@ import { isLocale } from '../../../i18n/locales';
 import {
   getPublicListings,
   PublicListingRequestError,
+  type PublicListingAvailabilityStatus,
   type PublicListingSummary
 } from '../../../lib/public-listing-api';
 
@@ -32,6 +33,16 @@ function conditionLabel(condition: PublicListingSummary['condition'], isArabic: 
     parts_or_repair: ['Parts or repair', 'للقطع أو الإصلاح']
   };
   return labels[condition][isArabic ? 1 : 0];
+}
+
+function availabilityLabel(status: PublicListingAvailabilityStatus, isArabic: boolean): string {
+  const labels: Record<PublicListingAvailabilityStatus, [string, string]> = {
+    in_stock: ['In stock', 'متوفر'],
+    limited: ['Limited', 'كمية محدودة'],
+    out_of_stock: ['Out of stock', 'غير متوفر'],
+    service_available: ['Service', 'خدمة']
+  };
+  return labels[status][isArabic ? 1 : 0];
 }
 
 export default async function PublicListingsPage({
@@ -113,15 +124,21 @@ export default async function PublicListingsPage({
               .filter(Boolean)
               .join(', ');
             const sellerName = listing.seller?.displayName ?? (isArabic ? 'بائع سوقنا' : 'Suqnaa seller');
+            const firstPhoto = listing.media[0];
 
             return (
               <article className="catalog-card" key={listing.id}>
                 <a className="catalog-visual" href={`/${params.locale}/listings/${listing.id}`} aria-label={listing.title}>
-                  <span>{listing.title.slice(0, 1).toUpperCase()}</span>
+                  {firstPhoto ? (
+                    <img src={firstPhoto.url} alt={firstPhoto.altText ?? listing.title} loading="lazy" />
+                  ) : (
+                    <span>{listing.title.slice(0, 1).toUpperCase()}</span>
+                  )}
                 </a>
                 <div className="catalog-card-body">
                   <div className="catalog-card-tags">
                     <span>{conditionLabel(listing.condition, isArabic)}</span>
+                    <span>{availabilityLabel(listing.availabilityStatus, isArabic)}</span>
                     <span>{listing.allowDelivery ? (isArabic ? 'توصيل' : 'Delivery') : (isArabic ? 'استلام' : 'Pickup')}</span>
                   </div>
                   <h2>
