@@ -14,7 +14,8 @@ const apiBaseUrl =
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   'http://localhost:4000';
-const maximumRequestBodyBytes = 64 * 1024;
+const defaultMaximumRequestBodyBytes = 64 * 1024;
+const mediaMaximumRequestBodyBytes = 6 * 1024 * 1024;
 const maximumChallengeLength = 2048;
 
 interface RouteContext {
@@ -36,6 +37,12 @@ function errorResponse(message: string, status: number, retryAfter?: string): Ne
     response.headers.set('Retry-After', retryAfter);
   }
   return response;
+}
+
+function maximumBodyBytesForRoute(route: NonNullable<ReturnType<typeof resolveProtectedRoute>>): number {
+  return /^\/v1\/listings\/[0-9a-fA-F-]+\/media$/.test(route.path)
+    ? mediaMaximumRequestBodyBytes
+    : defaultMaximumRequestBodyBytes;
 }
 
 async function prepareRequest(
@@ -65,7 +72,7 @@ async function prepareRequest(
   }
 
   const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).byteLength > maximumRequestBodyBytes) {
+  if (new TextEncoder().encode(rawBody).byteLength > maximumBodyBytesForRoute(route)) {
     return errorResponse('Request body is too large', 413);
   }
 
