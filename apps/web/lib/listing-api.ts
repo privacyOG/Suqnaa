@@ -123,6 +123,22 @@ export interface ListingStatusResponse {
   };
 }
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+
+function withAbsoluteMediaUrl(media: ListingMedia): ListingMedia {
+  return {
+    ...media,
+    url: media.url.startsWith('http') ? media.url : `${apiBaseUrl}${media.url}`
+  };
+}
+
+function normalizeListingMedia(listing: SellerListing): SellerListing {
+  return {
+    ...listing,
+    media: listing.media.map(withAbsoluteMediaUrl)
+  };
+}
+
 export function createListingDraft(
   input: ListingDraftInput,
   challengeResponse?: string
@@ -134,19 +150,23 @@ export function createListingDraft(
   );
 }
 
-export function uploadListingMedia(
+export async function uploadListingMedia(
   listingId: string,
   input: ListingMediaUploadInput,
   challengeResponse?: string
 ): Promise<ListingMediaUploadResponse> {
-  return postAuthed<ListingMediaUploadResponse>(
+  const response = await postAuthed<ListingMediaUploadResponse>(
     `/v1/listings/${encodeURIComponent(listingId)}/media`,
     input,
     challengeResponse
   );
+  return {
+    ...response,
+    media: withAbsoluteMediaUrl(response.media)
+  };
 }
 
-export function getMyListings(
+export async function getMyListings(
   options: MyListingsOptions = {}
 ): Promise<MyListingsResponse> {
   const query = new URLSearchParams();
@@ -162,9 +182,13 @@ export function getMyListings(
   }
 
   const encoded = query.toString();
-  return getAuthed<MyListingsResponse>(
+  const response = await getAuthed<MyListingsResponse>(
     encoded ? `/v1/listings/mine?${encoded}` : '/v1/listings/mine'
   );
+  return {
+    ...response,
+    listings: response.listings.map(normalizeListingMedia)
+  };
 }
 
 export function updateListingStatus(
