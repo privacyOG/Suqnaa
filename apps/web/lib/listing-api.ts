@@ -15,6 +15,24 @@ export type ListingStatus =
   | 'expired'
   | 'removed';
 
+export type ListingAvailabilityStatus =
+  | 'in_stock'
+  | 'limited'
+  | 'out_of_stock'
+  | 'service_available';
+
+export interface ListingMedia {
+  id: string;
+  url: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  sizeBytes: number;
+  sortOrder: number;
+  altText: string | null;
+  createdAt: string;
+}
+
 export interface ListingDraftInput extends JsonBody {
   categoryId?: string;
   title: string;
@@ -22,6 +40,9 @@ export interface ListingDraftInput extends JsonBody {
   priceAmount: number;
   currencyCode: string;
   condition: ListingCondition;
+  availabilityStatus?: ListingAvailabilityStatus;
+  availableQuantity?: number;
+  unitLabel?: string;
   countryCode: string;
   region?: string;
   city?: string;
@@ -39,6 +60,22 @@ export interface ListingDraftResponse {
   };
 }
 
+export interface ListingMediaUploadInput extends JsonBody {
+  fileName: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  sizeBytes: number;
+  base64Data: string;
+  width?: number;
+  height?: number;
+  altText?: string;
+  sortOrder?: number;
+}
+
+export interface ListingMediaUploadResponse {
+  media: ListingMedia;
+  mediaCount: number;
+}
+
 export interface SellerListing {
   id: string;
   title: string;
@@ -46,6 +83,9 @@ export interface SellerListing {
   priceAmount: string | number;
   currencyCode: string;
   condition: ListingCondition;
+  availabilityStatus: ListingAvailabilityStatus;
+  availableQuantity: number | null;
+  unitLabel: string | null;
   status: ListingStatus;
   countryCode: string;
   region: string | null;
@@ -53,6 +93,8 @@ export interface SellerListing {
   suburb: string | null;
   allowPickup: boolean;
   allowDelivery: boolean;
+  media: ListingMedia[];
+  mediaCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,6 +129,18 @@ export function createListingDraft(
 ): Promise<ListingDraftResponse> {
   return postAuthed<ListingDraftResponse>(
     '/v1/listings',
+    input,
+    challengeResponse
+  );
+}
+
+export function uploadListingMedia(
+  listingId: string,
+  input: ListingMediaUploadInput,
+  challengeResponse?: string
+): Promise<ListingMediaUploadResponse> {
+  return postAuthed<ListingMediaUploadResponse>(
+    `/v1/listings/${encodeURIComponent(listingId)}/media`,
     input,
     challengeResponse
   );
