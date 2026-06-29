@@ -5,7 +5,7 @@ This document tracks what is required before Suqnaa can move from local developm
 ## Current launch status
 
 - **Private staging/demo:** allowed once the web app, API, database, and environment variables are deployed together.
-- **Public landing page:** allowed once legal pages, contact details, and production hosting are configured.
+- **Public landing page:** allowed once final contact details and production hosting are configured.
 - **Full public marketplace:** blocked until media delivery, moderation, verification, payments/compliance, backups, and operational monitoring are completed.
 
 ## Website readiness
@@ -16,8 +16,10 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Listing detail route exists at `/{locale}/listings/{listingId}`.
 - [x] Account sign-in and registration pages exist.
 - [x] Seller draft creation and listing management pages exist.
+- [x] Footer navigation links to draft Terms, Privacy, item rules, safety, and contact pages.
+- [x] Draft bilingual policy pages exist under `/{locale}/policy/{pageSlug}`.
 - [ ] Replace placeholder listing media with real public or signed image delivery.
-- [ ] Add footer navigation with Terms, Privacy, prohibited items, safety, contact, and support links.
+- [ ] Replace draft policy copy with final legally reviewed terms, privacy, item-rules, safety, and contact content.
 - [ ] Add SEO metadata for marketplace, listing, account, and seller pages.
 - [ ] Add production analytics/error monitoring only after privacy review.
 
@@ -65,7 +67,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [ ] Category selection must be exposed in the listing form.
 - [ ] Reporting flows for users/listings must be exposed in the web UI.
 - [ ] Admin review and takedown tools must be created before public launch.
-- [ ] Prohibited-items policy must be written and linked.
+- [ ] Final item rules must be written and reviewed.
 - [ ] Buyer/seller safety guidance must be linked from listing and messaging flows.
 
 ## Payments, orders, and compliance
@@ -92,7 +94,7 @@ Staging can go live when:
 Public beta can go live when:
 
 1. Listing photos work.
-2. Legal and safety pages are published.
+2. Final legal and safety pages are published.
 3. Moderation/reporting process exists.
 4. Backups and monitoring are active.
 5. Real payments are disabled unless compliance review is complete.
@@ -104,4 +106,4 @@ Full launch can go live when:
 1. Payment and dispute flows are legally reviewed.
 2. Admin moderation and fraud workflows are operational.
 3. Media, database, logs, backups, and incident response are production-ready.
-4. Terms, privacy, prohibited items, refund/dispute, and safety policies are final.
+4. Terms, privacy, item rules, refund/dispute, and safety policies are final.
