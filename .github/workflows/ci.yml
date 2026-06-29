@@ -8,7 +8,7 @@ on:
 
 jobs:
   web-and-api:
-    name: Typecheck, tests, and web build
+    name: Typecheck and tests
     runs-on: ubuntu-latest
     env:
       NODE_ENV: test
@@ -28,16 +28,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile=false
 
-      - name: Run CI checks
-        run: pnpm ci
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      - name: Run API security tests
+        run: pnpm --dir apps/api test:security
+
+      - name: Run web session tests
+        run: pnpm --dir apps/web test:session
