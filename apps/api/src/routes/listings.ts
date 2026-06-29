@@ -1,10 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
+import { getListingMediaStorage } from '../media/listing-media-storage.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
@@ -14,10 +13,11 @@ const challengeVerifier = new NoopChallengeVerifier();
 const maximumMediaItemsPerListing = 8;
 const maximumImageBytes = 4 * 1024 * 1024;
 const maximumBase64Length = 6 * 1024 * 1024;
-const mediaStorageRoot = path.resolve(process.env.MEDIA_STORAGE_DIR ?? '.suqnaa-media');
 
 const listingStatus = z.enum(['draft', 'active', 'reserved', 'sold', 'expired', 'removed']);
 type ListingStatus = z.infer<typeof listingStatus>;
+
+type SupportedImageMime = 'image/jpeg' | 'image/png' | 'image/webp';
 
 const availabilityStatus = z.enum(['in_stock', 'limited', 'out_of_stock', 'service_available']);
 
@@ -152,7 +152,7 @@ function stripBase64DataUrl(value: string): string {
   return payload.replace(/\s+/g, '');
 }
 
-function detectImageMime(buffer: Buffer): 'image/jpeg' | 'image/png' | 'image/webp' | null {
+function detectImageMime(buffer: Buffer): SupportedImageMime | null {
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
     return 'image/jpeg';
   }
@@ -179,7 +179,7 @@ function detectImageMime(buffer: Buffer): 'image/jpeg' | 'image/png' | 'image/we
   return null;
 }
 
-function extensionForMime(mimeType: string): 'jpg' | 'png' | 'webp' {
+function extensionForMime(mimeType: SupportedImageMime): 'jpg' | 'png' | 'webp' {
   if (mimeType === 'image/png') {
     return 'png';
   }
@@ -187,20 +187,6 @@ function extensionForMime(mimeType: string): 'jpg' | 'png' | 'webp' {
     return 'webp';
   }
   return 'jpg';
-}
-
-function objectKeyPath(objectKey: string): string {
-  const resolved = path.resolve(mediaStorageRoot, objectKey);
-  if (!resolved.startsWith(`${mediaStorageRoot}${path.sep}`)) {
-    throw new Error('Unsafe media object key');
-  }
-  return resolved;
-}
-
-async function persistMediaObject(objectKey: string, buffer: Buffer): Promise<void> {
-  const filePath = objectKeyPath(objectKey);
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, buffer, { flag: 'wx' });
 }
 
 function mediaPublicUrl(listingId: string, mediaId: string): string {
@@ -536,11 +522,16 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     const mediaId = randomUUID();
     const extension = extensionForMime(detectedMimeType);
     const objectKey = `listing-media/${listing.id}/${mediaId}.${extension}`;
-    const sha256 = createHash('sha256').update(buffer).digest('hex');
+    let stored;
 
     try {
-      await persistMediaObject(objectKey, buffer);
-    } catch {
+      stored = await getListingMediaStorage().put({
+        objectKey,
+        buffer,
+        mimeType: detectedMimeType
+      });
+    } catch (error) {
+      request.log.warn({ error }, 'listing media storage write failed');
       return reply.code(503).send({ error: 'Media storage unavailable' });
     }
 
@@ -549,14 +540,14 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       .values({
         id: mediaId,
         listing_id: listing.id,
-        object_key: objectKey,
+        object_key: stored.objectKey,
         mime_type: detectedMimeType,
         width: body.width ?? null,
         height: body.height ?? null,
         size_bytes: buffer.length,
         sort_order: body.sortOrder ?? existingCount,
         alt_text: body.altText || null,
-        sha256
+        sha256: stored.sha256
       })
       .returning(['id', 'listing_id', 'mime_type', 'width', 'height', 'size_bytes', 'sort_order', 'alt_text', 'created_at'])
       .executeTakeFirstOrThrow();
@@ -578,7 +569,8 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       metadata: {
         mediaId: inserted.id,
         mimeType: detectedMimeType,
-        sizeBytes: buffer.length
+        sizeBytes: buffer.length,
+        storageDriver: getListingMediaStorage().driver
       }
     });
 
@@ -784,7 +776,6 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       .select([
         'listing_media.object_key as object_key',
         'listing_media.mime_type as mime_type',
-        'listing_media.size_bytes as size_bytes',
         'listings.status as listing_status',
         'users.status as seller_status'
       ])
@@ -797,18 +788,28 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ error: 'Media not found' });
     }
 
-    let fileBuffer: Buffer;
+    let delivery;
     try {
-      fileBuffer = await readFile(objectKeyPath(String(media.object_key)));
-    } catch {
+      delivery = await getListingMediaStorage().deliver(
+        String(media.object_key),
+        String(media.mime_type)
+      );
+    } catch (error) {
+      request.log.warn({ error }, 'listing media delivery failed');
       return reply.code(404).send({ error: 'Media not found' });
     }
 
-    reply.header('Content-Type', String(media.mime_type));
-    reply.header('Content-Length', String(fileBuffer.length));
-    reply.header('Cache-Control', 'public, max-age=3600');
+    reply.header('Cache-Control', delivery.cacheControl);
     reply.header('X-Content-Type-Options', 'nosniff');
-    return reply.send(fileBuffer);
+
+    if (delivery.type === 'redirect') {
+      reply.header('Location', delivery.url);
+      return reply.code(302).send();
+    }
+
+    reply.header('Content-Type', delivery.mimeType);
+    reply.header('Content-Length', String(delivery.buffer.length));
+    return reply.send(delivery.buffer);
   });
 
   app.post('/listings', { preHandler: requireUser }, async (request, reply) => {
