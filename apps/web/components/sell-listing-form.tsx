@@ -3,6 +3,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { AuthedRequestError } from '../lib/authed-api';
 import {
+  getPublicCategories,
+  type CategorySummary
+} from '../lib/category-api';
+import {
   createListingDraft,
   uploadListingMedia,
   type ListingAvailabilityStatus,
@@ -121,10 +125,17 @@ function imageDimensions(file: File): Promise<{ width: number; height: number }>
   });
 }
 
+function categoryLabel(category: CategorySummary, isArabic: boolean): string {
+  return isArabic ? category.nameAr ?? category.nameEn : category.nameEn;
+}
+
 export function SellListingForm({ locale }: SellListingFormProps) {
   const isArabic = locale === 'ar';
   const [configuration, setConfiguration] = useState<ChallengeConfiguration | null>(null);
   const [configurationError, setConfigurationError] = useState(false);
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(false);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -152,6 +163,31 @@ export function SellListingForm({ locale }: SellListingFormProps) {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    getPublicCategories()
+      .then((value) => {
+        if (active) {
+          setCategories(value);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCategoriesError(true);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setCategoriesLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const challengeEnabled = configuration?.enabled === true;
   const siteKey = configuration?.siteKey ?? null;
   const challengeAction = configuration?.actions.listingCreate;
@@ -167,6 +203,7 @@ export function SellListingForm({ locale }: SellListingFormProps) {
 
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const categoryId = String(form.get('categoryId') ?? '').trim();
     const priceAmount = Number(form.get('priceAmount'));
     const currencyCode = String(form.get('currencyCode') ?? '').trim().toUpperCase();
     const countryCode = String(form.get('countryCode') ?? '').trim().toUpperCase();
@@ -218,6 +255,7 @@ export function SellListingForm({ locale }: SellListingFormProps) {
     try {
       const response = await createListingDraft(
         {
+          categoryId: categoryId || undefined,
           title: String(form.get('title') ?? '').trim(),
           description: String(form.get('description') ?? '').trim(),
           priceAmount,
@@ -286,6 +324,30 @@ export function SellListingForm({ locale }: SellListingFormProps) {
 
   return (
     <form className="form-grid listing-form" onSubmit={handleSubmit}>
+      <label>
+        {isArabic ? 'الفئة' : 'Category'}
+        <select name="categoryId" disabled={categoriesLoading || categories.length === 0} defaultValue="">
+          <option value="">
+            {categoriesLoading
+              ? (isArabic ? 'جارٍ تحميل الفئات…' : 'Loading categories…')
+              : (isArabic ? 'أخرى / غير محدد' : 'Other / not sure')}
+          </option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {categoryLabel(category, isArabic)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {categoriesError ? (
+        <p className="auth-status" aria-live="polite">
+          {isArabic
+            ? 'تعذر تحميل الفئات. يمكنك حفظ الإعلان بدون فئة حالياً.'
+            : 'Categories could not be loaded. You can save the listing without a category for now.'}
+        </p>
+      ) : null}
+
       <label>
         {isArabic ? 'العنوان' : 'Title'}
         <input
