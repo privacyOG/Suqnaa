@@ -6,7 +6,7 @@ This document tracks what is required before Suqnaa can move from local developm
 
 - **Private staging/demo:** allowed once the web app, API, database, and environment variables are deployed together.
 - **Public landing page:** allowed once final contact details and production hosting are configured.
-- **Full public marketplace:** blocked until media delivery, moderation, verification, payments/compliance, backups, and operational monitoring are completed.
+- **Full public marketplace:** blocked until production media storage, moderation, verification, payments/compliance, backups, and operational monitoring are completed.
 
 ## Website readiness
 
@@ -18,7 +18,9 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Seller draft creation and listing management pages exist.
 - [x] Footer navigation links to draft Terms, Privacy, item rules, safety, and contact pages.
 - [x] Draft bilingual policy pages exist under `/{locale}/policy/{pageSlug}`.
-- [ ] Replace placeholder listing media with real public or signed image delivery.
+- [x] Seller listing form supports photo uploads, availability status, quantity, and unit label.
+- [x] Public catalog and listing details can display uploaded listing photos.
+- [ ] Replace local development media storage with production object storage or signed media delivery.
 - [ ] Replace draft policy copy with final legally reviewed terms, privacy, item-rules, safety, and contact content.
 - [ ] Add SEO metadata for marketplace, listing, account, and seller pages.
 - [ ] Add production analytics/error monitoring only after privacy review.
@@ -40,8 +42,9 @@ This document tracks what is required before Suqnaa can move from local developm
 
 - [ ] Provision production PostgreSQL with PostGIS.
 - [ ] Provision production Redis or replace in-memory limits with a durable shared rate-limit store.
-- [ ] Provision S3-compatible object storage for listing media.
-- [ ] Implement upload limits, MIME validation, malware scanning, and image processing.
+- [ ] Provision production object storage for listing media.
+- [x] Add upload limits and server-side MIME validation for listing images.
+- [ ] Add malware scanning and image processing before full public launch.
 - [ ] Add object lifecycle and retention rules.
 - [ ] Add database backups with restore testing.
 
@@ -51,6 +54,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Web session storage uses HttpOnly cookies.
 - [x] Same-origin protected API transport exists for authenticated browser actions.
 - [x] Basic rate limits exist on high-risk routes.
+- [x] Listing media uploads require seller ownership and are rate limited.
 - [ ] Configure Cloudflare Turnstile or another real challenge provider in production.
 - [ ] Verify CORS only allows the production web origin.
 - [ ] Add security headers at the edge or hosting layer.
@@ -63,7 +67,8 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Seller listing status transitions exist.
 - [x] Public active listings exist.
 - [x] Buyer-to-seller messaging and offer flows exist at code level.
-- [ ] Listing photo upload and display must be completed.
+- [x] Listing photo upload and display exists for staging/development.
+- [x] Item and service availability fields exist.
 - [ ] Category selection must be exposed in the listing form.
 - [ ] Reporting flows for users/listings must be exposed in the web UI.
 - [ ] Admin review and takedown tools must be created before public launch.
@@ -87,13 +92,13 @@ Staging can go live when:
 1. CI passes.
 2. Web and API deploy successfully.
 3. Production-like environment variables are configured.
-4. Test accounts can register, sign in, create a listing, publish it, message, and make an offer.
+4. Test accounts can register, sign in, create a listing with photos, publish it, message, and make an offer.
 
 ### Public beta gate
 
 Public beta can go live when:
 
-1. Listing photos work.
+1. Production media storage works.
 2. Final legal and safety pages are published.
 3. Moderation/reporting process exists.
 4. Backups and monitoring are active.
