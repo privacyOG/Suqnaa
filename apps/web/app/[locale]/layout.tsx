@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { SiteFooter } from '../../components/site-footer';
 import { directionForLocale, isLocale, locales, type Locale } from '../../i18n/locales';
 import { getMessages } from '../../i18n/get-messages';
 
@@ -29,6 +30,7 @@ export default function LocaleLayout({ children, params }: { children: React.Rea
   return (
     <div lang={locale} dir={directionForLocale(locale)}>
       {children}
+      <SiteFooter locale={locale} />
     </div>
   );
 }

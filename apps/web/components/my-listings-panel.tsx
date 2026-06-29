@@ -5,6 +5,7 @@ import { AuthedRequestError } from '../lib/authed-api';
 import {
   getMyListings,
   updateListingStatus,
+  type ListingAvailabilityStatus,
   type ListingStatus,
   type SellerListing
 } from '../lib/listing-api';
@@ -72,6 +73,24 @@ function conditionLabel(condition: SellerListing['condition'], isArabic: boolean
     parts_or_repair: ['Parts or repair', 'للقطع أو الإصلاح']
   };
   return labels[condition][isArabic ? 1 : 0];
+}
+
+function availabilityLabel(status: ListingAvailabilityStatus, isArabic: boolean): string {
+  const labels: Record<ListingAvailabilityStatus, [string, string]> = {
+    in_stock: ['In stock', 'متوفر'],
+    limited: ['Limited', 'كمية محدودة'],
+    out_of_stock: ['Out of stock', 'غير متوفر'],
+    service_available: ['Service available', 'خدمة متاحة']
+  };
+  return labels[status][isArabic ? 1 : 0];
+}
+
+function quantityLabel(listing: SellerListing, isArabic: boolean): string {
+  if (listing.availableQuantity === null) {
+    return availabilityLabel(listing.availabilityStatus, isArabic);
+  }
+  const unit = listing.unitLabel ?? (isArabic ? 'عنصر' : 'item');
+  return `${listing.availableQuantity} ${unit}`;
 }
 
 function formatPrice(listing: SellerListing, locale: string): string {
@@ -335,9 +354,23 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
               .filter(Boolean)
               .join(', ');
             const availableTransitions = transitions[listing.status];
+            const firstPhoto = listing.media[0];
 
             return (
               <article className="seller-listing-card" key={listing.id}>
+                {firstPhoto ? (
+                  <img
+                    className="seller-listing-photo"
+                    src={firstPhoto.url}
+                    alt={firstPhoto.altText ?? listing.title}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="seller-listing-photo-placeholder" aria-hidden="true">
+                    {listing.title.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+
                 <div className="seller-listing-heading">
                   <div>
                     <span className={`listing-status listing-status-${listing.status}`}>
@@ -354,6 +387,14 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
                   <div>
                     <dt>{isArabic ? 'الحالة' : 'Condition'}</dt>
                     <dd>{conditionLabel(listing.condition, isArabic)}</dd>
+                  </div>
+                  <div>
+                    <dt>{isArabic ? 'التوفر' : 'Availability'}</dt>
+                    <dd>{quantityLabel(listing, isArabic)}</dd>
+                  </div>
+                  <div>
+                    <dt>{isArabic ? 'الصور' : 'Photos'}</dt>
+                    <dd>{listing.mediaCount}</dd>
                   </div>
                   <div>
                     <dt>{isArabic ? 'الموقع' : 'Location'}</dt>

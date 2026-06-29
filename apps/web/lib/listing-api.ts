@@ -15,6 +15,24 @@ export type ListingStatus =
   | 'expired'
   | 'removed';
 
+export type ListingAvailabilityStatus =
+  | 'in_stock'
+  | 'limited'
+  | 'out_of_stock'
+  | 'service_available';
+
+export interface ListingMedia {
+  id: string;
+  url: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  sizeBytes: number;
+  sortOrder: number;
+  altText: string | null;
+  createdAt: string;
+}
+
 export interface ListingDraftInput extends JsonBody {
   categoryId?: string;
   title: string;
@@ -22,6 +40,9 @@ export interface ListingDraftInput extends JsonBody {
   priceAmount: number;
   currencyCode: string;
   condition: ListingCondition;
+  availabilityStatus?: ListingAvailabilityStatus;
+  availableQuantity?: number;
+  unitLabel?: string;
   countryCode: string;
   region?: string;
   city?: string;
@@ -39,6 +60,22 @@ export interface ListingDraftResponse {
   };
 }
 
+export interface ListingMediaUploadInput extends JsonBody {
+  fileName: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  sizeBytes: number;
+  base64Data: string;
+  width?: number;
+  height?: number;
+  altText?: string;
+  sortOrder?: number;
+}
+
+export interface ListingMediaUploadResponse {
+  media: ListingMedia;
+  mediaCount: number;
+}
+
 export interface SellerListing {
   id: string;
   title: string;
@@ -46,6 +83,9 @@ export interface SellerListing {
   priceAmount: string | number;
   currencyCode: string;
   condition: ListingCondition;
+  availabilityStatus: ListingAvailabilityStatus;
+  availableQuantity: number | null;
+  unitLabel: string | null;
   status: ListingStatus;
   countryCode: string;
   region: string | null;
@@ -53,6 +93,8 @@ export interface SellerListing {
   suburb: string | null;
   allowPickup: boolean;
   allowDelivery: boolean;
+  media: ListingMedia[];
+  mediaCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -81,6 +123,22 @@ export interface ListingStatusResponse {
   };
 }
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+
+function withAbsoluteMediaUrl(media: ListingMedia): ListingMedia {
+  return {
+    ...media,
+    url: media.url.startsWith('http') ? media.url : `${apiBaseUrl}${media.url}`
+  };
+}
+
+function normalizeListingMedia(listing: SellerListing): SellerListing {
+  return {
+    ...listing,
+    media: listing.media.map(withAbsoluteMediaUrl)
+  };
+}
+
 export function createListingDraft(
   input: ListingDraftInput,
   challengeResponse?: string
@@ -92,7 +150,23 @@ export function createListingDraft(
   );
 }
 
-export function getMyListings(
+export async function uploadListingMedia(
+  listingId: string,
+  input: ListingMediaUploadInput,
+  challengeResponse?: string
+): Promise<ListingMediaUploadResponse> {
+  const response = await postAuthed<ListingMediaUploadResponse>(
+    `/v1/listings/${encodeURIComponent(listingId)}/media`,
+    input,
+    challengeResponse
+  );
+  return {
+    ...response,
+    media: withAbsoluteMediaUrl(response.media)
+  };
+}
+
+export async function getMyListings(
   options: MyListingsOptions = {}
 ): Promise<MyListingsResponse> {
   const query = new URLSearchParams();
@@ -108,9 +182,13 @@ export function getMyListings(
   }
 
   const encoded = query.toString();
-  return getAuthed<MyListingsResponse>(
+  const response = await getAuthed<MyListingsResponse>(
     encoded ? `/v1/listings/mine?${encoded}` : '/v1/listings/mine'
   );
+  return {
+    ...response,
+    listings: response.listings.map(normalizeListingMedia)
+  };
 }
 
 export function updateListingStatus(

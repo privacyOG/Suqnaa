@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  web-and-api:
+    name: Typecheck and tests
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      WEB_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      API_BASE_URL: http://localhost:4000
+      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa
+      JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
+      PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
+      CHALLENGE_PROVIDER: none
+      ASSISTANT_ENABLED: false
+      ASSISTANT_PROVIDER: none
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      - name: Run API security tests
+        run: pnpm --dir apps/api test:security
+
+      - name: Run web session tests
+        run: pnpm --dir apps/web test:session

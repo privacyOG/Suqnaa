@@ -16,6 +16,9 @@ build/
 out/
 coverage/
 
+# local uploads
+.suqnaa-media/
+
 # flutter
 .dart_tool/
 .flutter-plugins

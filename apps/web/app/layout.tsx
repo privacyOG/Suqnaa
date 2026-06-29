@@ -6,6 +6,7 @@ import './conversation-components.css';
 import './catalog-components.css';
 import './activity-components.css';
 import './activity-detail-components.css';
+import './policy-components.css';
 
 export const metadata: Metadata = {
   title: 'Suqnaa | Trusted marketplace',
