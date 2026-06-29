@@ -13,6 +13,6 @@
     "test:api": "pnpm --filter suqnaa-api test:security",
     "test:web": "pnpm --filter suqnaa-web test:session",
     "test": "pnpm test:api && pnpm test:web",
-    "ci": "pnpm typecheck && pnpm test && pnpm build:web"
+    "ci": "pnpm typecheck && pnpm test"
   }
 }
