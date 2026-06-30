@@ -1,5 +1,5 @@
 interface QueueAuditWriter {
-  insertInto(table: string): {
+  insertInto(table: 'audit_logs'): {
     values(value: Record<string, unknown>): {
       execute(): Promise<unknown>;
     };
