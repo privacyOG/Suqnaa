@@ -105,6 +105,9 @@ async function run() {
       JSON.stringify({ status: 'removed', note: 'Policy mismatch' })
     );
 
+    await setOperationsListingStatus(itemId, { status: 'active' });
+    assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ status: 'active' }));
+
     await setOperationsAccountStatus(itemId, {
       status: 'suspended',
       note: 'Repeated reports'
