@@ -37,6 +37,10 @@ function itemTitle(item: OperationsQueueItem): string {
     || shortId(item.listingId ?? item.subjectUserId ?? item.id);
 }
 
+function statusLabel(value: string | null): string {
+  return value?.trim() || '—';
+}
+
 function appendUnique(
   current: OperationsQueueItem[],
   incoming: OperationsQueueItem[]
@@ -163,12 +167,24 @@ export function OperationsQueueBrowserPanel({ locale }: OperationsQueueBrowserPa
                 <dd>{item.listingTitle || shortId(item.listingId)}</dd>
               </div>
               <div>
+                <dt>{isArabic ? 'حالة الإعلان' : 'Listing status'}</dt>
+                <dd>{statusLabel(item.listingStatus)}</dd>
+              </div>
+              <div>
                 <dt>{isArabic ? 'الحساب' : 'Account'}</dt>
                 <dd>{displayName(item.subjectUserName, item.subjectUserId)}</dd>
               </div>
               <div>
+                <dt>{isArabic ? 'حالة الحساب' : 'Account status'}</dt>
+                <dd>{statusLabel(item.subjectUserStatus)}</dd>
+              </div>
+              <div>
                 <dt>{isArabic ? 'المبلّغ' : 'Reporter'}</dt>
                 <dd>{displayName(item.reporterName, item.reporterId)}</dd>
+              </div>
+              <div>
+                <dt>{isArabic ? 'حالة المبلّغ' : 'Reporter status'}</dt>
+                <dd>{statusLabel(item.reporterStatus)}</dd>
               </div>
               <div>
                 <dt>{isArabic ? 'التاريخ' : 'Created'}</dt>
