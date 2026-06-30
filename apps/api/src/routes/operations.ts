@@ -1,7 +1,9 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireOperationsUser, type OperationsRequest } from '../auth/require-operations-user.js';
 import { db } from '../db/index.js';
+import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { writeSecurityAudit } from '../security/security-audit.js';
 
 const queueQuery = z.object({
   status: z.enum(['open', 'closed', 'all']).default('open'),
@@ -17,6 +19,33 @@ const completeBody = z.object({
   result: z.enum(['no_change', 'changed_listing', 'changed_account', 'other']),
   note: z.string().trim().max(1200).optional()
 });
+
+const listingStatusBody = z.object({
+  status: z.enum(['draft', 'active', 'reserved', 'sold', 'expired', 'removed']),
+  note: z.string().trim().max(1200).optional()
+});
+
+const accountStatusBody = z.object({
+  status: z.enum(['active', 'suspended']),
+  note: z.string().trim().max(1200).optional()
+});
+
+function limitedOperation(request: FastifyRequest, accountId: string, group: string) {
+  const accountLimit = checkRateLimit({
+    group,
+    identifiers: [`account:${accountId}`],
+    limit: 60,
+    windowMs: 60 * 60 * 1000
+  });
+  const ipLimit = checkRateLimit({
+    group: `${group}.ip`,
+    identifiers: [`ip:${request.ip}`],
+    limit: 180,
+    windowMs: 60 * 60 * 1000
+  });
+
+  return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
+}
 
 export async function operationsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/operations/health', { preHandler: requireOperationsUser }, async (_request, reply) => {
@@ -122,6 +151,180 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         status: 'closed',
         resolvedAt: updated.resolved_at,
         reviewAction: updated.review_action
+      }
+    });
+  });
+
+  app.post('/operations/queue/:id/listing-status', { preHandler: requireOperationsUser }, async (request, reply) => {
+    const authRequest = request as OperationsRequest;
+    const params = itemParams.parse(request.params);
+    const body = listingStatusBody.parse(request.body);
+    const limited = limitedOperation(request, authRequest.operationsUserId, 'operations.listing_status');
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const now = new Date();
+    const result = await db.transaction().execute(async (trx) => {
+      const item = await trx.selectFrom('reports')
+        .select(['id', 'listing_id', 'resolved_at', 'reason'])
+        .where('id', '=', params.id)
+        .executeTakeFirst();
+
+      if (!item || !item.listing_id) {
+        return { code: 404 as const, error: 'Open queue item not found' };
+      }
+      if (item.resolved_at) {
+        return { code: 409 as const, error: 'Queue item is already closed' };
+      }
+
+      const listing = await trx.updateTable('listings')
+        .set({
+          status: body.status,
+          updated_at: now
+        })
+        .where('id', '=', item.listing_id)
+        .returning(['id', 'status'])
+        .executeTakeFirst();
+
+      if (!listing) {
+        return { code: 404 as const, error: 'Linked listing not found' };
+      }
+
+      const review = await trx.updateTable('reports')
+        .set({
+          resolved_at: now,
+          reviewed_by: authRequest.operationsUserId,
+          review_action: 'changed_listing',
+          review_note: body.note ?? null,
+          updated_at: now
+        })
+        .where('id', '=', item.id)
+        .where('resolved_at', 'is', null)
+        .returning(['id', 'resolved_at', 'review_action'])
+        .executeTakeFirst();
+
+      return { code: 200 as const, listing, review };
+    });
+
+    if (result.code !== 200) {
+      return reply.code(result.code).send({ error: result.error });
+    }
+
+    writeSecurityAudit(app.log, {
+      action: 'operations.listing_status',
+      decision: 'allow',
+      actorId: authRequest.operationsUserId,
+      targetId: result.listing.id,
+      ip: request.ip,
+      metadata: {
+        queueItemId: params.id,
+        status: result.listing.status,
+        noteProvided: Boolean(body.note)
+      }
+    });
+
+    return reply.send({
+      item: {
+        id: params.id,
+        status: 'closed',
+        resolvedAt: result.review?.resolved_at ?? now,
+        reviewAction: result.review?.review_action ?? 'changed_listing'
+      },
+      listing: {
+        id: result.listing.id,
+        status: result.listing.status
+      }
+    });
+  });
+
+  app.post('/operations/queue/:id/account-status', { preHandler: requireOperationsUser }, async (request, reply) => {
+    const authRequest = request as OperationsRequest;
+    const params = itemParams.parse(request.params);
+    const body = accountStatusBody.parse(request.body);
+    const limited = limitedOperation(request, authRequest.operationsUserId, 'operations.account_status');
+
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const now = new Date();
+    const result = await db.transaction().execute(async (trx) => {
+      const item = await trx.selectFrom('reports')
+        .select(['id', 'reported_user_id', 'resolved_at', 'reason'])
+        .where('id', '=', params.id)
+        .executeTakeFirst();
+
+      if (!item || !item.reported_user_id) {
+        return { code: 404 as const, error: 'Open queue item not found' };
+      }
+      if (item.resolved_at) {
+        return { code: 409 as const, error: 'Queue item is already closed' };
+      }
+      if (item.reported_user_id === authRequest.operationsUserId) {
+        return { code: 409 as const, error: 'Cannot change own account status' };
+      }
+
+      const account = await trx.updateTable('users')
+        .set({
+          status: body.status,
+          updated_at: now
+        })
+        .where('id', '=', item.reported_user_id)
+        .where('status', '!=', 'closed')
+        .returning(['id', 'status'])
+        .executeTakeFirst();
+
+      if (!account) {
+        return { code: 404 as const, error: 'Linked account not found' };
+      }
+
+      const review = await trx.updateTable('reports')
+        .set({
+          resolved_at: now,
+          reviewed_by: authRequest.operationsUserId,
+          review_action: 'changed_account',
+          review_note: body.note ?? null,
+          updated_at: now
+        })
+        .where('id', '=', item.id)
+        .where('resolved_at', 'is', null)
+        .returning(['id', 'resolved_at', 'review_action'])
+        .executeTakeFirst();
+
+      return { code: 200 as const, account, review };
+    });
+
+    if (result.code !== 200) {
+      return reply.code(result.code).send({ error: result.error });
+    }
+
+    writeSecurityAudit(app.log, {
+      action: 'operations.account_status',
+      decision: 'allow',
+      actorId: authRequest.operationsUserId,
+      targetId: result.account.id,
+      ip: request.ip,
+      metadata: {
+        queueItemId: params.id,
+        status: result.account.status,
+        noteProvided: Boolean(body.note)
+      }
+    });
+
+    return reply.send({
+      item: {
+        id: params.id,
+        status: 'closed',
+        resolvedAt: result.review?.resolved_at ?? now,
+        reviewAction: result.review?.review_action ?? 'changed_account'
+      },
+      account: {
+        id: result.account.id,
+        status: result.account.status
       }
     });
   });
