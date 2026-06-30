@@ -19,6 +19,7 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: /^\/v1\/conversations$/, queryKeys: new Set(['limit', 'before']) },
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/messages$`), queryKeys: new Set(['limit', 'before']) },
   { method: 'GET', pattern: /^\/v1\/listings\/mine$/, queryKeys: new Set(['status', 'limit', 'before']) },
+  { method: 'GET', pattern: /^\/v1\/operations\/queue$/, queryKeys: new Set(['status', 'limit', 'before']) },
   { method: 'POST', pattern: /^\/v1\/messages$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/conversations/${uuid}/read$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/listings$/, queryKeys: new Set() },
