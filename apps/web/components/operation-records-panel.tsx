@@ -53,6 +53,8 @@ export function OperationRecordsPanel({ locale }: OperationRecordsPanelProps) {
   const [items, setItems] = useState<OperationRecordItem[]>([]);
   const [action, setAction] = useState('');
   const [entityType, setEntityType] = useState('');
+  const [draftAction, setDraftAction] = useState('');
+  const [draftEntityType, setDraftEntityType] = useState('');
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -100,12 +102,13 @@ export function OperationRecordsPanel({ locale }: OperationRecordsPanelProps) {
 
   function updateFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setAction(String(form.get('action') ?? ''));
-    setEntityType(String(form.get('entityType') ?? ''));
+    setAction(draftAction);
+    setEntityType(draftEntityType);
   }
 
   function resetFilters() {
+    setDraftAction('');
+    setDraftEntityType('');
     setAction('');
     setEntityType('');
   }
@@ -149,7 +152,11 @@ export function OperationRecordsPanel({ locale }: OperationRecordsPanelProps) {
       <form className="buyer-action-form" onSubmit={updateFilters}>
         <label>
           {isArabic ? 'نوع الإجراء' : 'Action type'}
-          <select name="action" defaultValue={action}>
+          <select
+            name="action"
+            value={draftAction}
+            onChange={(event) => setDraftAction(event.currentTarget.value)}
+          >
             <option value="">{isArabic ? 'كل الإجراءات' : 'All actions'}</option>
             {actionOptions.map((option) => (
               <option key={option} value={option}>{option}</option>
@@ -158,7 +165,11 @@ export function OperationRecordsPanel({ locale }: OperationRecordsPanelProps) {
         </label>
         <label>
           {isArabic ? 'نوع العنصر' : 'Entity type'}
-          <select name="entityType" defaultValue={entityType}>
+          <select
+            name="entityType"
+            value={draftEntityType}
+            onChange={(event) => setDraftEntityType(event.currentTarget.value)}
+          >
             <option value="">{isArabic ? 'كل العناصر' : 'All entities'}</option>
             {entityTypeOptions.map((option) => (
               <option key={option} value={option}>{option}</option>
