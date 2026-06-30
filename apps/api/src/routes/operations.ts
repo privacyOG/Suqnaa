@@ -1,12 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOperationsUser } from '../auth/require-operations-user.js';
+import { requireOperationsUser, type OperationsRequest } from '../auth/require-operations-user.js';
 import { db } from '../db/index.js';
 
 const queueQuery = z.object({
   status: z.enum(['open', 'closed', 'all']).default('open'),
   limit: z.coerce.number().int().min(1).max(50).default(25),
   before: z.string().datetime().optional()
+});
+
+const itemParams = z.object({
+  id: z.string().uuid()
+});
+
+const completeBody = z.object({
+  result: z.enum(['no_change', 'changed_listing', 'changed_account', 'other']),
+  note: z.string().trim().max(1200).optional()
 });
 
 export async function operationsRoutes(app: FastifyInstance): Promise<void> {
@@ -65,6 +74,39 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         nextCursor: rows.length > query.limit && last
           ? new Date(last.created_at).toISOString()
           : null
+      }
+    });
+  });
+
+  app.post('/operations/queue/:id/complete', { preHandler: requireOperationsUser }, async (request, reply) => {
+    const authRequest = request as OperationsRequest;
+    const params = itemParams.parse(request.params);
+    const body = completeBody.parse(request.body);
+    const now = new Date();
+
+    const updated = await db.updateTable('reports')
+      .set({
+        resolved_at: now,
+        reviewed_by: authRequest.operationsUserId,
+        review_action: body.result,
+        review_note: body.note ?? null,
+        updated_at: now
+      })
+      .where('id', '=', params.id)
+      .where('resolved_at', 'is', null)
+      .returning(['id', 'resolved_at', 'review_action'])
+      .executeTakeFirst();
+
+    if (!updated) {
+      return reply.code(404).send({ error: 'Open queue item not found' });
+    }
+
+    return reply.send({
+      item: {
+        id: updated.id,
+        status: 'closed',
+        resolvedAt: updated.resolved_at,
+        reviewAction: updated.review_action
       }
     });
   });
