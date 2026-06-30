@@ -81,6 +81,10 @@ Supported filters:
 
 The web operations page includes a read-only records panel with action/entity filters, paginated loading, duplicate-page protection, and compact metadata formatting.
 
+## Related notes
+
+- [`QUEUE_STATUS.md`](./QUEUE_STATUS.md) records the current staging-support state, configuration requirements, and remaining queue follow-up items.
+
 ## Remaining follow-up work
 
 - Add full API route-level tests for the queue and records endpoints once a lightweight route test harness is available.
