@@ -74,6 +74,31 @@ export interface OperationsStatusActionResponse extends CompleteOperationsQueueR
   };
 }
 
+export interface OperationRecordItem {
+  id: string;
+  actorId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface OperationRecordsResponse {
+  items: OperationRecordItem[];
+  pagination: {
+    hasMore: boolean;
+    nextCursor: string | null;
+  };
+}
+
+export interface OperationRecordsOptions {
+  limit?: number;
+  before?: string;
+  action?: string;
+  entityType?: string;
+}
+
 export function getOperationsQueue(
   options: OperationsQueueOptions = {}
 ): Promise<OperationsQueueResponse> {
@@ -91,6 +116,29 @@ export function getOperationsQueue(
   const encoded = query.toString();
   return getAuthed<OperationsQueueResponse>(
     encoded ? `/v1/operations/queue?${encoded}` : '/v1/operations/queue'
+  );
+}
+
+export function getOperationRecords(
+  options: OperationRecordsOptions = {}
+): Promise<OperationRecordsResponse> {
+  const query = new URLSearchParams();
+  if (options.limit !== undefined) {
+    query.set('limit', String(options.limit));
+  }
+  if (options.before) {
+    query.set('before', options.before);
+  }
+  if (options.action) {
+    query.set('action', options.action);
+  }
+  if (options.entityType) {
+    query.set('entityType', options.entityType);
+  }
+
+  const encoded = query.toString();
+  return getAuthed<OperationRecordsResponse>(
+    encoded ? `/v1/operations/records?${encoded}` : '/v1/operations/records'
   );
 }
 
