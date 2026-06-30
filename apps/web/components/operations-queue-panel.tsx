@@ -5,6 +5,10 @@ import { AuthedRequestError } from '../lib/authed-api';
 import {
   completeOperationsQueueItem,
   getOperationsQueue,
+  setOperationsAccountStatus,
+  setOperationsListingStatus,
+  type OperationsAccountStatus,
+  type OperationsListingStatus,
   type OperationsQueueItem,
   type OperationsQueueResult,
   type OperationsQueueStatus
@@ -19,6 +23,20 @@ const resultOptions: OperationsQueueResult[] = [
   'changed_listing',
   'changed_account',
   'other'
+];
+
+const listingStatusOptions: OperationsListingStatus[] = [
+  'draft',
+  'active',
+  'reserved',
+  'sold',
+  'expired',
+  'removed'
+];
+
+const accountStatusOptions: OperationsAccountStatus[] = [
+  'active',
+  'suspended'
 ];
 
 function formatDate(value: string, locale: string): string {
@@ -92,6 +110,10 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
     };
   }, [status, isArabic]);
 
+  function closeItem(itemId: string) {
+    setItems((current) => current.filter((item) => item.id !== itemId));
+  }
+
   async function completeItem(itemId: string, event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -109,9 +131,59 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
         result,
         note: note || undefined
       });
-      setItems((current) => current.filter((item) => item.id !== itemId));
+      closeItem(itemId);
     } catch {
       setError(isArabic ? 'تعذر تحديث العنصر.' : 'Could not update the item.');
+    } finally {
+      setBusyItem(null);
+    }
+  }
+
+  async function applyListingStatus(itemId: string, event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nextStatus = String(form.get('listingStatus') ?? '') as OperationsListingStatus;
+    const note = String(form.get('listingNote') ?? '').trim();
+
+    if (!listingStatusOptions.includes(nextStatus)) {
+      return;
+    }
+
+    setBusyItem(itemId);
+    setError(null);
+    try {
+      await setOperationsListingStatus(itemId, {
+        status: nextStatus,
+        note: note || undefined
+      });
+      closeItem(itemId);
+    } catch {
+      setError(isArabic ? 'تعذر تحديث حالة الإعلان.' : 'Could not update listing status.');
+    } finally {
+      setBusyItem(null);
+    }
+  }
+
+  async function applyAccountStatus(itemId: string, event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nextStatus = String(form.get('accountStatus') ?? '') as OperationsAccountStatus;
+    const note = String(form.get('accountNote') ?? '').trim();
+
+    if (!accountStatusOptions.includes(nextStatus)) {
+      return;
+    }
+
+    setBusyItem(itemId);
+    setError(null);
+    try {
+      await setOperationsAccountStatus(itemId, {
+        status: nextStatus,
+        note: note || undefined
+      });
+      closeItem(itemId);
+    } catch {
+      setError(isArabic ? 'تعذر تحديث حالة الحساب.' : 'Could not update account status.');
     } finally {
       setBusyItem(null);
     }
@@ -186,25 +258,67 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
             </dl>
 
             {item.status === 'open' ? (
-              <form className="buyer-action-form" onSubmit={(event) => completeItem(item.id, event)}>
-                <label>
-                  {isArabic ? 'النتيجة' : 'Result'}
-                  <select name="result" defaultValue="no_change">
-                    {resultOptions.map((result) => (
-                      <option key={result} value={result}>{result}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  {isArabic ? 'ملاحظة' : 'Note'}
-                  <textarea name="note" rows={3} maxLength={1200} />
-                </label>
-                <button className="button-primary" type="submit" disabled={busyItem === item.id}>
-                  {busyItem === item.id
-                    ? (isArabic ? 'جارٍ الحفظ…' : 'Saving…')
-                    : (isArabic ? 'إكمال' : 'Complete')}
-                </button>
-              </form>
+              <div className="operations-list">
+                {item.listingId ? (
+                  <form className="buyer-action-form" onSubmit={(event) => applyListingStatus(item.id, event)}>
+                    <label>
+                      {isArabic ? 'تغيير حالة الإعلان' : 'Set listing status'}
+                      <select name="listingStatus" defaultValue={item.listingStatus ?? 'removed'}>
+                        {listingStatusOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {isArabic ? 'ملاحظة' : 'Note'}
+                      <textarea name="listingNote" rows={2} maxLength={1200} />
+                    </label>
+                    <button className="button-primary" type="submit" disabled={busyItem === item.id}>
+                      {isArabic ? 'حفظ حالة الإعلان' : 'Save listing status'}
+                    </button>
+                  </form>
+                ) : null}
+
+                {item.subjectUserId ? (
+                  <form className="buyer-action-form" onSubmit={(event) => applyAccountStatus(item.id, event)}>
+                    <label>
+                      {isArabic ? 'تغيير حالة الحساب' : 'Set account status'}
+                      <select name="accountStatus" defaultValue={item.subjectUserStatus === 'active' ? 'suspended' : 'active'}>
+                        {accountStatusOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {isArabic ? 'ملاحظة' : 'Note'}
+                      <textarea name="accountNote" rows={2} maxLength={1200} />
+                    </label>
+                    <button className="button-primary" type="submit" disabled={busyItem === item.id}>
+                      {isArabic ? 'حفظ حالة الحساب' : 'Save account status'}
+                    </button>
+                  </form>
+                ) : null}
+
+                <form className="buyer-action-form" onSubmit={(event) => completeItem(item.id, event)}>
+                  <label>
+                    {isArabic ? 'إغلاق بدون تغيير' : 'Close without status change'}
+                    <select name="result" defaultValue="no_change">
+                      {resultOptions.map((result) => (
+                        <option key={result} value={result}>{result}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {isArabic ? 'ملاحظة' : 'Note'}
+                    <textarea name="note" rows={2} maxLength={1200} />
+                  </label>
+                  <button className="button-secondary" type="submit" disabled={busyItem === item.id}>
+                    {busyItem === item.id
+                      ? (isArabic ? 'جارٍ الحفظ…' : 'Saving…')
+                      : (isArabic ? 'إغلاق' : 'Close item')}
+                  </button>
+                </form>
+              </div>
             ) : null}
           </article>
         ))}
