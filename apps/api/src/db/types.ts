@@ -22,4 +22,5 @@ export interface Database {
   offers: TableShape;
   transactions: TableShape;
   reports: TableShape;
+  audit_logs: TableShape;
 }
