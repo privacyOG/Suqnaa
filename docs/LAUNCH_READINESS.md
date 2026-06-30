@@ -6,7 +6,7 @@ This document tracks what is required before Suqnaa can move from local developm
 
 - **Private staging/demo:** allowed once the web app, API, database, and environment variables are deployed together.
 - **Public landing page:** allowed once final contact details and production hosting are configured.
-- **Full public marketplace:** blocked until production media storage, moderation, verification, payments/compliance, backups, and operational monitoring are completed.
+- **Full public marketplace:** blocked until object storage is provisioned, moderation, verification, payments/compliance, backups, and operational monitoring are completed.
 
 ## Website readiness
 
@@ -20,7 +20,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Draft bilingual policy pages exist under `/{locale}/policy/{pageSlug}`.
 - [x] Seller listing form supports category selection, photo uploads, availability status, quantity, and unit label.
 - [x] Public catalog and listing details can display uploaded listing photos.
-- [ ] Replace local development media storage with production object storage or signed media delivery.
+- [x] Media delivery can use local development storage, public object URLs, or short-lived signed object URLs.
 - [ ] Replace draft policy copy with final legally reviewed terms, privacy, item-rules, safety, and contact content.
 - [ ] Add SEO metadata for marketplace, listing, account, and seller pages.
 - [ ] Add production analytics/error monitoring only after privacy review.
@@ -42,7 +42,8 @@ This document tracks what is required before Suqnaa can move from local developm
 
 - [ ] Provision production PostgreSQL with PostGIS.
 - [ ] Provision production Redis or replace in-memory limits with a durable shared rate-limit store.
-- [ ] Provision production object storage for listing media.
+- [ ] Provision production object storage for listing media and configure the API to use it.
+- [x] Add S3-compatible media storage adapter for listing media.
 - [x] Add upload limits and server-side MIME validation for listing images.
 - [ ] Add malware scanning and image processing before full public launch.
 - [ ] Add object lifecycle and retention rules.
@@ -55,6 +56,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Same-origin protected API transport exists for authenticated browser actions.
 - [x] Basic rate limits exist on high-risk routes.
 - [x] Listing media uploads require seller ownership and are rate limited.
+- [x] Private object buckets can be served through short-lived signed URLs.
 - [ ] Configure Cloudflare Turnstile or another real challenge provider in production.
 - [ ] Verify CORS only allows the production web origin.
 - [ ] Add security headers at the edge or hosting layer.
@@ -98,7 +100,7 @@ Staging can go live when:
 
 Public beta can go live when:
 
-1. Production media storage works.
+1. Production object storage is provisioned and configured.
 2. Final legal and safety pages are published.
 3. Moderation/reporting process exists.
 4. Backups and monitoring are active.
