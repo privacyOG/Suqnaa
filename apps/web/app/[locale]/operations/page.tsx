@@ -1,3 +1,4 @@
+import { OperationRecordsPanel } from '../../../components/operation-records-panel';
 import { OperationsQueuePanel } from '../../../components/operations-queue-panel';
 import { isLocale } from '../../../i18n/locales';
 
@@ -35,6 +36,7 @@ export default function OperationsPage({
       </section>
 
       <OperationsQueuePanel locale={params.locale} />
+      <OperationRecordsPanel locale={params.locale} />
     </main>
   );
 }
