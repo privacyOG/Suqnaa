@@ -229,6 +229,25 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         .returning(['id', 'resolved_at', 'review_action'])
         .executeTakeFirst();
 
+      if (!review) {
+        return { code: 409 as const, error: 'Queue item is already closed' };
+      }
+
+      await recordQueueAudit(trx, {
+        actorId: authRequest.operationsUserId,
+        action: 'operations.listing_status',
+        entityType: 'listing',
+        entityId: listing.id,
+        ipAddress: request.ip,
+        metadata: {
+          queueItemId: item.id,
+          queueReason: item.reason,
+          status: listing.status,
+          noteProvided: Boolean(body.note)
+        },
+        createdAt: now
+      });
+
       return { code: 200 as const, listing, review };
     });
 
@@ -253,8 +272,8 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
       item: {
         id: params.id,
         status: 'closed',
-        resolvedAt: result.review?.resolved_at ?? now,
-        reviewAction: result.review?.review_action ?? 'changed_listing'
+        resolvedAt: result.review.resolved_at,
+        reviewAction: result.review.review_action
       },
       listing: {
         id: result.listing.id,
@@ -318,6 +337,25 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         .returning(['id', 'resolved_at', 'review_action'])
         .executeTakeFirst();
 
+      if (!review) {
+        return { code: 409 as const, error: 'Queue item is already closed' };
+      }
+
+      await recordQueueAudit(trx, {
+        actorId: authRequest.operationsUserId,
+        action: 'operations.account_status',
+        entityType: 'user',
+        entityId: account.id,
+        ipAddress: request.ip,
+        metadata: {
+          queueItemId: item.id,
+          queueReason: item.reason,
+          status: account.status,
+          noteProvided: Boolean(body.note)
+        },
+        createdAt: now
+      });
+
       return { code: 200 as const, account, review };
     });
 
@@ -342,8 +380,8 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
       item: {
         id: params.id,
         status: 'closed',
-        resolvedAt: result.review?.resolved_at ?? now,
-        reviewAction: result.review?.review_action ?? 'changed_account'
+        resolvedAt: result.review.resolved_at,
+        reviewAction: result.review.review_action
       },
       account: {
         id: result.account.id,
