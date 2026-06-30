@@ -8,7 +8,8 @@ export const challengeActions = {
   messageCreate: toTurnstileAction('message.create'),
   offerCreate: toTurnstileAction('offer.create'),
   offerManage: toTurnstileAction('offer.manage'),
-  orderCreate: toTurnstileAction('order.create')
+  orderCreate: toTurnstileAction('order.create'),
+  reportCreate: toTurnstileAction('report.create')
 } as const;
 
 export interface PublicChallengeConfiguration {

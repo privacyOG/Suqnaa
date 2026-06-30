@@ -34,5 +34,6 @@ assert.deepEqual(enabled.actions, {
   messageCreate: 'message_create',
   offerCreate: 'offer_create',
   offerManage: 'offer_manage',
-  orderCreate: 'order_create'
+  orderCreate: 'order_create',
+  reportCreate: 'report_create'
 });

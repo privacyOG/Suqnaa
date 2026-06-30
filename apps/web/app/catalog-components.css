@@ -392,7 +392,8 @@
 }
 
 .buyer-action-form textarea,
-.buyer-action-form input {
+.buyer-action-form input,
+.buyer-action-form select {
   width: 100%;
   border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: 15px;
@@ -425,19 +426,27 @@
   font-weight: 900;
 }
 
-.buyer-action-form .button-primary {
+.buyer-action-form .button-primary,
+.buyer-action-form .button-secondary {
   justify-self: start;
   min-width: 145px;
   cursor: pointer;
 }
 
-.buyer-action-form .button-primary:disabled {
+.buyer-action-form .button-primary:disabled,
+.buyer-action-form .button-secondary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
 .offer-card {
   border-color: rgba(217, 164, 65, 0.25);
+}
+
+.report-listing-card {
+  max-width: 1180px;
+  margin-top: 20px;
+  border-color: rgba(220, 38, 38, 0.18);
 }
 
 .offer-success {
@@ -517,9 +526,5 @@
 
   .listing-media-placeholder > span {
     font-size: 88px;
-  }
-
-  .buyer-action-form .button-primary {
-    width: 100%;
   }
 }

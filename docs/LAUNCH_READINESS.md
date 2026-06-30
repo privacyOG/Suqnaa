@@ -57,6 +57,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Basic rate limits exist on high-risk routes.
 - [x] Listing media uploads require seller ownership and are rate limited.
 - [x] Private object buckets can be served through short-lived signed URLs.
+- [x] User/listing reports require authentication, rate limits, and protected browser transport.
 - [ ] Configure Cloudflare Turnstile or another real challenge provider in production.
 - [ ] Verify CORS only allows the production web origin.
 - [ ] Add security headers at the edge or hosting layer.
@@ -72,7 +73,7 @@ This document tracks what is required before Suqnaa can move from local developm
 - [x] Listing photo upload and display exists for staging/development.
 - [x] Item and service availability fields exist.
 - [x] Category selection is exposed in the listing form.
-- [ ] Reporting flows for users/listings must be exposed in the web UI.
+- [x] Reporting flows for users/listings are exposed from listing details.
 - [ ] Admin review and takedown tools must be created before public launch.
 - [ ] Final item rules must be written and reviewed.
 - [ ] Buyer/seller safety guidance must be linked from listing and messaging flows.
