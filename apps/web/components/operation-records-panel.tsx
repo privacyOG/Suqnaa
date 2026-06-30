@@ -48,6 +48,17 @@ function metadataSummary(metadata: Record<string, unknown>): string {
   return entries.map(([key, value]) => `${key}: ${String(value)}`).join(' · ');
 }
 
+function appendUniqueRecords(
+  current: OperationRecordItem[],
+  incoming: OperationRecordItem[]
+): OperationRecordItem[] {
+  const existing = new Set(current.map((item) => item.id));
+  return [
+    ...current,
+    ...incoming.filter((item) => !existing.has(item.id))
+  ];
+}
+
 export function OperationRecordsPanel({ locale }: OperationRecordsPanelProps) {
   const isArabic = locale === 'ar';
   const [items, setItems] = useState<OperationRecordItem[]>([]);
@@ -114,7 +125,7 @@ export function OperationRecordsPanel({ locale }: OperationRecordsPanelProps) {
   }
 
   async function loadMore() {
-    if (!nextCursor) {
+    if (!nextCursor || loadingMore) {
       return;
     }
     setLoadingMore(true);
@@ -126,7 +137,7 @@ export function OperationRecordsPanel({ locale }: OperationRecordsPanelProps) {
         action: action || undefined,
         entityType: entityType || undefined
       });
-      setItems((current) => [...current, ...payload.items]);
+      setItems((current) => appendUniqueRecords(current, payload.items));
       setNextCursor(payload.pagination.nextCursor);
     } catch {
       setError(isArabic ? 'تعذر تحميل المزيد.' : 'Could not load more records.');
