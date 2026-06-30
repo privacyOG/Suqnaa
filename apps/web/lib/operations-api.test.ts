@@ -54,6 +54,18 @@ async function run() {
     );
     assert.equal(calls.at(-1)?.init?.method, 'GET');
 
+    await getOperationRecords({
+      limit: 25,
+      before: '2026-06-22T00:00:00.000Z',
+      action: 'operations.listing_status',
+      entityType: 'listing'
+    });
+    assert.equal(
+      calls.at(-1)?.url,
+      '/api/authed/v1/operations/records?limit=25&before=2026-06-22T00%3A00%3A00.000Z&action=operations.listing_status&entityType=listing'
+    );
+    assert.equal(calls.at(-1)?.init?.method, 'GET');
+
     await completeOperationsQueueItem(itemId, {
       result: 'no_change',
       note: 'Reviewed'
