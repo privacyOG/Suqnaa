@@ -43,6 +43,10 @@ async function run() {
     );
     assert.equal(calls.at(-1)?.init?.method, 'GET');
 
+    await getOperationRecords();
+    assert.equal(calls.at(-1)?.url, '/api/authed/v1/operations/records');
+    assert.equal(calls.at(-1)?.init?.method, 'GET');
+
     await getOperationRecords({
       limit: 25,
       action: 'operations.queue.complete',
