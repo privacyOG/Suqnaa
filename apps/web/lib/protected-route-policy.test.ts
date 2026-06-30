@@ -40,6 +40,44 @@ assert.ok(resolveProtectedRoute(
   new URLSearchParams()
 ));
 
+const queue = resolveProtectedRoute(
+  'GET',
+  ['v1', 'operations', 'queue'],
+  new URLSearchParams('status=open&limit=25&before=2026-06-22T00%3A00%3A00.000Z')
+);
+assert.equal(queue?.path, '/v1/operations/queue');
+assert.equal(
+  queue?.query,
+  'status=open&limit=25&before=2026-06-22T00%3A00%3A00.000Z'
+);
+
+const records = resolveProtectedRoute(
+  'GET',
+  ['v1', 'operations', 'records'],
+  new URLSearchParams('limit=25&action=operations.queue.complete&entityType=report')
+);
+assert.equal(records?.path, '/v1/operations/records');
+assert.equal(
+  records?.query,
+  'limit=25&action=operations.queue.complete&entityType=report'
+);
+
+assert.ok(resolveProtectedRoute(
+  'POST',
+  ['v1', 'operations', 'queue', conversationId, 'complete'],
+  new URLSearchParams()
+));
+assert.ok(resolveProtectedRoute(
+  'POST',
+  ['v1', 'operations', 'queue', conversationId, 'listing-status'],
+  new URLSearchParams()
+));
+assert.ok(resolveProtectedRoute(
+  'POST',
+  ['v1', 'operations', 'queue', conversationId, 'account-status'],
+  new URLSearchParams()
+));
+
 assert.equal(resolveProtectedRoute(
   'DELETE',
   ['v1', 'listings', conversationId],
@@ -59,6 +97,16 @@ assert.equal(resolveProtectedRoute(
   'GET',
   ['v1', 'conversations'],
   new URLSearchParams('limit=20&limit=30')
+), null);
+assert.equal(resolveProtectedRoute(
+  'GET',
+  ['v1', 'operations', 'records'],
+  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
+), null);
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'operations', 'queue', 'not-a-uuid', 'complete'],
+  new URLSearchParams()
 ), null);
 assert.equal(resolveProtectedRoute(
   'POST',
