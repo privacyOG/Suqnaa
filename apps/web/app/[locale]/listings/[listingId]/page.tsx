@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ListingBuyerActions } from '../../../../components/listing-buyer-actions';
+import { ListingReportForm } from '../../../../components/listing-report-form';
 import { SessionRefresh } from '../../../../components/session-refresh';
 import { isLocale } from '../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../lib/account-session-state';
@@ -269,14 +270,22 @@ export default async function ListingDetailPage({
             </a>
           </div>
         ) : user ? (
-          <ListingBuyerActions
-            locale={params.locale}
-            listingId={listing.id}
-            sellerId={listing.seller.id}
-            sellerName={sellerDisplayName}
-            priceAmount={listing.priceAmount}
-            currencyCode={listing.currencyCode}
-          />
+          <>
+            <ListingBuyerActions
+              locale={params.locale}
+              listingId={listing.id}
+              sellerId={listing.seller.id}
+              sellerName={sellerDisplayName}
+              priceAmount={listing.priceAmount}
+              currencyCode={listing.currencyCode}
+            />
+            <ListingReportForm
+              locale={params.locale}
+              listingId={listing.id}
+              reportedUserId={listing.seller.id}
+              sellerName={sellerDisplayName}
+            />
+          </>
         ) : needsRotation ? (
           <div className="buyer-session-panel">
             <SessionRefresh locale={params.locale} />
