@@ -1,8 +1,71 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { requireOperationsUser } from '../auth/require-operations-user.js';
+import { db } from '../db/index.js';
+
+const queueQuery = z.object({
+  status: z.enum(['open', 'closed', 'all']).default('open'),
+  limit: z.coerce.number().int().min(1).max(50).default(25),
+  before: z.string().datetime().optional()
+});
 
 export async function operationsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/operations/health', { preHandler: requireOperationsUser }, async (_request, reply) => {
     return reply.send({ ok: true });
+  });
+
+  app.get('/operations/queue', { preHandler: requireOperationsUser }, async (request, reply) => {
+    const query = queueQuery.parse(request.query);
+    let queue = db.selectFrom('reports')
+      .select([
+        'id',
+        'reporter_id',
+        'listing_id',
+        'reported_user_id',
+        'reason',
+        'details',
+        'created_at',
+        'resolved_at',
+        'review_action',
+        'review_note'
+      ]);
+
+    if (query.status === 'open') {
+      queue = queue.where('resolved_at', 'is', null);
+    } else if (query.status === 'closed') {
+      queue = queue.where('resolved_at', 'is not', null);
+    }
+    if (query.before) {
+      queue = queue.where('created_at', '<', new Date(query.before));
+    }
+
+    const rows = await queue
+      .orderBy('created_at', 'desc')
+      .limit(query.limit + 1)
+      .execute();
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+
+    return reply.send({
+      items: page.map((item) => ({
+        id: item.id,
+        status: item.resolved_at ? 'closed' : 'open',
+        reporterId: item.reporter_id,
+        listingId: item.listing_id,
+        subjectUserId: item.reported_user_id,
+        reason: item.reason,
+        details: item.details,
+        createdAt: item.created_at,
+        resolvedAt: item.resolved_at,
+        reviewAction: item.review_action,
+        reviewNote: item.review_note
+      })),
+      pagination: {
+        hasMore: rows.length > query.limit,
+        nextCursor: rows.length > query.limit && last
+          ? new Date(last.created_at).toISOString()
+          : null
+      }
+    });
   });
 }
