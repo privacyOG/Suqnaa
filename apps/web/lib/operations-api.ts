@@ -2,6 +2,8 @@ import { getAuthed, postAuthed, type JsonBody } from './authed-api';
 
 export type OperationsQueueStatus = 'open' | 'closed' | 'all';
 export type OperationsQueueResult = 'no_change' | 'changed_listing' | 'changed_account' | 'other';
+export type OperationsListingStatus = 'draft' | 'active' | 'reserved' | 'sold' | 'expired' | 'removed';
+export type OperationsAccountStatus = 'active' | 'suspended';
 
 export interface OperationsQueueItem {
   id: string;
@@ -51,6 +53,27 @@ export interface CompleteOperationsQueueResponse {
   };
 }
 
+export interface SetOperationsListingStatusInput extends JsonBody {
+  status: OperationsListingStatus;
+  note?: string;
+}
+
+export interface SetOperationsAccountStatusInput extends JsonBody {
+  status: OperationsAccountStatus;
+  note?: string;
+}
+
+export interface OperationsStatusActionResponse extends CompleteOperationsQueueResponse {
+  listing?: {
+    id: string;
+    status: OperationsListingStatus;
+  };
+  account?: {
+    id: string;
+    status: OperationsAccountStatus;
+  };
+}
+
 export function getOperationsQueue(
   options: OperationsQueueOptions = {}
 ): Promise<OperationsQueueResponse> {
@@ -77,6 +100,26 @@ export function completeOperationsQueueItem(
 ): Promise<CompleteOperationsQueueResponse> {
   return postAuthed<CompleteOperationsQueueResponse>(
     `/v1/operations/queue/${itemId}/complete`,
+    input
+  );
+}
+
+export function setOperationsListingStatus(
+  itemId: string,
+  input: SetOperationsListingStatusInput
+): Promise<OperationsStatusActionResponse> {
+  return postAuthed<OperationsStatusActionResponse>(
+    `/v1/operations/queue/${itemId}/listing-status`,
+    input
+  );
+}
+
+export function setOperationsAccountStatus(
+  itemId: string,
+  input: SetOperationsAccountStatusInput
+): Promise<OperationsStatusActionResponse> {
+  return postAuthed<OperationsStatusActionResponse>(
+    `/v1/operations/queue/${itemId}/account-status`,
     input
   );
 }
