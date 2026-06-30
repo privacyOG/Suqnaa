@@ -17,10 +17,11 @@ export interface QueueAuditInput {
 }
 
 export async function recordQueueAudit(
-  writer: QueueAuditWriter,
+  writer: unknown,
   input: QueueAuditInput
 ): Promise<void> {
-  await writer.insertInto('audit_logs')
+  const queueAuditWriter = writer as QueueAuditWriter;
+  await queueAuditWriter.insertInto('audit_logs')
     .values({
       actor_user_id: input.actorId,
       action: input.action,
