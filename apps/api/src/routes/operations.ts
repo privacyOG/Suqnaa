@@ -129,18 +129,40 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
     const body = completeBody.parse(request.body);
     const now = new Date();
 
-    const updated = await db.updateTable('reports')
-      .set({
-        resolved_at: now,
-        reviewed_by: authRequest.operationsUserId,
-        review_action: body.result,
-        review_note: body.note ?? null,
-        updated_at: now
-      })
-      .where('id', '=', params.id)
-      .where('resolved_at', 'is', null)
-      .returning(['id', 'resolved_at', 'review_action'])
-      .executeTakeFirst();
+    const updated = await db.transaction().execute(async (trx) => {
+      const item = await trx.updateTable('reports')
+        .set({
+          resolved_at: now,
+          reviewed_by: authRequest.operationsUserId,
+          review_action: body.result,
+          review_note: body.note ?? null,
+          updated_at: now
+        })
+        .where('id', '=', params.id)
+        .where('resolved_at', 'is', null)
+        .returning(['id', 'resolved_at', 'review_action'])
+        .executeTakeFirst();
+
+      if (!item) {
+        return undefined;
+      }
+
+      await recordQueueAudit(trx, {
+        actorId: authRequest.operationsUserId,
+        action: 'operations.queue.complete',
+        entityType: 'report',
+        entityId: item.id,
+        ipAddress: request.ip,
+        metadata: {
+          queueItemId: item.id,
+          result: body.result,
+          noteProvided: Boolean(body.note)
+        },
+        createdAt: now
+      });
+
+      return item;
+    });
 
     if (!updated) {
       return reply.code(404).send({ error: 'Open queue item not found' });
