@@ -26,30 +26,39 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/operations/queue', { preHandler: requireOperationsUser }, async (request, reply) => {
     const query = queueQuery.parse(request.query);
     let queue = db.selectFrom('reports')
+      .leftJoin('listings', 'listings.id', 'reports.listing_id')
+      .leftJoin('users as reporter', 'reporter.id', 'reports.reporter_id')
+      .leftJoin('users as subject_account', 'subject_account.id', 'reports.reported_user_id')
       .select([
-        'id',
-        'reporter_id',
-        'listing_id',
-        'reported_user_id',
-        'reason',
-        'details',
-        'created_at',
-        'resolved_at',
-        'review_action',
-        'review_note'
+        'reports.id as id',
+        'reports.reporter_id as reporter_id',
+        'reports.listing_id as listing_id',
+        'reports.reported_user_id as reported_user_id',
+        'reports.reason as reason',
+        'reports.details as details',
+        'reports.created_at as created_at',
+        'reports.resolved_at as resolved_at',
+        'reports.review_action as review_action',
+        'reports.review_note as review_note',
+        'listings.title as listing_title',
+        'listings.status as listing_status',
+        'reporter.display_name as reporter_name',
+        'reporter.status as reporter_status',
+        'subject_account.display_name as subject_name',
+        'subject_account.status as subject_status'
       ]);
 
     if (query.status === 'open') {
-      queue = queue.where('resolved_at', 'is', null);
+      queue = queue.where('reports.resolved_at', 'is', null);
     } else if (query.status === 'closed') {
-      queue = queue.where('resolved_at', 'is not', null);
+      queue = queue.where('reports.resolved_at', 'is not', null);
     }
     if (query.before) {
-      queue = queue.where('created_at', '<', new Date(query.before));
+      queue = queue.where('reports.created_at', '<', new Date(query.before));
     }
 
     const rows = await queue
-      .orderBy('created_at', 'desc')
+      .orderBy('reports.created_at', 'desc')
       .limit(query.limit + 1)
       .execute();
     const page = rows.slice(0, query.limit);
@@ -60,8 +69,14 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         id: item.id,
         status: item.resolved_at ? 'closed' : 'open',
         reporterId: item.reporter_id,
+        reporterName: item.reporter_name,
+        reporterStatus: item.reporter_status,
         listingId: item.listing_id,
+        listingTitle: item.listing_title,
+        listingStatus: item.listing_status,
         subjectUserId: item.reported_user_id,
+        subjectUserName: item.subject_name,
+        subjectUserStatus: item.subject_status,
         reason: item.reason,
         details: item.details,
         createdAt: item.created_at,

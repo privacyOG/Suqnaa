@@ -7,8 +7,14 @@ export interface OperationsQueueItem {
   id: string;
   status: 'open' | 'closed';
   reporterId: string;
+  reporterName: string | null;
+  reporterStatus: string | null;
   listingId: string | null;
+  listingTitle: string | null;
+  listingStatus: string | null;
   subjectUserId: string | null;
+  subjectUserName: string | null;
+  subjectUserStatus: string | null;
   reason: string;
   details: string | null;
   createdAt: string;

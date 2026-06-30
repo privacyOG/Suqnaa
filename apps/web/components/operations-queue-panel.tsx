@@ -36,6 +36,20 @@ function shortId(value: string | null): string {
   return value ? value.slice(0, 8) : '—';
 }
 
+function displayName(name: string | null, id: string | null): string {
+  return name?.trim() || shortId(id);
+}
+
+function itemHeading(item: OperationsQueueItem): string {
+  return item.listingTitle?.trim()
+    || item.subjectUserName?.trim()
+    || shortId(item.listingId ?? item.subjectUserId ?? item.id);
+}
+
+function statusLabel(value: string | null): string {
+  return value?.trim() || '—';
+}
+
 export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
   const isArabic = locale === 'ar';
   const [status, setStatus] = useState<OperationsQueueStatus>('open');
@@ -132,7 +146,7 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
           <article className="buyer-action-card" key={item.id}>
             <div>
               <span className="buyer-action-label">{item.reason}</span>
-              <h2>{shortId(item.id)}</h2>
+              <h2>{itemHeading(item)}</h2>
               <p>{item.details || (isArabic ? 'لا توجد تفاصيل إضافية.' : 'No extra details provided.')}</p>
             </div>
 
@@ -143,11 +157,27 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
               </div>
               <div>
                 <dt>{isArabic ? 'الإعلان' : 'Listing'}</dt>
-                <dd>{shortId(item.listingId)}</dd>
+                <dd>{item.listingTitle || shortId(item.listingId)}</dd>
+              </div>
+              <div>
+                <dt>{isArabic ? 'حالة الإعلان' : 'Listing status'}</dt>
+                <dd>{statusLabel(item.listingStatus)}</dd>
               </div>
               <div>
                 <dt>{isArabic ? 'الحساب' : 'Account'}</dt>
-                <dd>{shortId(item.subjectUserId)}</dd>
+                <dd>{displayName(item.subjectUserName, item.subjectUserId)}</dd>
+              </div>
+              <div>
+                <dt>{isArabic ? 'حالة الحساب' : 'Account status'}</dt>
+                <dd>{statusLabel(item.subjectUserStatus)}</dd>
+              </div>
+              <div>
+                <dt>{isArabic ? 'المبلّغ' : 'Reporter'}</dt>
+                <dd>{displayName(item.reporterName, item.reporterId)}</dd>
+              </div>
+              <div>
+                <dt>{isArabic ? 'حالة المبلّغ' : 'Reporter status'}</dt>
+                <dd>{statusLabel(item.reporterStatus)}</dd>
               </div>
               <div>
                 <dt>{isArabic ? 'التاريخ' : 'Created'}</dt>
