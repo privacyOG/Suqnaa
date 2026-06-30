@@ -121,6 +121,9 @@ async function run() {
       calls.at(-1)?.init?.body,
       JSON.stringify({ status: 'suspended', note: 'Repeated reports' })
     );
+
+    await setOperationsAccountStatus(itemId, { status: 'active' });
+    assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ status: 'active' }));
   } finally {
     globalThis.fetch = originalFetch;
   }
