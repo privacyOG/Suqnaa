@@ -88,6 +88,9 @@ async function run() {
       JSON.stringify({ result: 'no_change', note: 'Reviewed' })
     );
 
+    await completeOperationsQueueItem(itemId, { result: 'other' });
+    assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ result: 'other' }));
+
     await setOperationsListingStatus(itemId, {
       status: 'removed',
       note: 'Policy mismatch'
