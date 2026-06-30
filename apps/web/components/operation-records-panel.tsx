@@ -38,6 +38,26 @@ function shortId(value: string | null): string {
   return value ? value.slice(0, 8) : '—';
 }
 
+function formatDetailValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(formatDetailValue).join(', ');
+  }
+  if (typeof value === 'object' && value !== null) {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return 'object';
+    }
+  }
+  return String(value);
+}
+
 function metadataSummary(metadata: Record<string, unknown>): string {
   const entries = Object.entries(metadata)
     .filter(([, value]) => value !== null && value !== undefined)
@@ -45,7 +65,7 @@ function metadataSummary(metadata: Record<string, unknown>): string {
   if (entries.length === 0) {
     return '—';
   }
-  return entries.map(([key, value]) => `${key}: ${String(value)}`).join(' · ');
+  return entries.map(([key, value]) => `${key}: ${formatDetailValue(value)}`).join(' · ');
 }
 
 function appendUniqueRecords(
