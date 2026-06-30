@@ -1,6 +1,7 @@
-import { getAuthed } from './authed-api';
+import { getAuthed, postAuthed, type JsonBody } from './authed-api';
 
 export type OperationsQueueStatus = 'open' | 'closed' | 'all';
+export type OperationsQueueResult = 'no_change' | 'changed_listing' | 'changed_account' | 'other';
 
 export interface OperationsQueueItem {
   id: string;
@@ -30,6 +31,20 @@ export interface OperationsQueueOptions {
   before?: string;
 }
 
+export interface CompleteOperationsQueueInput extends JsonBody {
+  result: OperationsQueueResult;
+  note?: string;
+}
+
+export interface CompleteOperationsQueueResponse {
+  item: {
+    id: string;
+    status: 'closed';
+    resolvedAt: string;
+    reviewAction: OperationsQueueResult;
+  };
+}
+
 export function getOperationsQueue(
   options: OperationsQueueOptions = {}
 ): Promise<OperationsQueueResponse> {
@@ -47,5 +62,15 @@ export function getOperationsQueue(
   const encoded = query.toString();
   return getAuthed<OperationsQueueResponse>(
     encoded ? `/v1/operations/queue?${encoded}` : '/v1/operations/queue'
+  );
+}
+
+export function completeOperationsQueueItem(
+  itemId: string,
+  input: CompleteOperationsQueueInput
+): Promise<CompleteOperationsQueueResponse> {
+  return postAuthed<CompleteOperationsQueueResponse>(
+    `/v1/operations/queue/${itemId}/complete`,
+    input
   );
 }
