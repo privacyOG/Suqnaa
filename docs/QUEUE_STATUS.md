@@ -2,6 +2,8 @@
 
 This note records the current internal queue/support state for staging planning.
 
+For endpoint details and request/response flow, see [`QUEUE_COMPLETION.md`](./QUEUE_COMPLETION.md).
+
 ## Current state
 
 - Internal queue listing is available through the API and web operations page.
