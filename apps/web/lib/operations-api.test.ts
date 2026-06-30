@@ -32,6 +32,10 @@ async function run() {
       });
     }) as typeof fetch;
 
+    await getOperationsQueue();
+    assert.equal(calls.at(-1)?.url, '/api/authed/v1/operations/queue');
+    assert.equal(calls.at(-1)?.init?.method, 'GET');
+
     await getOperationsQueue({
       status: 'open',
       limit: 25,
