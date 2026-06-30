@@ -174,6 +174,24 @@ export function OperationsQueueBrowserPanel({ locale }: OperationsQueueBrowserPa
                 <dt>{isArabic ? 'التاريخ' : 'Created'}</dt>
                 <dd>{formatDate(item.createdAt, locale)}</dd>
               </div>
+              {item.reviewAction ? (
+                <div>
+                  <dt>{isArabic ? 'النتيجة' : 'Result'}</dt>
+                  <dd>{item.reviewAction}</dd>
+                </div>
+              ) : null}
+              {item.resolvedAt ? (
+                <div>
+                  <dt>{isArabic ? 'تاريخ الإغلاق' : 'Closed at'}</dt>
+                  <dd>{formatDate(item.resolvedAt, locale)}</dd>
+                </div>
+              ) : null}
+              {item.reviewNote ? (
+                <div>
+                  <dt>{isArabic ? 'ملاحظة' : 'Note'}</dt>
+                  <dd>{item.reviewNote}</dd>
+                </div>
+              ) : null}
             </dl>
           </article>
         ))}
