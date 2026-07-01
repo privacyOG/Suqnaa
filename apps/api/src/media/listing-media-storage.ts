@@ -39,6 +39,8 @@ export interface ListingMediaStorage {
 
 const defaultCacheControl = 'public, max-age=3600';
 const localOriginHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+const defaultLinkLifetimeSeconds = 900;
+const maxProductionLinkLifetimeSeconds = 3600;
 
 export function resolveMediaStorageDriver(input: {
   nodeEnv?: string;
@@ -82,21 +84,34 @@ export function resolveMediaPublicBaseUrl(input: {
   return trimTrailingSlash(url.origin + url.pathname);
 }
 
+export function resolveMediaLinkLifetimeSeconds(input: {
+  nodeEnv?: string;
+  value?: string;
+}): number {
+  const raw = input.value?.trim();
+
+  if (!raw) {
+    return defaultLinkLifetimeSeconds;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error('MEDIA_SIGNED_URL_TTL_SECONDS must be a positive integer');
+  }
+
+  if (input.nodeEnv === 'production' && parsed > maxProductionLinkLifetimeSeconds) {
+    throw new Error('MEDIA_SIGNED_URL_TTL_SECONDS must not exceed 3600 in production');
+  }
+
+  return parsed;
+}
+
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
 function encodeObjectKey(objectKey: string): string {
   return objectKey.split('/').map(encodeURIComponent).join('/');
-}
-
-function positiveIntegerFromEnv(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) {
-    return fallback;
-  }
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function requiredEnv(name: string): string {
@@ -157,7 +172,10 @@ class S3ListingMediaStorage implements ListingMediaStorage {
       nodeEnv: process.env.NODE_ENV,
       publicBaseUrl: process.env.MEDIA_PUBLIC_BASE_URL
     });
-    this.signedUrlTtlSeconds = positiveIntegerFromEnv('MEDIA_SIGNED_URL_TTL_SECONDS', 900);
+    this.signedUrlTtlSeconds = resolveMediaLinkLifetimeSeconds({
+      nodeEnv: process.env.NODE_ENV,
+      value: process.env.MEDIA_SIGNED_URL_TTL_SECONDS
+    });
 
     const endpoint = process.env.S3_ENDPOINT?.trim();
     const region = process.env.S3_REGION?.trim() || 'auto';
