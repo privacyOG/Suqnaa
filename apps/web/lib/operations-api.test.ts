@@ -51,6 +51,7 @@ async function run() {
     await getOperationRecords();
     assert.equal(calls.at(-1)?.url, '/api/authed/v1/operations/records');
     assert.equal(calls.at(-1)?.init?.method, 'GET');
+    assert.equal(calls.at(-1)?.init?.credentials, 'same-origin');
 
     await getOperationRecords({
       limit: 25,
