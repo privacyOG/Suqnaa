@@ -119,6 +119,7 @@ async function run() {
       `/api/authed/v1/operations/queue/${itemId}/account-status`
     );
     assert.equal(calls.at(-1)?.init?.method, 'POST');
+    assert.equal(new Headers(calls.at(-1)?.init?.headers).get('content-type'), 'application/json');
     assert.equal(
       calls.at(-1)?.init?.body,
       JSON.stringify({ status: 'suspended', note: 'Repeated reports' })
