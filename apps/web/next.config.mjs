@@ -30,6 +30,10 @@ const nextConfig = {
           {
             key: 'Cross-Origin-Opener-Policy',
             value: 'same-origin'
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
           }
         ]
       }
