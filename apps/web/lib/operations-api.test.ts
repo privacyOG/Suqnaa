@@ -35,6 +35,7 @@ async function run() {
     await getOperationsQueue();
     assert.equal(calls.at(-1)?.url, '/api/authed/v1/operations/queue');
     assert.equal(calls.at(-1)?.init?.method, 'GET');
+    assert.equal(calls.at(-1)?.init?.credentials, 'same-origin');
 
     await getOperationsQueue({
       status: 'open',
