@@ -39,6 +39,23 @@ export interface ListingMediaStorage {
 
 const defaultCacheControl = 'public, max-age=3600';
 
+export function resolveMediaStorageDriver(input: {
+  nodeEnv?: string;
+  driver?: string;
+}): MediaStorageDriver {
+  const driver = (input.driver ?? 'local').trim().toLowerCase();
+
+  if (driver !== 'local' && driver !== 's3') {
+    throw new Error(`Unsupported MEDIA_STORAGE_DRIVER: ${driver}`);
+  }
+
+  if (input.nodeEnv === 'production' && driver !== 's3') {
+    throw new Error('S3 media storage is required in production');
+  }
+
+  return driver;
+}
+
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
@@ -182,13 +199,14 @@ export function getListingMediaStorage(): ListingMediaStorage {
     return cachedStorage;
   }
 
-  const driver = (process.env.MEDIA_STORAGE_DRIVER ?? 'local').trim().toLowerCase();
+  const driver = resolveMediaStorageDriver({
+    nodeEnv: process.env.NODE_ENV,
+    driver: process.env.MEDIA_STORAGE_DRIVER
+  });
+
   if (driver === 's3') {
     cachedStorage = new S3ListingMediaStorage();
     return cachedStorage;
-  }
-  if (driver !== 'local') {
-    throw new Error(`Unsupported MEDIA_STORAGE_DRIVER: ${driver}`);
   }
 
   cachedStorage = new LocalListingMediaStorage();
