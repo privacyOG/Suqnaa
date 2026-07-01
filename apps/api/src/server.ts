@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { env } from './config/env.js';
+import { resolveWebOrigin } from './config/web-origin.js';
 import { accountRoutes } from './routes/account.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
@@ -20,7 +21,10 @@ const app = Fastify({
   logger: env.NODE_ENV !== 'test'
 });
 
-const webOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+const webOrigin = resolveWebOrigin({
+  nodeEnv: env.NODE_ENV,
+  webOrigin: process.env.WEB_ORIGIN
+});
 
 app.addHook('onRequest', async (request, reply) => {
   const origin = request.headers.origin;
