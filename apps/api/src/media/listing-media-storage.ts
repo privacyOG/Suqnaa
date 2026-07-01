@@ -38,6 +38,7 @@ export interface ListingMediaStorage {
 }
 
 const defaultCacheControl = 'public, max-age=3600';
+const localOriginHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 
 export function resolveMediaStorageDriver(input: {
   nodeEnv?: string;
@@ -54,6 +55,31 @@ export function resolveMediaStorageDriver(input: {
   }
 
   return driver;
+}
+
+export function resolveMediaPublicBaseUrl(input: {
+  nodeEnv?: string;
+  publicBaseUrl?: string;
+}): string | null {
+  const value = input.publicBaseUrl?.trim();
+
+  if (!value) {
+    return null;
+  }
+
+  const url = new URL(value);
+
+  if (input.nodeEnv === 'production') {
+    if (url.protocol !== 'https:') {
+      throw new Error('MEDIA_PUBLIC_BASE_URL must use HTTPS in production');
+    }
+
+    if (localOriginHosts.has(url.hostname)) {
+      throw new Error('MEDIA_PUBLIC_BASE_URL must not point to a local host in production');
+    }
+  }
+
+  return trimTrailingSlash(url.origin + url.pathname);
 }
 
 function trimTrailingSlash(value: string): string {
@@ -127,9 +153,10 @@ class S3ListingMediaStorage implements ListingMediaStorage {
 
   constructor() {
     this.bucket = requiredEnv('S3_BUCKET');
-    this.publicBaseUrl = process.env.MEDIA_PUBLIC_BASE_URL
-      ? trimTrailingSlash(process.env.MEDIA_PUBLIC_BASE_URL)
-      : null;
+    this.publicBaseUrl = resolveMediaPublicBaseUrl({
+      nodeEnv: process.env.NODE_ENV,
+      publicBaseUrl: process.env.MEDIA_PUBLIC_BASE_URL
+    });
     this.signedUrlTtlSeconds = positiveIntegerFromEnv('MEDIA_SIGNED_URL_TTL_SECONDS', 900);
 
     const endpoint = process.env.S3_ENDPOINT?.trim();
