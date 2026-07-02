@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { env } from './config/env.js';
+import { resolveApiErrorResponse } from './config/http-error.js';
 import { resolveApiRequestSizeBytes } from './config/request-size.js';
 import { resolveWebOrigin } from './config/web-origin.js';
 import { accountRoutes } from './routes/account.js';
@@ -56,8 +57,9 @@ app.addHook('onRequest', async (request, reply) => {
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
 
-  if (error.name === 'ZodError') {
-    return reply.code(400).send({ error: 'Invalid request payload' });
+  const mappedError = resolveApiErrorResponse(error);
+  if (mappedError) {
+    return reply.code(mappedError.statusCode).send(mappedError.body);
   }
 
   return reply.code(500).send({ error: 'Internal server error' });
