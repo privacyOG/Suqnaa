@@ -37,3 +37,13 @@ assert.deepEqual(enabled.actions, {
   orderCreate: 'order_create',
   reportCreate: 'report_create'
 });
+
+assert.throws(
+  () => buildPublicChallengeConfiguration({
+    provider: 'turnstile',
+    siteKey: '',
+    secretKey: '',
+    nodeEnv: 'production'
+  }),
+  /incomplete/
+);
