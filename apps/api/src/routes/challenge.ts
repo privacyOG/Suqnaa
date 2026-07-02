@@ -6,7 +6,8 @@ export async function challengeRoutes(app: FastifyInstance): Promise<void> {
     const challenge = buildPublicChallengeConfiguration({
       provider: process.env.CHALLENGE_PROVIDER === 'turnstile' ? 'turnstile' : 'none',
       siteKey: process.env.TURNSTILE_SITE_KEY,
-      secretKey: process.env.TURNSTILE_SECRET_KEY
+      secretKey: process.env.TURNSTILE_SECRET_KEY,
+      nodeEnv: process.env.NODE_ENV
     });
 
     reply.header('Cache-Control', 'public, max-age=300');

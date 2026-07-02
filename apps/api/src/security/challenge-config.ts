@@ -23,6 +23,7 @@ export interface ChallengeConfigurationInput {
   provider: 'none' | 'turnstile';
   siteKey?: string;
   secretKey?: string;
+  nodeEnv?: string;
 }
 
 export function buildPublicChallengeConfiguration(
@@ -31,6 +32,10 @@ export function buildPublicChallengeConfiguration(
   const siteKey = input.siteKey?.trim() ?? '';
   const secretKey = input.secretKey?.trim() ?? '';
   const enabled = input.provider === 'turnstile' && siteKey.length > 0 && secretKey.length > 0;
+
+  if (input.nodeEnv === 'production' && input.provider === 'turnstile' && !enabled) {
+    throw new Error('Challenge configuration is incomplete');
+  }
 
   return {
     provider: enabled ? 'turnstile' : 'none',
