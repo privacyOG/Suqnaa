@@ -34,6 +34,8 @@ const webOrigin = resolveWebOrigin({
 app.addHook('onRequest', async (request, reply) => {
   const origin = request.headers.origin;
 
+  reply.header('X-Content-Type-Options', 'nosniff');
+
   if (origin === webOrigin) {
     reply.header('Access-Control-Allow-Origin', origin);
     reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
