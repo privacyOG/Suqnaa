@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { resolveApiBodyLimitBytes } from './config/body-limit.js';
 import { env } from './config/env.js';
 import { resolveWebOrigin } from './config/web-origin.js';
 import { accountRoutes } from './routes/account.js';
@@ -18,7 +19,10 @@ import { reportRoutes } from './routes/reports.js';
 import { sessionManagementRoutes } from './routes/session-management.js';
 
 const app = Fastify({
-  logger: env.NODE_ENV !== 'test'
+  logger: env.NODE_ENV !== 'test',
+  bodyLimit: resolveApiBodyLimitBytes({
+    value: process.env.API_BODY_LIMIT_BYTES
+  })
 });
 
 const webOrigin = resolveWebOrigin({
