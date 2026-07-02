@@ -12,6 +12,7 @@ import { hashPassword, verifyPassword } from '../security/password.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
+const blockedUserStates = new Set(['suspended', 'closed']);
 
 const registerBody = z.object({
   email: z.string().email().optional(),
@@ -31,6 +32,10 @@ const refreshBody = z.object({
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function canIssueSession(status: string | null | undefined): boolean {
+  return !blockedUserStates.has(status ?? '');
 }
 
 function authPayload(user: { id: string; email?: string | null; display_name?: string; status?: string }, session: unknown) {
@@ -164,7 +169,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const valid = await verifyPassword(user.password_hash, body.password);
-    if (!valid) {
+    if (!valid || !canIssueSession(user.status)) {
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
 
@@ -225,7 +230,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         .where('id', '=', existing.user_id)
         .executeTakeFirst();
 
-      if (!user) {
+      if (!user || !canIssueSession(user.status)) {
         return null;
       }
 
