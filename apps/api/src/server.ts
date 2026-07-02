@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { env } from './config/env.js';
+import { resolveApiRequestSizeBytes } from './config/request-size.js';
 import { resolveWebOrigin } from './config/web-origin.js';
 import { accountRoutes } from './routes/account.js';
 import { healthRoutes } from './routes/health.js';
@@ -18,7 +19,10 @@ import { reportRoutes } from './routes/reports.js';
 import { sessionManagementRoutes } from './routes/session-management.js';
 
 const app = Fastify({
-  logger: env.NODE_ENV !== 'test'
+  logger: env.NODE_ENV !== 'test',
+  bodyLimit: resolveApiRequestSizeBytes({
+    value: process.env.API_REQUEST_SIZE_BYTES
+  })
 });
 
 const webOrigin = resolveWebOrigin({
