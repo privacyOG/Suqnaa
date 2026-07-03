@@ -36,6 +36,7 @@ app.addHook('onRequest', async (request, reply) => {
 
   reply.header('X-Content-Type-Options', 'nosniff');
   reply.header('Referrer-Policy', 'no-referrer');
+  reply.header('X-Frame-Options', 'DENY');
 
   if (origin === webOrigin) {
     reply.header('Access-Control-Allow-Origin', origin);
