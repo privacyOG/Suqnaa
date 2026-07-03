@@ -39,6 +39,7 @@ app.addHook('onRequest', async (request, reply) => {
   reply.header('X-Frame-Options', 'DENY');
   reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   reply.header('Cache-Control', 'no-store');
+  reply.header('Pragma', 'no-cache');
 
   if (origin === webOrigin) {
     reply.header('Access-Control-Allow-Origin', origin);
