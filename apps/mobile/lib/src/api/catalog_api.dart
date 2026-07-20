@@ -379,7 +379,7 @@ class CatalogListingDto {
   }
 
   String get location => [suburb, city, region, countryCode]
-      .where((value) => value != null && value!.trim().isNotEmpty)
+      .where((value) => value != null && value.trim().isNotEmpty)
       .join(', ');
 
   CatalogMediaDto? get coverMedia => media.isEmpty ? null : media.first;
