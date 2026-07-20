@@ -56,5 +56,7 @@
   "price": "Price",
   "notSpecified": "Not specified",
   "unableToLoadListing": "The listing could not be loaded.",
+  "checkPriceRange": "Check the price range.",
+  "checkLocationCodes": "Use a 3-letter currency code and a 2-letter country code.",
   "close": "Close"
 }
