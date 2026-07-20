@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   createListingDraft,
+  deleteListingMedia,
   getMyListings,
   updateListingStatus
 } from './listing-api';
@@ -107,6 +108,32 @@ async function run() {
     assert.equal(capturedInit?.method, 'POST');
     assert.equal(new Headers(capturedInit?.headers).get('x-suqnaa-human-check'), 'status-check');
     assert.equal(capturedInit?.body, JSON.stringify({ status: 'active' }));
+
+    globalThis.fetch = (async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({
+        deleted: true,
+        mediaId: '223e4567-e89b-42d3-a456-426614174000',
+        mediaCount: 1
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }) as typeof fetch;
+
+    await deleteListingMedia(
+      '123e4567-e89b-42d3-a456-426614174000',
+      '223e4567-e89b-42d3-a456-426614174000',
+      'media-check'
+    );
+    assert.equal(
+      capturedUrl,
+      '/api/authed/v1/listings/123e4567-e89b-42d3-a456-426614174000/media/223e4567-e89b-42d3-a456-426614174000/delete'
+    );
+    assert.equal(capturedInit?.method, 'POST');
+    assert.equal(new Headers(capturedInit?.headers).get('x-suqnaa-human-check'), 'media-check');
+    assert.equal(capturedInit?.body, JSON.stringify({}));
   } finally {
     globalThis.fetch = originalFetch;
   }
