@@ -73,6 +73,7 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
   }
 
   void _apply() {
+    final text = AppLocalizations.of(context);
     final minimum = _priceValue(_minimumPriceController);
     final maximum = _priceValue(_maximumPriceController);
     if ((_minimumPriceController.text.trim().isNotEmpty && minimum == null) ||
@@ -80,7 +81,7 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
         (minimum != null && minimum < 0) ||
         (maximum != null && maximum < 0) ||
         (minimum != null && maximum != null && minimum > maximum)) {
-      setState(() => _error = 'Check the price range.');
+      setState(() => _error = text.checkPriceRange);
       return;
     }
 
@@ -88,7 +89,7 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
     final country = _countryController.text.trim().toUpperCase();
     if ((currency.isNotEmpty && currency.length != 3) ||
         (country.isNotEmpty && country.length != 2)) {
-      setState(() => _error = 'Check the currency and country codes.');
+      setState(() => _error = text.checkLocationCodes);
       return;
     }
 
