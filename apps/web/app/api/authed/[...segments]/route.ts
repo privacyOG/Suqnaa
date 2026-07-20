@@ -15,8 +15,14 @@ const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   'http://localhost:4000';
 const defaultMaximumRequestBodyBytes = 64 * 1024;
-const mediaMaximumRequestBodyBytes = 6 * 1024 * 1024;
+const legacyMediaMaximumRequestBodyBytes = 6 * 1024 * 1024;
+const binaryMediaMaximumRequestBodyBytes = 4 * 1024 * 1024;
 const maximumChallengeLength = 2048;
+const supportedBinaryMediaTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp'
+]);
 
 interface RouteContext {
   params: {
@@ -26,7 +32,8 @@ interface RouteContext {
 
 interface PreparedRequest {
   route: NonNullable<ReturnType<typeof resolveProtectedRoute>>;
-  body?: string;
+  body?: string | ArrayBuffer;
+  contentType?: string;
   challenge?: string;
 }
 
@@ -39,10 +46,22 @@ function errorResponse(message: string, status: number, retryAfter?: string): Ne
   return response;
 }
 
-function maximumBodyBytesForRoute(route: NonNullable<ReturnType<typeof resolveProtectedRoute>>): number {
+function isBinaryMediaUploadRoute(
+  route: NonNullable<ReturnType<typeof resolveProtectedRoute>>
+): boolean {
+  return /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/upload$/.test(route.path);
+}
+
+function maximumJsonBodyBytesForRoute(
+  route: NonNullable<ReturnType<typeof resolveProtectedRoute>>
+): number {
   return /^\/v1\/listings\/[0-9a-fA-F-]+\/media$/.test(route.path)
-    ? mediaMaximumRequestBodyBytes
+    ? legacyMediaMaximumRequestBodyBytes
     : defaultMaximumRequestBodyBytes;
+}
+
+function normalizedContentType(value: string | null): string | null {
+  return value?.split(';', 1)[0].trim().toLowerCase() || null;
 }
 
 async function prepareRequest(
@@ -71,8 +90,30 @@ async function prepareRequest(
     return { route, challenge };
   }
 
+  if (isBinaryMediaUploadRoute(route)) {
+    const contentType = normalizedContentType(request.headers.get('content-type'));
+    if (!contentType || !supportedBinaryMediaTypes.has(contentType)) {
+      return errorResponse('Unsupported image content type', 415);
+    }
+
+    const body = await request.arrayBuffer();
+    if (body.byteLength === 0) {
+      return errorResponse('Image body is required', 400);
+    }
+    if (body.byteLength > binaryMediaMaximumRequestBodyBytes) {
+      return errorResponse('Request body is too large', 413);
+    }
+
+    return {
+      route,
+      challenge,
+      body,
+      contentType
+    };
+  }
+
   const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).byteLength > maximumBodyBytesForRoute(route)) {
+  if (new TextEncoder().encode(rawBody).byteLength > maximumJsonBodyBytesForRoute(route)) {
     return errorResponse('Request body is too large', 413);
   }
 
@@ -90,7 +131,8 @@ async function prepareRequest(
   return {
     route,
     challenge,
-    body: JSON.stringify(parsed)
+    body: JSON.stringify(parsed),
+    contentType: 'application/json'
   };
 }
 
@@ -106,8 +148,8 @@ async function callApi(
       accept: 'application/json',
       authorization: `Bearer ${accessToken}`,
       'user-agent': userAgent ?? 'SuqnaaWeb/1.0',
-      ...(prepared.route.method === 'POST'
-        ? { 'content-type': 'application/json' }
+      ...(prepared.route.method === 'POST' && prepared.contentType
+        ? { 'content-type': prepared.contentType }
         : {}),
       ...(prepared.challenge
         ? { 'x-suqnaa-human-check': prepared.challenge }

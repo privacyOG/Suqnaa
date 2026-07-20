@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {
   AuthedRequestError,
   getAuthed,
-  postAuthed
+  postAuthed,
+  postAuthedBinary
 } from './authed-api';
 
 async function run() {
@@ -45,9 +46,28 @@ async function run() {
     const postHeaders = new Headers(capturedInit?.headers);
     assert.equal(capturedUrl, '/api/authed/v1/listings');
     assert.equal(capturedInit?.method, 'POST');
+    assert.equal(postHeaders.get('content-type'), 'application/json');
     assert.equal(postHeaders.get('x-suqnaa-human-check'), 'challenge-token');
     assert.equal(postHeaders.has('authorization'), false);
     assert.equal(capturedInit?.body, JSON.stringify({ title: 'Test listing' }));
+
+    const imageBody = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], {
+      type: 'image/jpeg'
+    });
+    await postAuthedBinary(
+      '/v1/listings/123e4567-e89b-42d3-a456-426614174000/media/upload',
+      imageBody,
+      'media-token'
+    );
+    const binaryHeaders = new Headers(capturedInit?.headers);
+    assert.equal(
+      capturedUrl,
+      '/api/authed/v1/listings/123e4567-e89b-42d3-a456-426614174000/media/upload'
+    );
+    assert.equal(capturedInit?.method, 'POST');
+    assert.equal(binaryHeaders.get('content-type'), 'image/jpeg');
+    assert.equal(binaryHeaders.get('x-suqnaa-human-check'), 'media-token');
+    assert.equal(capturedInit?.body, imageBody);
 
     globalThis.fetch = (async () => new Response(
       JSON.stringify({ error: 'Too many requests' }),

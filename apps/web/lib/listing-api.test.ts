@@ -3,7 +3,8 @@ import {
   createListingDraft,
   deleteListingMedia,
   getMyListings,
-  updateListingStatus
+  updateListingStatus,
+  uploadListingMedia
 } from './listing-api';
 
 async function run() {
@@ -80,6 +81,51 @@ async function run() {
         allowDelivery: false
       }
     );
+
+    const image = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], {
+      type: 'image/jpeg'
+    });
+    globalThis.fetch = (async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({
+        media: {
+          id: '223e4567-e89b-42d3-a456-426614174000',
+          url: '/v1/listings/123e4567-e89b-42d3-a456-426614174000/media/223e4567-e89b-42d3-a456-426614174000',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 800,
+          sizeBytes: 3,
+          sortOrder: 0,
+          altText: 'Test phone',
+          createdAt: '2026-06-22T00:00:00.000Z'
+        },
+        mediaCount: 1
+      }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' }
+      });
+    }) as typeof fetch;
+
+    await uploadListingMedia(
+      '123e4567-e89b-42d3-a456-426614174000',
+      {
+        image,
+        width: 1200,
+        height: 800,
+        altText: 'Test phone',
+        sortOrder: 0
+      },
+      'media-upload-check'
+    );
+    assert.equal(
+      capturedUrl,
+      '/api/authed/v1/listings/123e4567-e89b-42d3-a456-426614174000/media/upload?width=1200&height=800&altText=Test+phone&sortOrder=0'
+    );
+    assert.equal(capturedInit?.method, 'POST');
+    assert.equal(new Headers(capturedInit?.headers).get('content-type'), 'image/jpeg');
+    assert.equal(new Headers(capturedInit?.headers).get('x-suqnaa-human-check'), 'media-upload-check');
+    assert.equal(capturedInit?.body, image);
 
     globalThis.fetch = (async (input, init) => {
       capturedUrl = String(input);

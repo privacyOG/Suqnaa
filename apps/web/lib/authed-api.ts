@@ -42,7 +42,8 @@ async function readPayload(response: Response): Promise<unknown> {
 async function requestAuthed<T>(
   method: 'GET' | 'POST',
   path: string,
-  input?: JsonBody,
+  body?: BodyInit,
+  contentType?: string,
   challengeResponse?: string
 ): Promise<T> {
   const response = await fetch(proxyPath(path), {
@@ -51,12 +52,12 @@ async function requestAuthed<T>(
     cache: 'no-store',
     headers: {
       accept: 'application/json',
-      ...(method === 'POST' ? { 'content-type': 'application/json' } : {}),
+      ...(method === 'POST' && contentType ? { 'content-type': contentType } : {}),
       ...(challengeResponse
         ? { 'x-suqnaa-human-check': challengeResponse }
         : {})
     },
-    body: method === 'POST' ? JSON.stringify(input ?? {}) : undefined
+    body: method === 'POST' ? body : undefined
   });
 
   const payload = await readPayload(response);
@@ -87,5 +88,30 @@ export function postAuthed<T = Record<string, unknown>>(
   input: JsonBody,
   challengeResponse?: string
 ): Promise<T> {
-  return requestAuthed<T>('POST', path, input, challengeResponse);
+  return requestAuthed<T>(
+    'POST',
+    path,
+    JSON.stringify(input),
+    'application/json',
+    challengeResponse
+  );
+}
+
+export function postAuthedBinary<T = Record<string, unknown>>(
+  path: string,
+  input: Blob,
+  challengeResponse?: string
+): Promise<T> {
+  const contentType = input.type.trim().toLowerCase();
+  if (!contentType) {
+    throw new Error('Binary request content type is required');
+  }
+
+  return requestAuthed<T>(
+    'POST',
+    path,
+    input,
+    contentType,
+    challengeResponse
+  );
 }

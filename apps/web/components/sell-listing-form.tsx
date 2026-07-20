@@ -92,23 +92,6 @@ function validatePhotos(files: File[], isArabic: boolean): string | null {
   return null;
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== 'string') {
-        reject(new Error('Unable to read photo'));
-        return;
-      }
-      const commaIndex = result.indexOf(',');
-      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error ?? new Error('Unable to read photo'));
-    reader.readAsDataURL(file);
-  });
-}
-
 function imageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve) => {
     const image = new Image();
@@ -253,10 +236,11 @@ export function SellListingForm({ locale }: SellListingFormProps) {
     setCreated(null);
 
     try {
+      const title = String(form.get('title') ?? '').trim();
       const response = await createListingDraft(
         {
           categoryId: categoryId || undefined,
-          title: String(form.get('title') ?? '').trim(),
+          title,
           description: String(form.get('description') ?? '').trim(),
           priceAmount,
           currencyCode,
@@ -281,18 +265,12 @@ export function SellListingForm({ locale }: SellListingFormProps) {
             ? `جارٍ رفع الصورة ${index + 1} من ${photos.length}…`
             : `Uploading photo ${index + 1} of ${photos.length}…`
         );
-        const [base64Data, dimensions] = await Promise.all([
-          fileToBase64(photo),
-          imageDimensions(photo)
-        ]);
+        const dimensions = await imageDimensions(photo);
         await uploadListingMedia(response.listing.id, {
-          fileName: photo.name,
-          mimeType: photo.type as 'image/jpeg' | 'image/png' | 'image/webp',
-          sizeBytes: photo.size,
-          base64Data,
+          image: photo,
           width: dimensions.width || undefined,
           height: dimensions.height || undefined,
-          altText: String(form.get('title') ?? '').trim(),
+          altText: title,
           sortOrder: index
         });
         uploadedPhotos += 1;

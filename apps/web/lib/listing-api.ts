@@ -1,4 +1,9 @@
-import { getAuthed, postAuthed, type JsonBody } from './authed-api';
+import {
+  getAuthed,
+  postAuthed,
+  postAuthedBinary,
+  type JsonBody
+} from './authed-api';
 
 export type ListingCondition =
   | 'new'
@@ -60,11 +65,8 @@ export interface ListingDraftResponse {
   };
 }
 
-export interface ListingMediaUploadInput extends JsonBody {
-  fileName: string;
-  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
-  sizeBytes: number;
-  base64Data: string;
+export interface ListingMediaUploadInput {
+  image: Blob;
   width?: number;
   height?: number;
   altText?: string;
@@ -161,11 +163,29 @@ export async function uploadListingMedia(
   input: ListingMediaUploadInput,
   challengeResponse?: string
 ): Promise<ListingMediaUploadResponse> {
-  const response = await postAuthed<ListingMediaUploadResponse>(
-    `/v1/listings/${encodeURIComponent(listingId)}/media`,
-    input,
+  const query = new URLSearchParams();
+
+  if (input.width !== undefined) {
+    query.set('width', String(input.width));
+  }
+  if (input.height !== undefined) {
+    query.set('height', String(input.height));
+  }
+  if (input.altText) {
+    query.set('altText', input.altText);
+  }
+  if (input.sortOrder !== undefined) {
+    query.set('sortOrder', String(input.sortOrder));
+  }
+
+  const encoded = query.toString();
+  const path = `/v1/listings/${encodeURIComponent(listingId)}/media/upload${encoded ? `?${encoded}` : ''}`;
+  const response = await postAuthedBinary<ListingMediaUploadResponse>(
+    path,
+    input.image,
     challengeResponse
   );
+
   return {
     ...response,
     media: withAbsoluteMediaUrl(response.media)
