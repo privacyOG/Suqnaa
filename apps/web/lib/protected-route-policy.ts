@@ -31,6 +31,7 @@ const rules: readonly RouteRule[] = [
     queryKeys: new Set(['width', 'height', 'altText', 'sortOrder'])
   },
   { method: 'POST', pattern: new RegExp(`^/v1/listings/${uuid}/media/${uuid}/delete$`), queryKeys: new Set() },
+  { method: 'POST', pattern: /^\/v1\/payments\/protected-checkout$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/operations/queue/${uuid}/complete$`), queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/operations/queue/${uuid}/listing-status$`), queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/operations/queue/${uuid}/account-status$`), queryKeys: new Set() },

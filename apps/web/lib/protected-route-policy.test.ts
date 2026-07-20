@@ -62,6 +62,22 @@ assert.ok(resolveProtectedRoute(
   new URLSearchParams()
 ));
 
+const checkout = resolveProtectedRoute(
+  'POST',
+  ['v1', 'payments', 'protected-checkout'],
+  new URLSearchParams()
+);
+assert.deepEqual(checkout, {
+  method: 'POST',
+  path: '/v1/payments/protected-checkout',
+  query: ''
+});
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'payments', 'protected-checkout'],
+  new URLSearchParams('amount=1')
+), null);
+
 const queue = resolveProtectedRoute(
   'GET',
   ['v1', 'operations', 'queue'],

@@ -19,6 +19,7 @@ import { offerWorkflowRoutes } from './routes/offer-workflow.js';
 import { operationRecordRoutes } from './routes/operation-records.js';
 import { operationsRoutes } from './routes/operations.js';
 import { orderActivityRoutes } from './routes/order-activity.js';
+import { paymentRoutes } from './routes/payments.js';
 import { reportRoutes } from './routes/reports.js';
 import { sessionManagementRoutes } from './routes/session-management.js';
 
@@ -88,6 +89,7 @@ await app.register(listingMediaUploadRoutes, { prefix: '/v1' });
 await app.register(listingSearchRoutes, { prefix: '/v1' });
 await app.register(marketActionRoutes, { prefix: '/v1' });
 await app.register(offerWorkflowRoutes, { prefix: '/v1' });
+await app.register(paymentRoutes, { prefix: '/v1' });
 await app.register(operationsRoutes, { prefix: '/v1' });
 await app.register(operationRecordRoutes, { prefix: '/v1' });
 await app.register(orderActivityRoutes, { prefix: '/v1' });
