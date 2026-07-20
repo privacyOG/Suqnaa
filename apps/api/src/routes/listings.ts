@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
@@ -11,13 +10,9 @@ import { writeSecurityAudit } from '../security/security-audit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 const maximumMediaItemsPerListing = 8;
-const maximumImageBytes = 4 * 1024 * 1024;
-const maximumBase64Length = 6 * 1024 * 1024;
 
 const listingStatus = z.enum(['draft', 'active', 'reserved', 'sold', 'expired', 'removed']);
 type ListingStatus = z.infer<typeof listingStatus>;
-
-type SupportedImageMime = 'image/jpeg' | 'image/png' | 'image/webp';
 
 const availabilityStatus = z.enum(['in_stock', 'limited', 'out_of_stock', 'service_available']);
 
@@ -72,17 +67,6 @@ const createListingBody = z.object({
   allowDelivery: z.boolean().default(false)
 });
 
-const mediaUploadBody = z.object({
-  fileName: z.string().trim().min(1).max(180),
-  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
-  sizeBytes: z.number().int().min(1).max(maximumImageBytes),
-  base64Data: z.string().min(1).max(maximumBase64Length),
-  width: z.number().int().min(1).max(12000).optional(),
-  height: z.number().int().min(1).max(12000).optional(),
-  altText: z.string().trim().max(180).optional(),
-  sortOrder: z.number().int().min(0).max(100).optional()
-});
-
 function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -98,23 +82,6 @@ function limitedListingAction(request: FastifyRequest, accountId: string) {
     group: 'listing.status.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 120,
-    windowMs: 60 * 60 * 1000
-  });
-
-  return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
-}
-
-function limitedListingMediaUpload(request: FastifyRequest, accountId: string) {
-  const accountLimit = checkRateLimit({
-    group: 'listing.media.account',
-    identifiers: [`account:${accountId}`],
-    limit: 80,
-    windowMs: 60 * 60 * 1000
-  });
-  const ipLimit = checkRateLimit({
-    group: 'listing.media.ip',
-    identifiers: [`ip:${request.ip}`],
-    limit: 160,
     windowMs: 60 * 60 * 1000
   });
 
@@ -141,52 +108,6 @@ function enforcePublicListingLimit(
   reply.header('Retry-After', String(result.retryAfterSeconds));
   reply.code(429).send(rateLimitResponse(result));
   return false;
-}
-
-function stripBase64DataUrl(value: string): string {
-  const trimmed = value.trim();
-  const commaIndex = trimmed.indexOf(',');
-  const payload = trimmed.startsWith('data:') && commaIndex >= 0
-    ? trimmed.slice(commaIndex + 1)
-    : trimmed;
-  return payload.replace(/\s+/g, '');
-}
-
-function detectImageMime(buffer: Buffer): SupportedImageMime | null {
-  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-    return 'image/jpeg';
-  }
-  if (
-    buffer.length >= 8 &&
-    buffer[0] === 0x89 &&
-    buffer[1] === 0x50 &&
-    buffer[2] === 0x4e &&
-    buffer[3] === 0x47 &&
-    buffer[4] === 0x0d &&
-    buffer[5] === 0x0a &&
-    buffer[6] === 0x1a &&
-    buffer[7] === 0x0a
-  ) {
-    return 'image/png';
-  }
-  if (
-    buffer.length >= 12 &&
-    buffer.toString('ascii', 0, 4) === 'RIFF' &&
-    buffer.toString('ascii', 8, 12) === 'WEBP'
-  ) {
-    return 'image/webp';
-  }
-  return null;
-}
-
-function extensionForMime(mimeType: SupportedImageMime): 'jpg' | 'png' | 'webp' {
-  if (mimeType === 'image/png') {
-    return 'png';
-  }
-  if (mimeType === 'image/webp') {
-    return 'webp';
-  }
-  return 'jpg';
 }
 
 function mediaPublicUrl(listingId: string, mediaId: string): string {
@@ -457,126 +378,6 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
         updatedAt: updated.updated_at,
         unchanged: false
       }
-    });
-  });
-
-  app.post('/listings/:listingId/media', { preHandler: requireUser }, async (request, reply) => {
-    const authRequest = request as AuthenticatedRequest;
-    const params = listingParams.parse(request.params);
-    const body = mediaUploadBody.parse(request.body);
-    const limited = limitedListingMediaUpload(request, authRequest.user.sub);
-
-    if (limited) {
-      reply.header('Retry-After', String(limited.retryAfterSeconds));
-      return reply.code(429).send(rateLimitResponse(limited));
-    }
-
-    const listing = await db.selectFrom('listings')
-      .select(['id', 'seller_id', 'status'])
-      .where('id', '=', params.listingId)
-      .executeTakeFirst();
-
-    if (!listing || listing.seller_id !== authRequest.user.sub) {
-      return reply.code(404).send({ error: 'Listing not found' });
-    }
-    if (listing.status === 'sold' || listing.status === 'removed') {
-      return reply.code(409).send({ error: 'Listing is closed for media changes' });
-    }
-
-    const existingCount = await countListingMedia(listing.id);
-    if (existingCount >= maximumMediaItemsPerListing) {
-      return reply.code(409).send({ error: 'Maximum listing photos reached' });
-    }
-
-    const protection = await checkHumanProtectionWithChallenge(
-      {
-        action: 'listing.media_upload',
-        accountId: authRequest.user.sub,
-        ip: request.ip,
-        userAgent: firstHeader(request.headers['user-agent']),
-        challengeResponse: firstHeader(request.headers['x-suqnaa-human-check'])
-      },
-      challengeVerifier
-    );
-
-    if (protection.decision !== 'allow') {
-      return reply.code(403).send(humanProtectionResponse(protection));
-    }
-
-    let buffer: Buffer;
-    try {
-      buffer = Buffer.from(stripBase64DataUrl(body.base64Data), 'base64');
-    } catch {
-      return reply.code(400).send({ error: 'Invalid image payload' });
-    }
-
-    if (buffer.length !== body.sizeBytes || buffer.length > maximumImageBytes) {
-      return reply.code(400).send({ error: 'Image size mismatch' });
-    }
-
-    const detectedMimeType = detectImageMime(buffer);
-    if (!detectedMimeType || detectedMimeType !== body.mimeType) {
-      return reply.code(400).send({ error: 'Unsupported or mismatched image type' });
-    }
-
-    const mediaId = randomUUID();
-    const extension = extensionForMime(detectedMimeType);
-    const objectKey = `listing-media/${listing.id}/${mediaId}.${extension}`;
-    let stored;
-
-    try {
-      stored = await getListingMediaStorage().put({
-        objectKey,
-        buffer,
-        mimeType: detectedMimeType
-      });
-    } catch (error) {
-      request.log.warn({ error }, 'listing media storage write failed');
-      return reply.code(503).send({ error: 'Media storage unavailable' });
-    }
-
-    const now = new Date();
-    const inserted = await db.insertInto('listing_media')
-      .values({
-        id: mediaId,
-        listing_id: listing.id,
-        object_key: stored.objectKey,
-        mime_type: detectedMimeType,
-        width: body.width ?? null,
-        height: body.height ?? null,
-        size_bytes: buffer.length,
-        sort_order: body.sortOrder ?? existingCount,
-        alt_text: body.altText || null,
-        sha256: stored.sha256
-      })
-      .returning(['id', 'listing_id', 'mime_type', 'width', 'height', 'size_bytes', 'sort_order', 'alt_text', 'created_at'])
-      .executeTakeFirstOrThrow();
-
-    await db.updateTable('listings')
-      .set({ updated_at: now })
-      .where('id', '=', listing.id)
-      .where('seller_id', '=', authRequest.user.sub)
-      .execute();
-
-    writeSecurityAudit(app.log, {
-      action: 'listing.media_upload',
-      decision: 'allow',
-      actorId: authRequest.user.sub,
-      targetId: listing.id,
-      ip: request.ip,
-      riskScore: protection.riskScore,
-      reasonCodes: protection.reasonCodes,
-      metadata: {
-        mediaId: inserted.id,
-        mimeType: detectedMimeType,
-        sizeBytes: buffer.length,
-        storageDriver: getListingMediaStorage().driver
-      }
-    });
-
-    return reply.code(201).send({
-      media: mediaSummary(inserted),
-      mediaCount: existingCount + 1
     });
   });
 
