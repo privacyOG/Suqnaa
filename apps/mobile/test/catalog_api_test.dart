@@ -89,8 +89,8 @@ void main() {
   });
 
   test('catalog categories retain bilingual names', () async {
-    final client = MockClient((request) async => http.Response(
-          jsonEncode({
+    final client = MockClient((request) async => http.Response.bytes(
+          utf8.encode(jsonEncode({
             'categories': [
               {
                 'id': '123e4567-e89b-42d3-a456-426614174000',
@@ -99,8 +99,9 @@ void main() {
                 'name_ar': 'إلكترونيات',
               }
             ]
-          }),
+          })),
           200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
         ));
     final api = CatalogApi(
       baseUrl: Uri.parse('https://api.suqnaa.test'),
