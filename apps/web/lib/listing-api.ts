@@ -76,6 +76,12 @@ export interface ListingMediaUploadResponse {
   mediaCount: number;
 }
 
+export interface ListingMediaDeleteResponse {
+  deleted: boolean;
+  mediaId: string;
+  mediaCount: number;
+}
+
 export interface SellerListing {
   id: string;
   title: string;
@@ -164,6 +170,18 @@ export async function uploadListingMedia(
     ...response,
     media: withAbsoluteMediaUrl(response.media)
   };
+}
+
+export function deleteListingMedia(
+  listingId: string,
+  mediaId: string,
+  challengeResponse?: string
+): Promise<ListingMediaDeleteResponse> {
+  return postAuthed<ListingMediaDeleteResponse>(
+    `/v1/listings/${encodeURIComponent(listingId)}/media/${encodeURIComponent(mediaId)}/delete`,
+    {},
+    challengeResponse
+  );
 }
 
 export async function getMyListings(
