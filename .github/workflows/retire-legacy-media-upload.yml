@@ -1,0 +1,142 @@
+name: Retire legacy media upload
+
+on:
+  push:
+    branches: [retire-legacy-media-upload]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Prepare legacy media upload retirement'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: retire-legacy-media-upload
+      - name: Retire compatibility route
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          listings_path = Path('apps/api/src/routes/listings.ts')
+          listings = listings_path.read_text()
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              return text.replace(old, new, 1)
+
+          listings = replace_once(
+              listings,
+              "import { randomUUID } from 'node:crypto';\n",
+              '',
+              'random UUID import',
+          )
+          listings = replace_once(
+              listings,
+              'const maximumImageBytes = 4 * 1024 * 1024;\nconst maximumBase64Length = 6 * 1024 * 1024;\n',
+              '',
+              'legacy image limits',
+          )
+          listings = replace_once(
+              listings,
+              "type SupportedImageMime = 'image/jpeg' | 'image/png' | 'image/webp';\n\n",
+              '',
+              'legacy image MIME type',
+          )
+
+          schema_start = listings.index('const mediaUploadBody = z.object({')
+          schema_end = listings.index('\n\nfunction firstHeader', schema_start)
+          listings = listings[:schema_start] + listings[schema_end + 2:]
+
+          limiter_start = listings.index('function limitedListingMediaUpload(')
+          limiter_end = listings.index('function enforcePublicListingLimit(', limiter_start)
+          listings = listings[:limiter_start] + listings[limiter_end:]
+
+          decoder_start = listings.index('function stripBase64DataUrl(')
+          decoder_end = listings.index('function mediaPublicUrl(', decoder_start)
+          listings = listings[:decoder_start] + listings[decoder_end:]
+
+          route_start = listings.index("  app.post('/listings/:listingId/media',")
+          route_end = listings.index("  app.get('/listings',", route_start)
+          listings = listings[:route_start] + listings[route_end:]
+
+          forbidden = [
+              'base64Data',
+              'maximumBase64Length',
+              'stripBase64DataUrl',
+              "app.post('/listings/:listingId/media',",
+          ]
+          for value in forbidden:
+              if value in listings:
+                  raise SystemExit(f'legacy listing upload token remains: {value}')
+          listings_path.write_text(listings)
+
+          policy_path = Path('apps/web/lib/protected-route-policy.ts')
+          policy = policy_path.read_text()
+          policy = replace_once(
+              policy,
+              "  { method: 'POST', pattern: new RegExp(`^/v1/listings/${uuid}/media$`), queryKeys: new Set() },\n",
+              '',
+              'legacy proxy rule',
+          )
+          policy_path.write_text(policy)
+
+          policy_test_path = Path('apps/web/lib/protected-route-policy.test.ts')
+          policy_test = policy_test_path.read_text()
+          anchor = "assert.equal(mediaUpload?.path, `/v1/listings/${conversationId}/media/upload`);\nassert.equal(\n  mediaUpload?.query,\n  'width=1200&height=800&altText=Test+phone&sortOrder=0'\n);\n"
+          retirement_assertion = anchor + "assert.equal(resolveProtectedRoute(\n  'POST',\n  ['v1', 'listings', conversationId, 'media'],\n  new URLSearchParams()\n), null);\n"
+          policy_test = replace_once(
+              policy_test,
+              anchor,
+              retirement_assertion,
+              'proxy retirement assertion',
+          )
+          policy_test_path.write_text(policy_test)
+
+          api_test_path = Path('apps/api/src/routes/legacy-media-upload-retirement.test.ts')
+          api_test_path.write_text("""import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const listingsSource = readFileSync(
+  new URL('./listings.ts', import.meta.url),
+  'utf8'
+);
+
+assert.doesNotMatch(listingsSource, /base64Data/);
+assert.doesNotMatch(
+  listingsSource,
+  /app\\.post\\('\/listings\/:listingId\/media',/
+);
+assert.match(
+  listingsSource,
+  /app\\.get\\('\/listings',/
+);
+""")
+
+          package_path = Path('apps/api/package.json')
+          package = package_path.read_text()
+          package = replace_once(
+              package,
+              'tsx src/media/listing-media-upload.test.ts && tsx src/market/order-progress.test.ts',
+              'tsx src/media/listing-media-upload.test.ts && tsx src/routes/legacy-media-upload-retirement.test.ts && tsx src/market/order-progress.test.ts',
+              'API security test command',
+          )
+          package_path.write_text(package)
+
+          workflow_path = Path('.github/workflows/retire-legacy-media-upload.yml')
+          workflow_path.unlink()
+          PY
+      - name: Commit retirement
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name 'privacyOG'
+          git config user.email '102720550+privacyOG@users.noreply.github.com'
+          git add -A
+          git commit -m 'Retire legacy listing media upload'
+          git push origin HEAD:retire-legacy-media-upload
