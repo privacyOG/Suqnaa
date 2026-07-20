@@ -19,20 +19,5 @@ jobs:
         run: flutter gen-l10n
       - working-directory: apps/mobile
         run: flutter analyze
-      - name: Run Flutter tests
-        working-directory: apps/mobile
-        shell: bash
-        run: |
-          set +e
-          flutter test > flutter-test.log 2>&1
-          status=$?
-          cat flutter-test.log
-          exit $status
-      - name: Upload Flutter test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: flutter-test-diagnostics
-          path: apps/mobile/flutter-test.log
-          if-no-files-found: error
-          retention-days: 1
+      - working-directory: apps/mobile
+        run: flutter test
