@@ -51,6 +51,11 @@ assert.equal(
   mediaUpload?.query,
   'width=1200&height=800&altText=Test+phone&sortOrder=0'
 );
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'listings', conversationId, 'media'],
+  new URLSearchParams()
+), null);
 assert.ok(resolveProtectedRoute(
   'POST',
   ['v1', 'listings', conversationId, 'media', mediaId, 'delete'],
