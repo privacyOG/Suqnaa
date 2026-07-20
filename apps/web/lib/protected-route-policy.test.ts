@@ -24,6 +24,7 @@ assert.equal(
 );
 
 const conversationId = '123e4567-e89b-42d3-a456-426614174000';
+const mediaId = '223e4567-e89b-42d3-a456-426614174000';
 assert.ok(resolveProtectedRoute(
   'GET',
   ['v1', 'conversations', conversationId, 'messages'],
@@ -37,6 +38,22 @@ assert.ok(resolveProtectedRoute(
 assert.ok(resolveProtectedRoute(
   'POST',
   ['v1', 'listings', conversationId, 'status'],
+  new URLSearchParams()
+));
+
+const mediaUpload = resolveProtectedRoute(
+  'POST',
+  ['v1', 'listings', conversationId, 'media', 'upload'],
+  new URLSearchParams('width=1200&height=800&altText=Test+phone&sortOrder=0')
+);
+assert.equal(mediaUpload?.path, `/v1/listings/${conversationId}/media/upload`);
+assert.equal(
+  mediaUpload?.query,
+  'width=1200&height=800&altText=Test+phone&sortOrder=0'
+);
+assert.ok(resolveProtectedRoute(
+  'POST',
+  ['v1', 'listings', conversationId, 'media', mediaId, 'delete'],
   new URLSearchParams()
 ));
 
@@ -101,6 +118,11 @@ assert.equal(resolveProtectedRoute(
 assert.equal(resolveProtectedRoute(
   'GET',
   ['v1', 'operations', 'records'],
+  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
+), null);
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'listings', conversationId, 'media', 'upload'],
   new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
 ), null);
 assert.equal(resolveProtectedRoute(
