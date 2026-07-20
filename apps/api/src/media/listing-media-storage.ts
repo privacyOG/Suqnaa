@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 type MediaStorageDriver = 'local' | 's3';
@@ -35,6 +40,7 @@ export interface ListingMediaStorage {
   readonly driver: MediaStorageDriver;
   put(input: StoreMediaInput): Promise<StoredMediaObject>;
   deliver(objectKey: string, mimeType: string): Promise<MediaDelivery>;
+  remove(objectKey: string): Promise<void>;
 }
 
 const defaultCacheControl = 'public, max-age=3600';
@@ -150,6 +156,10 @@ class LocalListingMediaStorage implements ListingMediaStorage {
     };
   }
 
+  async remove(objectKey: string): Promise<void> {
+    await rm(this.objectKeyPath(objectKey), { force: true });
+  }
+
   private objectKeyPath(objectKey: string): string {
     const resolved = path.resolve(this.root, objectKey);
     if (!resolved.startsWith(`${this.root}${path.sep}`)) {
@@ -234,6 +244,13 @@ class S3ListingMediaStorage implements ListingMediaStorage {
       url,
       cacheControl: 'private, max-age=60'
     };
+  }
+
+  async remove(objectKey: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({
+      Bucket: this.bucket,
+      Key: objectKey
+    }));
   }
 }
 
