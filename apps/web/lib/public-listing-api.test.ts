@@ -26,11 +26,21 @@ async function run() {
 
     await getPublicListings({
       limit: 24,
-      before: '2026-06-22T00:00:00.000Z'
+      before: '2026-06-22T00:00:00.000Z',
+      q: 'phone case',
+      categoryId: '123e4567-e89b-42d3-a456-426614174002',
+      condition: 'good',
+      availabilityStatus: 'in_stock',
+      minPrice: 10,
+      maxPrice: 250,
+      currency: 'AUD',
+      country: 'AU',
+      city: 'Sydney',
+      fulfilment: 'delivery'
     });
     assert.equal(
       capturedUrl,
-      'http://localhost:4000/v1/listings?limit=24&before=2026-06-22T00%3A00%3A00.000Z'
+      'http://localhost:4000/v1/listings/search?limit=24&before=2026-06-22T00%3A00%3A00.000Z&q=phone+case&categoryId=123e4567-e89b-42d3-a456-426614174002&condition=good&availabilityStatus=in_stock&minPrice=10&maxPrice=250&currency=AUD&country=AU&city=Sydney&fulfilment=delivery'
     );
     assert.equal(capturedInit?.cache, 'no-store');
     assert.equal(new Headers(capturedInit?.headers).has('authorization'), false);

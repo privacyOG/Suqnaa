@@ -11,6 +11,8 @@ export type PublicListingAvailabilityStatus =
   | 'out_of_stock'
   | 'service_available';
 
+export type PublicListingFulfilment = 'pickup' | 'delivery';
+
 export interface PublicListingMedia {
   id: string;
   url: string;
@@ -87,6 +89,21 @@ export interface PublicListingsResponse {
   };
 }
 
+export interface PublicListingsOptions {
+  limit?: number;
+  before?: string;
+  q?: string;
+  categoryId?: string;
+  condition?: PublicListingCondition;
+  availabilityStatus?: PublicListingAvailabilityStatus;
+  minPrice?: number;
+  maxPrice?: number;
+  currency?: string;
+  country?: string;
+  city?: string;
+  fulfilment?: PublicListingFulfilment;
+}
+
 export class PublicListingRequestError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -127,10 +144,9 @@ async function readJson<T>(response: Response, fallback: string): Promise<T> {
   return payload as T;
 }
 
-export async function getPublicListings(options: {
-  limit?: number;
-  before?: string;
-} = {}): Promise<PublicListingsResponse> {
+export async function getPublicListings(
+  options: PublicListingsOptions = {}
+): Promise<PublicListingsResponse> {
   const query = new URLSearchParams();
   if (options.limit !== undefined) {
     query.set('limit', String(options.limit));
@@ -138,9 +154,39 @@ export async function getPublicListings(options: {
   if (options.before) {
     query.set('before', options.before);
   }
+  if (options.q) {
+    query.set('q', options.q);
+  }
+  if (options.categoryId) {
+    query.set('categoryId', options.categoryId);
+  }
+  if (options.condition) {
+    query.set('condition', options.condition);
+  }
+  if (options.availabilityStatus) {
+    query.set('availabilityStatus', options.availabilityStatus);
+  }
+  if (options.minPrice !== undefined) {
+    query.set('minPrice', String(options.minPrice));
+  }
+  if (options.maxPrice !== undefined) {
+    query.set('maxPrice', String(options.maxPrice));
+  }
+  if (options.currency) {
+    query.set('currency', options.currency);
+  }
+  if (options.country) {
+    query.set('country', options.country);
+  }
+  if (options.city) {
+    query.set('city', options.city);
+  }
+  if (options.fulfilment) {
+    query.set('fulfilment', options.fulfilment);
+  }
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  const response = await fetch(`${apiBaseUrl}/v1/listings${suffix}`, {
+  const response = await fetch(`${apiBaseUrl}/v1/listings/search${suffix}`, {
     cache: 'no-store',
     headers: { accept: 'application/json' }
   });
