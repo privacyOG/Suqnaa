@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthedRequestError } from '../lib/authed-api';
 import {
+  deleteListingMedia,
   getMyListings,
   updateListingStatus,
   type ListingAvailabilityStatus,
@@ -148,6 +149,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingMediaId, setDeletingMediaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [configuration, setConfiguration] = useState<ChallengeConfiguration | null>(null);
   const [configurationError, setConfigurationError] = useState(false);
@@ -158,6 +160,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
   const siteKey = configuration?.siteKey ?? null;
   const challengeAction = configuration?.actions.listingStatusUpdate;
   const challengeReady = !challengeEnabled || Boolean(siteKey && challengeAction && challengeToken);
+  const busy = updatingId !== null || deletingMediaId !== null;
 
   useEffect(() => {
     let active = true;
@@ -224,7 +227,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
   }, [isArabic, listings.length]);
 
   async function changeStatus(listing: SellerListing, status: ListingStatus) {
-    if (!challengeReady || updatingId) {
+    if (!challengeReady || busy) {
       return;
     }
 
@@ -273,6 +276,53 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
     }
   }
 
+  async function removeCoverPhoto(listing: SellerListing, mediaId: string) {
+    if (!challengeReady || busy) {
+      return;
+    }
+
+    if (!window.confirm(
+      isArabic
+        ? `هل تريد حذف الصورة الرئيسية من «${listing.title}»؟`
+        : `Remove the cover photo from “${listing.title}”?`
+    )) {
+      return;
+    }
+
+    setDeletingMediaId(mediaId);
+    setError(null);
+
+    try {
+      const response = await deleteListingMedia(
+        listing.id,
+        mediaId,
+        challengeToken ?? undefined
+      );
+
+      setListings((current) => current.map((item) =>
+        item.id === listing.id
+          ? {
+              ...item,
+              media: item.media.filter((photo) => photo.id !== mediaId),
+              mediaCount: response.mediaCount
+            }
+          : item
+      ));
+
+      if (response.mediaCount > 0) {
+        await loadListings(filter);
+      }
+    } catch (caught) {
+      setError(failureMessage(caught, isArabic));
+    } finally {
+      if (challengeEnabled) {
+        setChallengeToken(null);
+        setResetKey((value) => value + 1);
+      }
+      setDeletingMediaId(null);
+    }
+  }
+
   return (
     <section className="seller-dashboard">
       <div className="seller-dashboard-toolbar">
@@ -285,7 +335,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
           <select
             value={filter}
             onChange={(event) => setFilter(event.target.value as ListingStatus | 'all')}
-            disabled={loading || updatingId !== null}
+            disabled={loading || busy}
           >
             {filters.map((item) => (
               <option key={item} value={item}>{statusLabel(item, isArabic)}</option>
@@ -298,8 +348,8 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
         <div className="seller-security-check">
           <p>
             {isArabic
-              ? 'أكمل الفحص الأمني قبل تغيير حالة إعلان.'
-              : 'Complete the security check before changing a listing status.'}
+              ? 'أكمل الفحص الأمني قبل تغيير حالة إعلان أو حذف صورة.'
+              : 'Complete the security check before changing a listing status or deleting a photo.'}
           </p>
           <ChallengeProviderScript />
           <ChallengeWidget
@@ -324,8 +374,8 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
       {configurationError ? (
         <p className="auth-error" role="alert">
           {isArabic
-            ? 'تعذر تحميل إعدادات الفحص الأمني. عرض الإعلانات متاح، لكن تغيير حالتها متوقف.'
-            : 'Security settings could not be loaded. Listings remain visible, but status changes are unavailable.'}
+            ? 'تعذر تحميل إعدادات الفحص الأمني. عرض الإعلانات متاح، لكن التغييرات متوقفة.'
+            : 'Security settings could not be loaded. Listings remain visible, but changes are unavailable.'}
         </p>
       ) : null}
 
@@ -355,16 +405,36 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
               .join(', ');
             const availableTransitions = transitions[listing.status];
             const firstPhoto = listing.media[0];
+            const mediaChangesAllowed = listing.status !== 'sold' && listing.status !== 'removed';
 
             return (
               <article className="seller-listing-card" key={listing.id}>
                 {firstPhoto ? (
-                  <img
-                    className="seller-listing-photo"
-                    src={firstPhoto.url}
-                    alt={firstPhoto.altText ?? listing.title}
-                    loading="lazy"
-                  />
+                  <>
+                    <img
+                      className="seller-listing-photo"
+                      src={firstPhoto.url}
+                      alt={firstPhoto.altText ?? listing.title}
+                      loading="lazy"
+                    />
+                    {mediaChangesAllowed ? (
+                      <button
+                        className="button-secondary danger-button"
+                        type="button"
+                        disabled={
+                          busy ||
+                          configurationError ||
+                          configuration === null ||
+                          !challengeReady
+                        }
+                        onClick={() => void removeCoverPhoto(listing, firstPhoto.id)}
+                      >
+                        {deletingMediaId === firstPhoto.id
+                          ? (isArabic ? 'جارٍ حذف الصورة…' : 'Removing photo…')
+                          : (isArabic ? 'حذف الصورة الرئيسية' : 'Remove cover photo')}
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <div className="seller-listing-photo-placeholder" aria-hidden="true">
                     {listing.title.slice(0, 1).toUpperCase()}
@@ -419,7 +489,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
                         className={status === 'removed' ? 'button-secondary danger-button' : 'button-secondary'}
                         type="button"
                         disabled={
-                          updatingId !== null ||
+                          busy ||
                           configurationError ||
                           configuration === null ||
                           !challengeReady
@@ -449,7 +519,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
         <button
           className="button-secondary load-more-button"
           type="button"
-          disabled={loadingMore}
+          disabled={loadingMore || busy}
           onClick={() => void loadListings(filter, nextCursor)}
         >
           {loadingMore
