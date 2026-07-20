@@ -10,4 +10,5 @@ class SuqnaaBrand {
   static const coral = Color(0xFFFF6958);
   static const gold = Color(0xFFD9A441);
   static const ivory = Color(0xFFFFFAF0);
+  static const muted = Color(0xFF667085);
 }
