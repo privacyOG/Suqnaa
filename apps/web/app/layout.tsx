@@ -4,6 +4,7 @@ import './auth-components.css';
 import './marketplace-components.css';
 import './conversation-components.css';
 import './catalog-components.css';
+import './catalog-search.css';
 import './activity-components.css';
 import './activity-detail-components.css';
 import './policy-components.css';
