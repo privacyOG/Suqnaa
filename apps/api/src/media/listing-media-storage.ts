@@ -169,6 +169,10 @@ class LocalListingMediaStorage implements ListingMediaStorage {
   }
 }
 
+export function createLocalListingMediaStorage(root: string): ListingMediaStorage {
+  return new LocalListingMediaStorage(root);
+}
+
 class S3ListingMediaStorage implements ListingMediaStorage {
   readonly driver = 's3' as const;
   private readonly client: S3Client;
