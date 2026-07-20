@@ -56,5 +56,7 @@
   "price": "السعر",
   "notSpecified": "غير محدد",
   "unableToLoadListing": "تعذر تحميل الإعلان.",
+  "checkPriceRange": "تحقق من نطاق السعر.",
+  "checkLocationCodes": "استخدم رمز عملة من 3 أحرف ورمز دولة من حرفين.",
   "close": "إغلاق"
 }
