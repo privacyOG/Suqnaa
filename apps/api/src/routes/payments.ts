@@ -90,6 +90,37 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(404).send({ error: 'Order not found' });
       }
 
+      const [buyer, seller, listing] = await Promise.all([
+        db.selectFrom('users')
+          .select(['id', 'status'])
+          .where('id', '=', buyerId)
+          .executeTakeFirst(),
+        db.selectFrom('users')
+          .select(['id', 'status'])
+          .where('id', '=', order.seller_id)
+          .executeTakeFirst(),
+        db.selectFrom('listings')
+          .select(['id', 'seller_id', 'status'])
+          .where('id', '=', order.listing_id)
+          .executeTakeFirst()
+      ]);
+
+      if (!buyer || buyer.status !== 'active') {
+        return reply.code(403).send({ error: 'Buyer account is unavailable' });
+      }
+      if (!seller || seller.status !== 'active') {
+        return reply.code(409).send({ error: 'Seller account is unavailable' });
+      }
+      if (
+        !listing ||
+        listing.seller_id !== order.seller_id ||
+        listing.status !== 'reserved'
+      ) {
+        return reply.code(409).send({
+          error: 'Order reservation is no longer available'
+        });
+      }
+
       if (order.status !== 'pending') {
         return reply.code(409).send({
           error: 'Checkout preparation requires a pending order',
