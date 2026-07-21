@@ -181,7 +181,7 @@ class _OrderCancellationScreenState extends State<OrderCancellationScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            text.noPendingBuyerOrders,
+                            text.noCancellableBuyerOrders,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 18,
