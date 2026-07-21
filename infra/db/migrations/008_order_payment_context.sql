@@ -90,3 +90,81 @@ WHERE payment_intent.transaction_id IS NOT NULL
     WHERE existing.payment_intent_id = payment_intent.id
   )
 ON CONFLICT DO NOTHING;
+
+CREATE FUNCTION create_order_payment_context()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  created_payment_intent_id uuid;
+BEGIN
+  INSERT INTO payment_intents (
+    transaction_id,
+    buyer_id,
+    seller_id,
+    listing_id,
+    auction_id,
+    winning_bid_id,
+    rail,
+    status,
+    amount,
+    currency_code,
+    provider,
+    provider_reference,
+    expires_at,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    NEW.id,
+    NEW.buyer_id,
+    NEW.seller_id,
+    NEW.listing_id,
+    NULL,
+    NULL,
+    CASE NEW.payment_method
+      WHEN 'card' THEN 'card'
+      WHEN 'bank_transfer' THEN 'bank_transfer'
+      WHEN 'wallet' THEN 'wallet'
+      WHEN 'xmr' THEN 'crypto_xmr'
+    END::payment_rail,
+    CASE NEW.status
+      WHEN 'pending' THEN 'created'
+      WHEN 'paid' THEN 'held'
+      WHEN 'released' THEN 'released'
+      WHEN 'refunded' THEN 'refunded'
+      WHEN 'disputed' THEN 'disputed'
+      WHEN 'cancelled' THEN 'cancelled'
+    END::payment_status,
+    NEW.amount,
+    NEW.currency_code,
+    NEW.payment_provider,
+    NEW.payment_reference,
+    NULL,
+    NEW.created_at,
+    NEW.updated_at
+  )
+  RETURNING id INTO created_payment_intent_id;
+
+  INSERT INTO fulfilments (
+    payment_intent_id,
+    status,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    created_payment_intent_id,
+    'not_started',
+    NEW.created_at,
+    NEW.updated_at
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER transactions_create_order_payment_context
+AFTER INSERT ON transactions
+FOR EACH ROW
+WHEN (NEW.payment_method IN ('card', 'bank_transfer', 'wallet', 'xmr'))
+EXECUTE FUNCTION create_order_payment_context();
