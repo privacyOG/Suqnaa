@@ -41,6 +41,7 @@ export interface Database {
   offers: TableShape;
   transactions: TableShape;
   payment_intents: TableShape;
+  payment_provider_events: TableShape;
   fulfilments: TableShape;
   reports: TableShape;
   audit_logs: TableShape;
