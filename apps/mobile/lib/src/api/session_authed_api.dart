@@ -62,15 +62,27 @@ class SessionAuthedApi extends AuthedApi {
     String accessToken,
     Map<String, dynamic> body,
   ) {
+    return postWithHeaders(path, accessToken, body);
+  }
+
+  @override
+  Future<Map<String, dynamic>> postWithHeaders(
+    String path,
+    String accessToken,
+    Map<String, dynamic> body, {
+    Map<String, String> extraHeaders = const {},
+  }) {
+    final encodedBody = jsonEncode(body);
     return _execute(
       path,
       (token) => _client.post(
         _baseUrl.resolve(path),
         headers: {
+          ...extraHeaders,
           'authorization': 'Bearer $token',
           'content-type': 'application/json',
         },
-        body: jsonEncode(body),
+        body: encodedBody,
       ),
     );
   }
