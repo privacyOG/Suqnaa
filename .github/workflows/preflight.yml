@@ -61,21 +61,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm --dir apps/api test:security
       - run: pnpm --dir apps/web test:session
-      - name: Publish web and API result
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ job.status }}
-        shell: bash
-        run: |
-          payload=$(printf '{"state":"%s","description":"Web and API preflight %s","context":"preflight/web-api"}' "$RESULT" "$RESULT")
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            --data "$payload"
 
   mobile:
     name: Mobile preflight
@@ -90,73 +75,10 @@ jobs:
         run: flutter pub get
       - working-directory: apps/mobile
         run: flutter gen-l10n
-      - name: Run Flutter analysis
-        id: analysis
-        continue-on-error: true
-        working-directory: apps/mobile
-        shell: bash
-        run: |
-          set -o pipefail
-          flutter analyze 2>&1 | tee mobile-analysis.log
-      - name: Run Flutter tests
-        id: tests
-        if: steps.analysis.outcome == 'success'
-        continue-on-error: true
-        working-directory: apps/mobile
-        shell: bash
-        run: |
-          set -o pipefail
-          flutter test 2>&1 | tee mobile-tests.log
-      - name: Publish mobile diagnostic
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ANALYSIS_RESULT: ${{ steps.analysis.outcome }}
-          TEST_RESULT: ${{ steps.tests.outcome }}
-        working-directory: apps/mobile
-        shell: bash
-        run: |
-          state="success"
-          description="Mobile preflight passed"
-          context="preflight/mobile-success"
-
-          if [[ "$ANALYSIS_RESULT" != "success" ]]; then
-            state="failure"
-            detail=$(grep -E 'error •|warning •|info •|issue found|issues found' mobile-analysis.log | head -1 || true)
-            description="analysis: ${detail:-failed}"
-            slug=$(printf '%s' "${detail:-failed}" | sed -E 's/[^A-Za-z0-9._-]+/-/g' | cut -c1-170)
-            context="preflight/mobile-analysis-${slug}"
-          elif [[ "$TEST_RESULT" != "success" ]]; then
-            state="failure"
-            detail=$(grep -E 'Expected:|Actual:|Test failed|Some tests failed|EXCEPTION CAUGHT' mobile-tests.log | head -1 || true)
-            description="tests: ${detail:-failed}"
-            slug=$(printf '%s' "${detail:-failed}" | sed -E 's/[^A-Za-z0-9._-]+/-/g' | cut -c1-170)
-            context="preflight/mobile-tests-${slug}"
-          fi
-
-          export STATUS_STATE="$state"
-          export STATUS_DESCRIPTION="${description:0:130}"
-          export STATUS_CONTEXT="$context"
-          payload=$(python3 - <<'PY'
-          import json
-          import os
-          print(json.dumps({
-              "state": os.environ["STATUS_STATE"],
-              "description": os.environ["STATUS_DESCRIPTION"],
-              "context": os.environ["STATUS_CONTEXT"],
-          }))
-          PY
-          )
-
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            --data "$payload"
-
-          [[ "$state" == "success" ]]
+      - working-directory: apps/mobile
+        run: flutter analyze
+      - working-directory: apps/mobile
+        run: flutter test
 
   report:
     name: Publish preflight result
