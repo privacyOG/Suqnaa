@@ -18,8 +18,9 @@ Migration `008_order_payment_context.sql` adds a nullable `transaction_id` forei
 
 - at most one payment intent per marketplace transaction;
 - at most one fulfilment record per payment intent;
-- transaction-linked intents cannot also be auction-linked; and
-- supported transaction inserts create their payment intent and fulfilment record inside the same PostgreSQL transaction.
+- transaction-linked intents cannot also be auction-linked;
+- supported transaction inserts create their payment intent and fulfilment record inside the same PostgreSQL transaction; and
+- transaction status and legacy provider-reference changes synchronise to the linked payment intent or fail the transaction when the context is missing.
 
 The order payment method maps to the internal payment rail as follows:
 
@@ -40,7 +41,7 @@ The migration backfills orders only when:
 - no payment provider is stored on the transaction; and
 - no payment reference is stored on the transaction.
 
-This avoids guessing whether a previously configured payment record corresponds to an existing payment intent. Previously configured orders without an explicit linkage require controlled reconciliation rather than automatic duplication.
+This avoids guessing whether a previously configured payment record corresponds to an existing payment intent. Previously configured orders without an explicit linkage require controlled reconciliation rather than automatic duplication. A later status or provider-reference mutation on such an order is blocked until that reconciliation is complete.
 
 Existing transaction statuses map conservatively to payment statuses:
 
@@ -74,10 +75,10 @@ The endpoint does not return raw provider names, provider references, account cr
 
 ## Current safety boundary
 
-The following operations remain disabled:
+The following participant operations remain disabled:
 
 - collecting or confirming funds;
-- changing payment intent status;
+- directly changing payment intent status;
 - marking a marketplace order paid;
 - updating fulfilment status;
 - confirming receipt;
