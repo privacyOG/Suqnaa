@@ -195,13 +195,32 @@ class _OrderCancellationScreenState extends State<OrderCancellationScreen> {
                     ..._orders.map(
                       (order) => Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: OrderCancellationCard(
-                          order: order,
-                          accessToken: _accessToken,
-                          cancellationGateway: _cancellationGateway,
-                          challengeGateway: _challengeGateway,
-                          secureWebHandoffGateway: _secureWebHandoffGateway,
-                          onCancelled: _reload,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 6,
+                                bottom: 6,
+                              ),
+                              child: Text(
+                                order.listing?.title ?? text.listingUnavailable,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            OrderCancellationCard(
+                              order: order,
+                              accessToken: _accessToken,
+                              cancellationGateway: _cancellationGateway,
+                              challengeGateway: _challengeGateway,
+                              secureWebHandoffGateway:
+                                  _secureWebHandoffGateway,
+                              onCancelled: _reload,
+                            ),
+                          ],
                         ),
                       ),
                     ),
