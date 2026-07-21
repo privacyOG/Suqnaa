@@ -130,5 +130,6 @@
   "orderAlreadyCancelled": "كان الطلب ملغى بالفعل. لم تُجرَ تغييرات إضافية.",
   "openSecureOrderWebsite": "فتح الموقع الآمن",
   "orderCancellationWebOnly": "التحقق الأمني عبر المتصفح مطلوب. افتح هذا الطلب على الموقع الآمن لإلغائه.",
-  "orderCancellationUnavailable": "تعذر تحميل إعدادات الأمان. إلغاء الطلب غير متاح."
+  "orderCancellationUnavailable": "تعذر تحميل إعدادات الأمان. إلغاء الطلب غير متاح.",
+  "noCancellableBuyerOrders": "لا توجد طلبات شراء مؤهلة للإلغاء حالياً."
 }
