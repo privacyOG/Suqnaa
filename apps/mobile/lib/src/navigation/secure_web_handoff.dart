@@ -17,6 +17,16 @@ abstract interface class SecureListingMediaWebHandoffGateway {
   Future<bool> openListingMediaManager({required String locale});
 }
 
+extension SecureListingMediaHandoff on SecureWebHandoffGateway {
+  Future<bool> openListingMediaManager({required String locale}) {
+    final gateway = this;
+    if (gateway is SecureListingMediaWebHandoffGateway) {
+      return gateway.openListingMediaManager(locale: locale);
+    }
+    return Future<bool>.value(false);
+  }
+}
+
 typedef ExternalUrlLauncher = Future<bool> Function(Uri uri);
 
 class BrowserSecureWebHandoff
