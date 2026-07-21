@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../session/app_session.dart';
 import 'authed_api.dart';
@@ -83,6 +84,28 @@ class SessionAuthedApi extends AuthedApi {
           'content-type': 'application/json',
         },
         body: encodedBody,
+      ),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> postBinaryWithHeaders(
+    String path,
+    String accessToken,
+    Uint8List body, {
+    required String contentType,
+    Map<String, String> extraHeaders = const {},
+  }) {
+    return _execute(
+      path,
+      (token) => _client.post(
+        _baseUrl.resolve(path),
+        headers: {
+          ...extraHeaders,
+          'authorization': 'Bearer $token',
+          'content-type': contentType,
+        },
+        body: body,
       ),
     );
   }
