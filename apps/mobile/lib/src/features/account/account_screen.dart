@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:suqnaa/l10n/app_localizations.dart';
 import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
 import '../conversations/session_conversation_inbox.dart';
+import '../orders/order_activity_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
 import 'register_screen.dart';
@@ -13,10 +15,11 @@ class AccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
     final signedIn = session.isSignedIn;
+    final text = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Account'),
+        title: Text(text.account),
         backgroundColor: SuqnaaBrand.ivory,
       ),
       body: ListView(
@@ -72,6 +75,20 @@ class AccountScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => signedIn
                     ? const SessionConversationInbox()
+                    : const AccountLoginScreen(),
+              ),
+            ),
+          ),
+          _AccountTile(
+            icon: Icons.receipt_long_outlined,
+            title: text.orders,
+            subtitle: signedIn
+                ? text.orderHistorySubtitle
+                : 'Sign in to view your orders',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn
+                    ? const OrderActivityScreen()
                     : const AccountLoginScreen(),
               ),
             ),
