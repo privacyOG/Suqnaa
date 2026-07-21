@@ -242,7 +242,7 @@ void main() {
 
     expect(cancellation.calls, 1);
     expect(
-      find.text('No purchases are waiting for payment preparation.'),
+      find.text('No buyer orders are currently eligible for cancellation.'),
       findsOneWidget,
     );
   });
