@@ -245,9 +245,12 @@ void main() {
       find.textContaining('will not bypass this check'),
       findsOneWidget,
     );
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Prepare payment'),
+    final buttonFinder = find.ancestor(
+      of: find.text('Prepare payment'),
+      matching: find.byWidgetPredicate((widget) => widget is FilledButton),
     );
+    expect(buttonFinder, findsOneWidget);
+    final button = tester.widget<FilledButton>(buttonFinder);
     expect(button.onPressed, isNull);
     expect(checkout.calls, 0);
   });
