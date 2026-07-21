@@ -116,5 +116,19 @@
   "securePaymentWebsite": "Secure payment website",
   "securePaymentWebsiteSubtitle": "Open your web order history for browser verification and payment preparation",
   "openingSecureWebsite": "Opening secure website...",
-  "unableToOpenSecureWebsite": "The secure website could not be opened."
+  "unableToOpenSecureWebsite": "The secure website could not be opened.",
+  "cancelOrder": "Cancel order",
+  "cancelOrderTitle": "Stop this transaction before payment",
+  "cancelOrderBody": "Cancellation cancels the order and accepted offer, then returns the listing to the marketplace. This cannot be undone.",
+  "confirmOrderCancellation": "Confirm cancellation",
+  "confirmOrderCancellationBody": "The accepted offer will be cancelled and the listing will become available to other buyers. This cannot be undone.",
+  "keepOrder": "Keep order",
+  "cancellingOrder": "Cancelling order...",
+  "orderCancellationFailed": "The order could not be cancelled.",
+  "orderCancellationConflict": "The order or payment state changed and cancellation is no longer allowed.",
+  "orderCancellationComplete": "The order and offer were cancelled, and the listing is available again.",
+  "orderAlreadyCancelled": "The order was already cancelled. No additional changes were made.",
+  "openSecureOrderWebsite": "Open secure website",
+  "orderCancellationWebOnly": "Browser security verification is required. Open this order on the secure website to cancel it.",
+  "orderCancellationUnavailable": "Security settings could not be loaded. Order cancellation is unavailable."
 }
