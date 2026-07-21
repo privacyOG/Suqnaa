@@ -48,12 +48,13 @@ String orderRoleLabel(AppLocalizations text, OrderRole role) {
 String paymentMethodLabel(
   AppLocalizations text,
   String? value, {
-  required bool isArabic,
+  bool? isArabic,
 }) {
+  final useArabic = isArabic ?? text.localeName == 'ar';
   return switch (value) {
-    'card' => isArabic ? 'بطاقة' : 'Card',
-    'bank_transfer' => isArabic ? 'تحويل بنكي' : 'Bank transfer',
-    'wallet' => isArabic ? 'محفظة' : 'Wallet',
+    'card' => useArabic ? 'بطاقة' : 'Card',
+    'bank_transfer' => useArabic ? 'تحويل بنكي' : 'Bank transfer',
+    'wallet' => useArabic ? 'محفظة' : 'Wallet',
     'xmr' => 'XMR',
     null || '' => text.noPaymentMethod,
     _ => value,
