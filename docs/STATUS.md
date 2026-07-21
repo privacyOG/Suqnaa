@@ -9,8 +9,10 @@
 - Same-origin web session cookies with automatic refresh rotation and one-retry authenticated proxy transport.
 - Live bilingual web registration, login, account, public marketplace, listing detail, Sell, My Listings, marketplace activity, order history/detail, conversation inbox, message-history, Message seller, and Make offer interfaces.
 - Participant-only buyer and seller activity records with derived payment and fulfilment progress.
-- Mobile authentication, account, listing, and conversation foundations with CI coverage.
-- PostgreSQL/PostGIS schema, seeded marketplace categories, local Docker infrastructure, and CI workflows.
+- Buyer-owned pending-order cancellation across API, web, and mobile with atomic order, offer, listing, and payment-context synchronization.
+- One-to-one order, provider-neutral payment-intent, and fulfilment linkage with participant-only status reads and disabled collection/release capabilities.
+- Mobile authentication, account, listing, conversation, order activity, checkout preparation, secure web handoff, and cancellation foundations with CI coverage.
+- PostgreSQL/PostGIS schema, seeded marketplace categories, local Docker infrastructure, migration-executing preflight, and CI workflows.
 
 ## Current protected web journey
 
@@ -21,18 +23,20 @@
 5. Sellers review incoming offers and atomically accept or reject them.
 6. Accepting reserves the listing and rejects competing pending offers.
 7. Buyers may cancel only pending offers or create one order from an accepted offer.
-8. Order participants, amount, currency, and listing are derived from persisted records rather than browser input.
-9. Buyers and sellers can open participant-only order history and detail views with lifecycle progress.
-10. The Sell page creates a protected listing draft without exposing bearer tokens.
-11. My Listings loads only that seller's records and supports the API's allowed state transitions.
-12. Messages lists only conversations where the account is a participant.
-13. Conversation threads load protected history, acknowledge reads, and send idempotent challenge-bound messages.
-14. Expired access sessions rotate automatically and retry the protected request once.
+8. Order participants, amount, currency, payment method, and listing are derived from persisted records rather than browser input.
+9. Order creation atomically establishes one payment intent and one fulfilment record without collecting funds.
+10. Buyers may irreversibly cancel eligible unpaid orders, which cancels the accepted offer, reactivates the listing, and synchronizes the payment context.
+11. Buyers and sellers can open participant-only order history, detail, and payment-context views with lifecycle progress.
+12. The Sell page creates a protected listing draft without exposing bearer tokens.
+13. My Listings loads only that seller's records and supports the API's allowed state transitions.
+14. Messages lists only conversations where the account is a participant.
+15. Conversation threads load protected history, acknowledge reads, and send idempotent challenge-bound messages.
+16. Expired access sessions rotate automatically and retry the protected request once.
 
 ## Next implementation targets
 
 - Fulfilment state transitions and participant acknowledgements.
-- Real protected-checkout provider integration and payment-intent creation.
+- Real protected-checkout provider integration, payment collection, and verified provider event handling.
 - Listing image upload, signed public image delivery, and full search filters.
 - Shared production rate-limit storage for multi-instance deployments.
 - Optional digital-currency provider selection with compliance review.
