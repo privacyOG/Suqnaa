@@ -52,6 +52,14 @@ function isBinaryMediaUploadRoute(
   return /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/upload$/.test(route.path);
 }
 
+function isOwnerMediaDeliveryRoute(
+  route: NonNullable<ReturnType<typeof resolveProtectedRoute>>
+): boolean {
+  return /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/[0-9a-fA-F-]+\/mine$/.test(
+    route.path
+  );
+}
+
 function maximumJsonBodyBytesForRoute(
   route: NonNullable<ReturnType<typeof resolveProtectedRoute>>
 ): number {
@@ -145,7 +153,9 @@ async function callApi(
   return fetch(`${apiBaseUrl}${prepared.route.path}${suffix}`, {
     method: prepared.route.method,
     headers: {
-      accept: 'application/json',
+      accept: isOwnerMediaDeliveryRoute(prepared.route)
+        ? 'image/jpeg,image/png,image/webp'
+        : 'application/json',
       authorization: `Bearer ${accessToken}`,
       'user-agent': userAgent ?? 'SuqnaaWeb/1.0',
       ...(prepared.route.method === 'POST' && prepared.contentType
@@ -156,7 +166,8 @@ async function callApi(
         : {})
     },
     body: prepared.route.method === 'POST' ? prepared.body : undefined,
-    cache: 'no-store'
+    cache: 'no-store',
+    redirect: 'follow'
   });
 }
 
@@ -168,22 +179,39 @@ async function upstreamResponse(
   apiResponse: Response,
   credentials?: WebSessionCredentials
 ): Promise<NextResponse> {
-  const text = await apiResponse.text();
-  const headers = new Headers({ 'Cache-Control': 'no-store' });
   const contentType = apiResponse.headers.get('content-type');
+  const normalizedType = normalizedContentType(contentType);
+  const isJson = normalizedType === 'application/json';
   const retryAfter = apiResponse.headers.get('retry-after');
+  const upstreamCacheControl = apiResponse.headers.get('cache-control');
+  const headers = new Headers({
+    'Cache-Control': isJson
+      ? 'no-store'
+      : upstreamCacheControl ?? 'private, max-age=60',
+    'X-Content-Type-Options': 'nosniff'
+  });
 
-  if (contentType?.toLowerCase().startsWith('application/json')) {
-    headers.set('Content-Type', 'application/json');
+  if (contentType) {
+    headers.set('Content-Type', contentType);
   }
   if (retryAfter) {
     headers.set('Retry-After', retryAfter);
   }
 
-  const response = new NextResponse(text || null, {
-    status: apiResponse.status,
-    headers
-  });
+  const body = isJson
+    ? await apiResponse.text()
+    : await apiResponse.arrayBuffer();
+  if (!isJson && body instanceof ArrayBuffer) {
+    headers.set('Content-Length', String(body.byteLength));
+  }
+
+  const response = new NextResponse(
+    isJson ? (body as string || null) : body as ArrayBuffer,
+    {
+      status: apiResponse.status,
+      headers
+    }
+  );
   if (apiResponse.status === 401) {
     clearWebSessionCookies(response);
   } else if (credentials) {
