@@ -60,7 +60,7 @@ class FakeMediaGateway implements ListingMediaGateway {
     required String listingId,
   }) async {
     expect(accessToken, 'access-token');
-    expect(listingId, ListingMediaManagerScreenTestValues.listingId);
+    expect(listingId, TestValues.listingId);
     galleryCalls += 1;
     return SellerListingGallery(
       listing: testListing(mediaCount: media.length),
@@ -78,7 +78,7 @@ class FakeMediaGateway implements ListingMediaGateway {
     String? challengeResponse,
   }) async {
     expect(accessToken, 'access-token');
-    expect(listingId, ListingMediaManagerScreenTestValues.listingId);
+    expect(listingId, TestValues.listingId);
     expect(listingTitle, 'Test phone');
     expect(sortOrder, media.length);
     expect(image.mimeType, 'image/jpeg');
@@ -88,7 +88,7 @@ class FakeMediaGateway implements ListingMediaGateway {
       ..clear()
       ..add(testMedia());
     return const ListingMediaMutationResult(
-      mediaId: ListingMediaManagerScreenTestValues.mediaId,
+      mediaId: TestValues.mediaId,
       mediaCount: 1,
     );
   }
@@ -101,8 +101,8 @@ class FakeMediaGateway implements ListingMediaGateway {
     String? challengeResponse,
   }) async {
     expect(accessToken, 'access-token');
-    expect(listingId, ListingMediaManagerScreenTestValues.listingId);
-    expect(mediaId, ListingMediaManagerScreenTestValues.mediaId);
+    expect(listingId, TestValues.listingId);
+    expect(mediaId, TestValues.mediaId);
     expect(challengeResponse, isNull);
     deleteCalls += 1;
     media.removeWhere((item) => item.id == mediaId);
@@ -110,7 +110,7 @@ class FakeMediaGateway implements ListingMediaGateway {
   }
 }
 
-abstract final class ListingMediaManagerScreenTestValues {
+abstract final class TestValues {
   static const listingId = '123e4567-e89b-42d3-a456-426614174000';
   static const mediaId = '223e4567-e89b-42d3-a456-426614174000';
 }
@@ -199,6 +199,23 @@ Widget testApp({
   );
 }
 
+Future<Finder> loadDeleteButton(
+  WidgetTester tester,
+  FakeMediaGateway media,
+) async {
+  await tester.pumpWidget(testApp(
+    media: media,
+    picker: FakeImagePicker(),
+    challenge: FakeChallengeGateway(enabled: false),
+    secureWeb: FakeSecureWebHandoff(),
+  ));
+  await tester.pumpAndSettle();
+  final finder = find.byKey(Key('delete-listing-photo-$mediaId'));
+  await tester.ensureVisible(finder);
+  await tester.pump();
+  return finder;
+}
+
 void main() {
   testWidgets('uploads one photo when challenges are disabled', (tester) async {
     final media = FakeMediaGateway();
@@ -217,7 +234,6 @@ void main() {
     await tester.ensureVisible(pickButton);
     await tester.tap(pickButton);
     await tester.pumpAndSettle();
-
     expect(picker.calls, 1);
     expect(
       find.byKey(const Key('confirm-listing-photo-upload')),
@@ -226,32 +242,38 @@ void main() {
 
     await tester.tap(find.byKey(const Key('confirm-listing-photo-upload')));
     await tester.pumpAndSettle();
-
     expect(media.uploadCalls, 1);
     expect(find.text('Photo 1'), findsOneWidget);
   });
 
-  testWidgets('deletes one photo when challenges are disabled', (tester) async {
-    final media = FakeMediaGateway(initialMedia: [testMedia()]);
-
-    await tester.pumpWidget(testApp(
-      media: media,
-      picker: FakeImagePicker(),
-      challenge: FakeChallengeGateway(enabled: false),
-      secureWeb: FakeSecureWebHandoff(),
-    ));
-    await tester.pumpAndSettle();
-
-    final deleteButton = find.byKey(Key('delete-listing-photo-$mediaId'));
+  testWidgets('renders native deletion control when challenges are disabled', (
+    tester,
+  ) async {
+    final deleteButton = await loadDeleteButton(
+      tester,
+      FakeMediaGateway(initialMedia: [testMedia()]),
+    );
     expect(deleteButton, findsOneWidget);
-    await tester.ensureVisible(deleteButton);
+  });
+
+  testWidgets('opens native deletion confirmation', (tester) async {
+    final deleteButton = await loadDeleteButton(
+      tester,
+      FakeMediaGateway(initialMedia: [testMedia()]),
+    );
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
-
     expect(
       find.byKey(const Key('confirm-listing-photo-delete')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('completes native photo deletion', (tester) async {
+    final media = FakeMediaGateway(initialMedia: [testMedia()]);
+    final deleteButton = await loadDeleteButton(tester, media);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-listing-photo-delete')));
     await tester.pumpAndSettle();
 
