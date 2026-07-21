@@ -11,7 +11,7 @@
 - Participant-only buyer and seller activity records with derived payment and fulfilment progress.
 - Buyer-owned pending-order cancellation across API, web, and mobile with atomic order, offer, listing, and payment-context synchronization.
 - One-to-one order, provider-neutral payment-intent, and fulfilment linkage with participant-only status reads and disabled collection/release capabilities.
-- Paid-order fulfilment transition foundation for seller readiness/shipping and buyer receipt confirmation, with held-payment/provider-evidence requirements and no automatic fund release.
+- Paid-order fulfilment transitions plus bilingual web controls for seller readiness/shipping and buyer receipt confirmation, with held-payment/provider-evidence requirements and no automatic fund release.
 - Mobile authentication, account, listing, conversation, order activity, checkout preparation, secure web handoff, and cancellation foundations with CI coverage.
 - PostgreSQL/PostGIS schema, seeded marketplace categories, local Docker infrastructure, migration-executing preflight, and CI workflows.
 
@@ -28,8 +28,8 @@
 9. Order creation atomically establishes one payment intent and one fulfilment record without collecting funds.
 10. Buyers may irreversibly cancel eligible unpaid orders, which cancels the accepted offer, reactivates the listing, and synchronizes the payment context.
 11. Buyers and sellers can open participant-only order history, detail, and payment-context views with lifecycle progress.
-12. After verified provider integration produces a paid order with held funds, sellers may mark readiness for pickup or provide bounded shipment evidence.
-13. Buyers may confirm receipt from an eligible fulfilment state without automatically releasing funds.
+12. After verified provider integration produces a paid order with held funds, eligible sellers see protected controls to mark readiness for pickup or submit bounded shipment evidence.
+13. Eligible buyers see a protected receipt-confirmation control, with an explicit notice that confirmation does not release funds.
 14. The Sell page creates a protected listing draft without exposing bearer tokens.
 15. My Listings loads only that seller's records and supports the API's allowed state transitions.
 16. Messages lists only conversations where the account is a participant.
@@ -38,7 +38,7 @@
 
 ## Next implementation targets
 
-- Web and mobile fulfilment controls backed by the protected transition API.
+- Mobile fulfilment controls backed by the protected transition API and secure web fallback when browser verification is required.
 - Real protected-checkout provider integration, payment collection, verified provider event handling, and controlled release.
 - Listing image upload, signed public image delivery, and full search filters.
 - Shared production rate-limit storage for multi-instance deployments.
