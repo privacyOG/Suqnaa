@@ -96,5 +96,21 @@
   "transactionCancelled": "ألغيت المعاملة",
   "listingUnavailable": "الإعلان غير متاح",
   "offerMessage": "رسالة العرض",
-  "noPaymentMethod": "غير محددة"
+  "noPaymentMethod": "غير محددة",
+  "paymentPreparation": "إعداد الدفع",
+  "paymentPreparationSubtitle": "تحقق من المشتريات المعلقة وجهّز تعليمات الدفع المحفوظة",
+  "loadingPaymentPreparation": "جارٍ تحميل المشتريات المعلقة...",
+  "noPendingBuyerOrders": "لا توجد مشتريات تنتظر إعداد الدفع.",
+  "securityVerificationRequired": "التحقق الأمني مطلوب",
+  "securityVerificationWebOnly": "يتطلب هذا الحساب تحققاً أمنياً عبر المتصفح. استخدم الموقع الآمن لإعداد الدفع؛ لن يتجاوز تطبيق الهاتف هذا الفحص.",
+  "preparePayment": "إعداد الدفع",
+  "confirmPaymentPreparation": "تأكيد إعداد الدفع",
+  "noPaymentSent": "تتحقق هذه الخطوة من الطلب المحفوظ فقط. لن تُرسل أموال ولن تتغير حالة الطلب.",
+  "preparingPayment": "جارٍ التحقق من الطلب...",
+  "paymentPreparationFailed": "تعذر إكمال إعداد الدفع.",
+  "paymentProviderSetupRequired": "يلزم إعداد مزود الدفع",
+  "configureCardProvider": "أعد مزود دفع البطاقات قبل قبول الأموال.",
+  "configureBankTransfer": "أعد تعليمات تحويل بنكي موثقة قبل قبول الأموال.",
+  "configureWalletProvider": "أعد مزود المحفظة قبل قبول الأموال.",
+  "configureXmrAddress": "أعد عنوان الدفع قبل قبول الأموال."
 }
