@@ -87,7 +87,10 @@ class FakeMediaGateway implements ListingMediaGateway {
     media
       ..clear()
       ..add(testMedia());
-    return const ListingMediaMutationResult(mediaId: mediaId, mediaCount: 1);
+    return const ListingMediaMutationResult(
+      mediaId: ListingMediaManagerScreenTestValues.mediaId,
+      mediaCount: 1,
+    );
   }
 
   @override
@@ -103,7 +106,7 @@ class FakeMediaGateway implements ListingMediaGateway {
     expect(challengeResponse, isNull);
     deleteCalls += 1;
     media.removeWhere((item) => item.id == mediaId);
-    return const ListingMediaMutationResult(mediaId: mediaId, mediaCount: 0);
+    return ListingMediaMutationResult(mediaId: mediaId, mediaCount: 0);
   }
 }
 
@@ -213,12 +216,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('pick-listing-photo')), findsOneWidget);
-    expect(find.byKey(const Key('open-secure-listing-media-manager')), findsNothing);
+    expect(
+      find.byKey(const Key('open-secure-listing-media-manager')),
+      findsNothing,
+    );
 
     await tester.tap(find.byKey(const Key('pick-listing-photo')));
     await tester.pumpAndSettle();
     expect(picker.calls, 1);
-    expect(find.byKey(const Key('confirm-listing-photo-upload')), findsOneWidget);
+    expect(
+      find.byKey(const Key('confirm-listing-photo-upload')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('confirm-listing-photo-upload')));
     await tester.pumpAndSettle();
@@ -227,12 +236,18 @@ void main() {
 
     await tester.tap(find.byKey(const Key('delete-listing-photo-$mediaId')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('confirm-listing-photo-delete')), findsOneWidget);
+    expect(
+      find.byKey(const Key('confirm-listing-photo-delete')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('confirm-listing-photo-delete')));
     await tester.pumpAndSettle();
     expect(media.deleteCalls, 1);
-    expect(find.text('No photos have been added to this listing.'), findsOneWidget);
+    expect(
+      find.text('No photos have been added to this listing.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('uses only secure web handoff when challenges are enabled', (
@@ -250,9 +265,14 @@ void main() {
 
     expect(find.byKey(const Key('pick-listing-photo')), findsNothing);
     expect(find.byKey(Key('delete-listing-photo-$mediaId')), findsNothing);
-    expect(find.byKey(const Key('open-secure-listing-media-manager')), findsOneWidget);
+    expect(
+      find.byKey(const Key('open-secure-listing-media-manager')),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.byKey(const Key('open-secure-listing-media-manager')));
+    await tester.tap(
+      find.byKey(const Key('open-secure-listing-media-manager')),
+    );
     await tester.pumpAndSettle();
 
     expect(secureWeb.mediaCalls, 1);
