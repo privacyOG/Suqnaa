@@ -7,6 +7,7 @@ export interface ChallengeActions {
   offerCreate: string;
   offerManage: string;
   orderCreate: string;
+  orderCancel: string;
   paymentCheckout: string;
   reportCreate: string;
 }
