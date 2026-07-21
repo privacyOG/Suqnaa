@@ -11,13 +11,16 @@ abstract interface class SecureWebHandoffGateway {
     required String locale,
     required String orderId,
   });
+}
 
+abstract interface class SecureListingMediaWebHandoffGateway {
   Future<bool> openListingMediaManager({required String locale});
 }
 
 typedef ExternalUrlLauncher = Future<bool> Function(Uri uri);
 
-class BrowserSecureWebHandoff implements SecureWebHandoffGateway {
+class BrowserSecureWebHandoff
+    implements SecureWebHandoffGateway, SecureListingMediaWebHandoffGateway {
   BrowserSecureWebHandoff({
     required Uri webBaseUrl,
     ExternalUrlLauncher? launcher,
