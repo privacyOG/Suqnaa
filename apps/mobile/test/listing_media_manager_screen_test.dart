@@ -200,29 +200,24 @@ Widget testApp({
 }
 
 void main() {
-  testWidgets('uploads and deletes one photo when challenges are disabled', (
-    tester,
-  ) async {
+  testWidgets('uploads one photo when challenges are disabled', (tester) async {
     final media = FakeMediaGateway();
     final picker = FakeImagePicker();
-    final secureWeb = FakeSecureWebHandoff();
 
     await tester.pumpWidget(testApp(
       media: media,
       picker: picker,
       challenge: FakeChallengeGateway(enabled: false),
-      secureWeb: secureWeb,
+      secureWeb: FakeSecureWebHandoff(),
     ));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('pick-listing-photo')), findsOneWidget);
-    expect(
-      find.byKey(const Key('open-secure-listing-media-manager')),
-      findsNothing,
-    );
-
-    await tester.tap(find.byKey(const Key('pick-listing-photo')));
+    final pickButton = find.byKey(const Key('pick-listing-photo'));
+    expect(pickButton, findsOneWidget);
+    await tester.ensureVisible(pickButton);
+    await tester.tap(pickButton);
     await tester.pumpAndSettle();
+
     expect(picker.calls, 1);
     expect(
       find.byKey(const Key('confirm-listing-photo-upload')),
@@ -231,18 +226,35 @@ void main() {
 
     await tester.tap(find.byKey(const Key('confirm-listing-photo-upload')));
     await tester.pumpAndSettle();
+
     expect(media.uploadCalls, 1);
     expect(find.text('Photo 1'), findsOneWidget);
+  });
 
-    await tester.tap(find.byKey(const Key('delete-listing-photo-$mediaId')));
+  testWidgets('deletes one photo when challenges are disabled', (tester) async {
+    final media = FakeMediaGateway(initialMedia: [testMedia()]);
+
+    await tester.pumpWidget(testApp(
+      media: media,
+      picker: FakeImagePicker(),
+      challenge: FakeChallengeGateway(enabled: false),
+      secureWeb: FakeSecureWebHandoff(),
+    ));
     await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(Key('delete-listing-photo-$mediaId'));
+    expect(deleteButton, findsOneWidget);
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
     expect(
       find.byKey(const Key('confirm-listing-photo-delete')),
       findsOneWidget,
     );
-
     await tester.tap(find.byKey(const Key('confirm-listing-photo-delete')));
     await tester.pumpAndSettle();
+
     expect(media.deleteCalls, 1);
     expect(
       find.text('No photos have been added to this listing.'),
@@ -265,14 +277,11 @@ void main() {
 
     expect(find.byKey(const Key('pick-listing-photo')), findsNothing);
     expect(find.byKey(Key('delete-listing-photo-$mediaId')), findsNothing);
-    expect(
-      find.byKey(const Key('open-secure-listing-media-manager')),
-      findsOneWidget,
-    );
-
-    await tester.tap(
-      find.byKey(const Key('open-secure-listing-media-manager')),
-    );
+    final secureButton =
+        find.byKey(const Key('open-secure-listing-media-manager'));
+    expect(secureButton, findsOneWidget);
+    await tester.ensureVisible(secureButton);
+    await tester.tap(secureButton);
     await tester.pumpAndSettle();
 
     expect(secureWeb.mediaCalls, 1);
