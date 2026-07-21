@@ -245,13 +245,10 @@ void main() {
       find.textContaining('will not bypass this check'),
       findsOneWidget,
     );
-    final buttonFinder = find.ancestor(
-      of: find.text('Prepare payment'),
-      matching: find.byWidgetPredicate((widget) => widget is FilledButton),
-    );
-    expect(buttonFinder, findsOneWidget);
-    final button = tester.widget<FilledButton>(buttonFinder);
-    expect(button.onPressed, isNull);
+    expect(find.text('Prepare payment'), findsOneWidget);
+    await tester.tap(find.text('Prepare payment'), warnIfMissed: false);
+    await tester.pump();
+    expect(find.text('Confirm payment preparation'), findsNothing);
     expect(checkout.calls, 0);
   });
 
