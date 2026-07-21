@@ -138,11 +138,20 @@ class CheckoutPreparation {
   }
 }
 
-class OrderCheckoutApi {
+abstract interface class OrderCheckoutGateway {
+  Future<CheckoutPreparation> prepare(
+    String accessToken, {
+    required String orderId,
+    String? challengeResponse,
+  });
+}
+
+class OrderCheckoutApi implements OrderCheckoutGateway {
   OrderCheckoutApi({required AuthedApi authedApi}) : _authedApi = authedApi;
 
   final AuthedApi _authedApi;
 
+  @override
   Future<CheckoutPreparation> prepare(
     String accessToken, {
     required String orderId,
@@ -172,6 +181,11 @@ class OrderCheckoutApi {
       },
     );
 
-    return CheckoutPreparation.fromJson(response);
+    final preparation = CheckoutPreparation.fromJson(response);
+    if (preparation.order.id != normalizedOrderId) {
+      throw const FormatException('Checkout response order mismatch');
+    }
+
+    return preparation;
   }
 }

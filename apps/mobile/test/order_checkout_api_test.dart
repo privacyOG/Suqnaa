@@ -7,13 +7,14 @@ import 'package:suqnaa/src/api/order_checkout_api.dart';
 
 const orderId = '123e4567-e89b-42d3-a456-426614174000';
 const listingId = '223e4567-e89b-42d3-a456-426614174000';
+const otherOrderId = '323e4567-e89b-42d3-a456-426614174000';
 
-String checkoutResponse({Object? provider}) {
+String checkoutResponse({Object? provider, String responseOrderId = orderId}) {
   return jsonEncode({
     'accepted': true,
     'status': 'configuration_required',
     'order': {
-      'id': orderId,
+      'id': responseOrderId,
       'listingId': listingId,
       'amount': '80.00',
       'currencyCode': 'AUD',
@@ -82,6 +83,26 @@ void main() {
   test('rejects a response that claims a configured provider', () async {
     final client = MockClient((request) async {
       return http.Response(checkoutResponse(provider: 'configured'), 200);
+    });
+    final api = OrderCheckoutApi(
+      authedApi: AuthedApi(
+        baseUrl: Uri.parse('https://api.suqnaa.test'),
+        client: client,
+      ),
+    );
+
+    await expectLater(
+      api.prepare('access-token', orderId: orderId),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('rejects a response bound to a different order', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        checkoutResponse(responseOrderId: otherOrderId),
+        200,
+      );
     });
     final api = OrderCheckoutApi(
       authedApi: AuthedApi(

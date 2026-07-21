@@ -96,5 +96,21 @@
   "transactionCancelled": "Transaction cancelled",
   "listingUnavailable": "Listing unavailable",
   "offerMessage": "Offer message",
-  "noPaymentMethod": "Not selected"
+  "noPaymentMethod": "Not selected",
+  "paymentPreparation": "Payment preparation",
+  "paymentPreparationSubtitle": "Verify pending purchases and prepare their stored payment instructions",
+  "loadingPaymentPreparation": "Loading pending purchases...",
+  "noPendingBuyerOrders": "No purchases are waiting for payment preparation.",
+  "securityVerificationRequired": "Security verification required",
+  "securityVerificationWebOnly": "This account requires browser security verification. Use the secure website to prepare payment; the mobile app will not bypass this check.",
+  "preparePayment": "Prepare payment",
+  "confirmPaymentPreparation": "Confirm payment preparation",
+  "noPaymentSent": "This checks the stored order only. No funds are sent and the order status does not change.",
+  "preparingPayment": "Checking order...",
+  "paymentPreparationFailed": "Payment preparation could not be completed.",
+  "paymentProviderSetupRequired": "Payment provider setup required",
+  "configureCardProvider": "Configure the card payment provider before accepting funds.",
+  "configureBankTransfer": "Configure verified bank-transfer instructions before accepting funds.",
+  "configureWalletProvider": "Configure the wallet payment provider before accepting funds.",
+  "configureXmrAddress": "Configure the payment address before accepting funds."
 }
