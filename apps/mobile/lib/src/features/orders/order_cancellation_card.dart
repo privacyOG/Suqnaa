@@ -160,10 +160,12 @@ class _OrderCancellationCardState extends State<OrderCancellationCard> {
         content: Text(text.confirmOrderCancellationBody),
         actions: [
           TextButton(
+            key: const Key('keep-order-button'),
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(text.keepOrder),
           ),
           FilledButton(
+            key: const Key('confirm-order-cancellation-button'),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(text.confirmOrderCancellation),
           ),
@@ -299,6 +301,7 @@ class _OrderCancellationCardState extends State<OrderCancellationCard> {
               const Center(child: CircularProgressIndicator())
             else if (challengeEnabled)
               OutlinedButton.icon(
+                key: Key('open-secure-order-${widget.order.id}'),
                 onPressed: _openingWeb ? null : _openSecureWebsite,
                 icon: _openingWeb
                     ? const SizedBox(
@@ -315,6 +318,7 @@ class _OrderCancellationCardState extends State<OrderCancellationCard> {
               )
             else
               OutlinedButton.icon(
+                key: Key('cancel-order-${widget.order.id}'),
                 onPressed: configuration == null ||
                         _configurationFailed ||
                         _submitting
