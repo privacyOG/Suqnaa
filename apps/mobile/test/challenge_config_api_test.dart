@@ -17,6 +17,8 @@ Map<String, dynamic> challengePayload({
       'actions': {
         'paymentCheckout': 'payment_checkout_prepare',
         'orderCancel': 'order_cancel',
+        'fulfilmentManage': 'fulfilment_manage',
+        'fulfilmentConfirm': 'fulfilment_confirm',
       },
     },
   };
@@ -51,6 +53,8 @@ void main() {
     expect(result.siteKey, isNull);
     expect(result.paymentCheckoutAction, 'payment_checkout_prepare');
     expect(result.orderCancelAction, 'order_cancel');
+    expect(result.fulfilmentManageAction, 'fulfilment_manage');
+    expect(result.fulfilmentConfirmAction, 'fulfilment_confirm');
   });
 
   test('loads a complete enabled challenge configuration', () async {
@@ -77,6 +81,8 @@ void main() {
     expect(result.provider, 'turnstile');
     expect(result.siteKey, 'site-key');
     expect(result.orderCancelAction, 'order_cancel');
+    expect(result.fulfilmentManageAction, 'fulfilment_manage');
+    expect(result.fulfilmentConfirmAction, 'fulfilment_confirm');
   });
 
   test('rejects a contradictory disabled configuration', () async {
@@ -109,6 +115,25 @@ void main() {
       final challenge = payload['challenge'] as Map<String, dynamic>;
       final actions = challenge['actions'] as Map<String, dynamic>;
       actions.remove('orderCancel');
+      return http.Response(jsonEncode(payload), 200);
+    });
+    final api = ChallengeConfigurationApi(
+      baseUrl: Uri.parse('https://api.suqnaa.test'),
+      client: client,
+    );
+
+    await expectLater(
+      api.fetch(),
+      throwsA(isA<ChallengeConfigurationException>()),
+    );
+  });
+
+  test('rejects a missing fulfilment action', () async {
+    final client = MockClient((request) async {
+      final payload = challengePayload(enabled: false, provider: 'none');
+      final challenge = payload['challenge'] as Map<String, dynamic>;
+      final actions = challenge['actions'] as Map<String, dynamic>;
+      actions.remove('fulfilmentConfirm');
       return http.Response(jsonEncode(payload), 200);
     });
     final api = ChallengeConfigurationApi(
