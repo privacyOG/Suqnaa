@@ -3,7 +3,7 @@ import { resolvePaymentEventConfiguration } from './payment-event-config.js';
 
 assert.deepEqual(resolvePaymentEventConfiguration({}), {
   enabled: false,
-  provider: null,
+  provider: 'none',
   signingSecret: '',
   maxAgeSeconds: 300
 });
