@@ -11,6 +11,8 @@ abstract interface class SecureWebHandoffGateway {
     required String locale,
     required String orderId,
   });
+
+  Future<bool> openListingMediaManager({required String locale});
 }
 
 typedef ExternalUrlLauncher = Future<bool> Function(Uri uri);
@@ -36,6 +38,11 @@ class BrowserSecureWebHandoff implements SecureWebHandoffGateway {
     required String orderId,
   }) {
     return _launcher(buildSecureOrderUri(_webBaseUrl, locale, orderId));
+  }
+
+  @override
+  Future<bool> openListingMediaManager({required String locale}) {
+    return _launcher(buildSecureListingMediaManagerUri(_webBaseUrl, locale));
   }
 }
 
@@ -65,6 +72,21 @@ Uri buildSecureOrderUri(Uri webBaseUrl, String locale, String orderId) {
       ...buildSecureOrdersUri(webBaseUrl, locale).pathSegments,
       normalizedOrderId,
     ],
+  );
+}
+
+Uri buildSecureListingMediaManagerUri(Uri webBaseUrl, String locale) {
+  final base = _validateBaseUrl(webBaseUrl);
+  final normalizedLocale = _validateLocale(locale);
+  return base.replace(
+    pathSegments: [
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      normalizedLocale,
+      'sell',
+      'media',
+    ],
+    query: null,
+    fragment: null,
   );
 }
 
