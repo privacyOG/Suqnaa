@@ -33,19 +33,19 @@ INSERT INTO payment_intents (
   updated_at
 )
 SELECT
-  transaction.id,
-  transaction.buyer_id,
-  transaction.seller_id,
-  transaction.listing_id,
+  market_order.id,
+  market_order.buyer_id,
+  market_order.seller_id,
+  market_order.listing_id,
   NULL,
   NULL,
-  CASE transaction.payment_method
+  CASE market_order.payment_method
     WHEN 'card' THEN 'card'
     WHEN 'bank_transfer' THEN 'bank_transfer'
     WHEN 'wallet' THEN 'wallet'
     WHEN 'xmr' THEN 'crypto_xmr'
   END::payment_rail,
-  CASE transaction.status
+  CASE market_order.status
     WHEN 'pending' THEN 'created'
     WHEN 'paid' THEN 'held'
     WHEN 'released' THEN 'released'
@@ -53,21 +53,21 @@ SELECT
     WHEN 'disputed' THEN 'disputed'
     WHEN 'cancelled' THEN 'cancelled'
   END::payment_status,
-  transaction.amount,
-  transaction.currency_code,
+  market_order.amount,
+  market_order.currency_code,
   NULL,
   NULL,
   NULL,
-  transaction.created_at,
-  transaction.updated_at
-FROM transactions AS transaction
-WHERE transaction.payment_method IN ('card', 'bank_transfer', 'wallet', 'xmr')
-  AND transaction.payment_provider IS NULL
-  AND transaction.payment_reference IS NULL
+  market_order.created_at,
+  market_order.updated_at
+FROM transactions AS market_order
+WHERE market_order.payment_method IN ('card', 'bank_transfer', 'wallet', 'xmr')
+  AND market_order.payment_provider IS NULL
+  AND market_order.payment_reference IS NULL
   AND NOT EXISTS (
     SELECT 1
     FROM payment_intents AS existing
-    WHERE existing.transaction_id = transaction.id
+    WHERE existing.transaction_id = market_order.id
   )
 ON CONFLICT DO NOTHING;
 
