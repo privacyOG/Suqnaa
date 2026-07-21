@@ -14,7 +14,10 @@ Map<String, dynamic> challengePayload({
       'enabled': enabled,
       'provider': provider,
       'siteKey': siteKey,
-      'actions': {'paymentCheckout': 'payment_checkout_prepare'},
+      'actions': {
+        'paymentCheckout': 'payment_checkout_prepare',
+        'orderCancel': 'order_cancel',
+      },
     },
   };
 }
@@ -47,6 +50,7 @@ void main() {
     expect(result.provider, 'none');
     expect(result.siteKey, isNull);
     expect(result.paymentCheckoutAction, 'payment_checkout_prepare');
+    expect(result.orderCancelAction, 'order_cancel');
   });
 
   test('loads a complete enabled challenge configuration', () async {
@@ -72,6 +76,7 @@ void main() {
     expect(result.enabled, isTrue);
     expect(result.provider, 'turnstile');
     expect(result.siteKey, 'site-key');
+    expect(result.orderCancelAction, 'order_cancel');
   });
 
   test('rejects a contradictory disabled configuration', () async {
@@ -86,6 +91,25 @@ void main() {
         ),
         200,
       );
+    });
+    final api = ChallengeConfigurationApi(
+      baseUrl: Uri.parse('https://api.suqnaa.test'),
+      client: client,
+    );
+
+    await expectLater(
+      api.fetch(),
+      throwsA(isA<ChallengeConfigurationException>()),
+    );
+  });
+
+  test('rejects a missing order cancellation action', () async {
+    final client = MockClient((request) async {
+      final payload = challengePayload(enabled: false, provider: 'none');
+      final challenge = payload['challenge'] as Map<String, dynamic>;
+      final actions = challenge['actions'] as Map<String, dynamic>;
+      actions.remove('orderCancel');
+      return http.Response(jsonEncode(payload), 200);
     });
     final api = ChallengeConfigurationApi(
       baseUrl: Uri.parse('https://api.suqnaa.test'),
