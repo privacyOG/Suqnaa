@@ -1,6 +1,6 @@
 # Offer and order lifecycle
 
-The marketplace activity workflow provides seller review, buyer cancellation, and accepted-offer order creation through authenticated, challenge-bound routes.
+The marketplace activity workflow provides seller review, buyer cancellation, accepted-offer order creation, and safe pending-order cancellation through authenticated, challenge-bound routes.
 
 ## Buyer submission
 
@@ -21,7 +21,7 @@ The marketplace activity workflow provides seller review, buyer cancellation, an
 - A partial state cannot be committed.
 - The database permits only one accepted offer per listing.
 
-## Buyer cancellation
+## Buyer offer cancellation
 
 - Buyers read their submissions through `/v1/market/offers/mine`.
 - Only the buyer who created the offer may cancel it.
@@ -41,10 +41,24 @@ The marketplace activity workflow provides seller review, buyer cancellation, an
 - Client order UUIDs provide idempotency.
 - The resulting transaction begins with status `pending`; actual payment collection remains a separate provider integration.
 
+## Pending order cancellation
+
+- `/v1/market/orders/:orderId/cancel` is available only to the authenticated buyer who owns the order.
+- Cancellation is allowed only while the transaction remains `pending`.
+- Cancellation is rejected after a payment provider or payment reference has been attached.
+- The transaction must still reference its accepted offer and reserved listing.
+- Cancellation runs in one database transaction:
+  1. the pending transaction becomes `cancelled`;
+  2. the accepted offer becomes `cancelled`;
+  3. the reserved listing becomes `active` again.
+- Conditional writes prevent a concurrent payment or marketplace state change from being overwritten.
+- Repeating a successfully completed cancellation is idempotent.
+
 ## Human protection and limits
 
-- Seller decisions and buyer cancellation use the published `offerManage` challenge action.
+- Seller decisions and buyer offer cancellation use the published `offerManage` challenge action.
 - Order creation uses the published `orderCreate` challenge action.
+- Pending order cancellation uses the published `orderCancel` challenge action.
 - Account and IP limits protect list and mutation routes.
 - Security audit records include actor, target, decision, risk score, reasons, and relevant state metadata.
 
