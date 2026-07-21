@@ -4,6 +4,7 @@ import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
 import '../conversations/session_conversation_inbox.dart';
 import '../orders/order_activity_screen.dart';
+import '../orders/payment_preparation_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
 import 'register_screen.dart';
@@ -89,6 +90,20 @@ class AccountScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => signedIn
                     ? const OrderActivityScreen()
+                    : const AccountLoginScreen(),
+              ),
+            ),
+          ),
+          _AccountTile(
+            icon: Icons.payments_outlined,
+            title: text.paymentPreparation,
+            subtitle: signedIn
+                ? text.paymentPreparationSubtitle
+                : 'Sign in to prepare payment',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn
+                    ? const PaymentPreparationScreen()
                     : const AccountLoginScreen(),
               ),
             ),
