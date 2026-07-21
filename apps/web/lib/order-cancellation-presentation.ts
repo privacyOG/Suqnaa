@@ -1,7 +1,6 @@
-import type {
-  OrderActivityStatus,
-  OrderParticipantRole
-} from './order-activity-api';
+import type { OrderActivityStatus } from './order-activity-api';
+
+export type OrderParticipantRole = 'buyer' | 'seller';
 
 export function canCancelPendingOrder(
   role: OrderParticipantRole,
