@@ -35,6 +35,15 @@ assert.match(
   migration,
   /WHEN \(NEW\.payment_method IN \('card', 'bank_transfer', 'wallet', 'xmr'\)\)/
 );
+assert.match(migration, /CREATE FUNCTION sync_order_payment_context\(\)/);
+assert.match(
+  migration,
+  /AFTER UPDATE OF status, payment_provider, payment_reference ON transactions/
+);
+assert.match(migration, /OLD\.status IS DISTINCT FROM NEW\.status/);
+assert.match(migration, /provider = NEW\.payment_provider/);
+assert.match(migration, /provider_reference = NEW\.payment_reference/);
+assert.match(migration, /RAISE EXCEPTION 'Order payment context is missing/);
 
 assert.match(
   route,
