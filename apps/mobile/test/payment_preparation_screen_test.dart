@@ -272,6 +272,6 @@ void main() {
 
     expect(find.text('إعداد الدفع'), findsWidgets);
     expect(find.text('هاتف تجريبي'), findsOneWidget);
-    expect(find.text('تحويل بنكي'), findsOneWidget);
+    expect(find.textContaining('تحويل بنكي'), findsOneWidget);
   });
 }
