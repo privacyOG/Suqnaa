@@ -5,6 +5,7 @@ import '../../session/session_scope.dart';
 import '../conversations/session_conversation_inbox.dart';
 import '../orders/order_activity_screen.dart';
 import '../orders/order_cancellation_screen.dart';
+import '../orders/order_fulfilment_screen.dart';
 import '../orders/payment_preparation_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
@@ -92,6 +93,20 @@ class AccountScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => signedIn
                     ? const OrderActivityScreen()
+                    : const AccountLoginScreen(),
+              ),
+            ),
+          ),
+          _AccountTile(
+            icon: Icons.local_shipping_outlined,
+            title: text.fulfilmentActions,
+            subtitle: signedIn
+                ? text.fulfilmentActionsSubtitle
+                : text.signInForFulfilmentActions,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn
+                    ? const OrderFulfilmentScreen()
                     : const AccountLoginScreen(),
               ),
             ),
