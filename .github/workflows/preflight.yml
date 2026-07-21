@@ -19,19 +19,31 @@ jobs:
     name: Start preflight gate
     runs-on: ubuntu-latest
     steps:
-      - name: Publish pending status
+      - name: Publish pending statuses
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          payload='{"state":"pending","description":"Preflight checks are running","context":"preflight/gate"}'
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            --data "$payload"
+          publish() {
+            local context="$1"
+            local description="$2"
+            payload=$(printf '{"state":"pending","description":"%s","context":"%s"}' "$description" "$context")
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+              --data "$payload"
+          }
+          publish "preflight/gate" "Preflight checks are running"
+          publish "preflight/db" "Database migrations are pending"
+          publish "preflight/typecheck" "TypeScript checks are pending"
+          publish "preflight/api-tests" "API tests are pending"
+          publish "preflight/web-tests" "Web tests are pending"
+          publish "preflight/mobile-pub" "Mobile dependencies are pending"
+          publish "preflight/mobile-analyze" "Mobile analysis is pending"
+          publish "preflight/mobile-tests" "Mobile tests are pending"
 
   web-and-api:
     name: Web and API preflight
@@ -65,42 +77,88 @@ jobs:
       CHALLENGE_PROVIDER: none
       ASSISTANT_ENABLED: false
       ASSISTANT_PROVIDER: none
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - name: Apply database migrations
         shell: bash
         run: |
           set -euo pipefail
-          for migration in infra/db/migrations/*.sql; do
-            echo "Applying $migration"
-            psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file "$migration"
-          done
+          publish() {
+            payload=$(printf '{"state":"%s","description":"%s","context":"preflight/db"}' "$1" "$2")
+            curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          }
+          if for migration in infra/db/migrations/*.sql; do psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file "$migration"; done; then
+            publish success "Database migrations passed"
+          else
+            publish failure "Database migrations failed"
+            exit 1
+          fi
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile=false
-      - run: pnpm typecheck
-      - run: pnpm --dir apps/api test:security
-      - run: pnpm --dir apps/web test:session
+      - name: Run typecheck
+        shell: bash
+        run: |
+          set -o pipefail
+          if pnpm typecheck; then state=success; description="TypeScript checks passed"; else state=failure; description="TypeScript checks failed"; fi
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/typecheck"}' "$state" "$description")
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          [[ "$state" == success ]]
+      - name: Run API security tests
+        shell: bash
+        run: |
+          if pnpm --dir apps/api test:security; then state=success; description="API tests passed"; else state=failure; description="API tests failed"; fi
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/api-tests"}' "$state" "$description")
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          [[ "$state" == success ]]
+      - name: Run web session tests
+        shell: bash
+        run: |
+          if pnpm --dir apps/web test:session; then state=success; description="Web tests passed"; else state=failure; description="Web tests failed"; fi
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/web-tests"}' "$state" "$description")
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          [[ "$state" == success ]]
 
   mobile:
     name: Mobile preflight
     needs: start
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - working-directory: apps/mobile
-        run: flutter pub get
+      - name: Resolve mobile dependencies
+        working-directory: apps/mobile
+        shell: bash
+        run: |
+          if flutter pub get; then state=success; description="Mobile dependencies resolved"; else state=failure; description="Mobile dependency resolution failed"; fi
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/mobile-pub"}' "$state" "$description")
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          [[ "$state" == success ]]
       - working-directory: apps/mobile
         run: flutter gen-l10n
-      - working-directory: apps/mobile
-        run: flutter analyze
-      - working-directory: apps/mobile
-        run: flutter test
+      - name: Analyze mobile application
+        working-directory: apps/mobile
+        shell: bash
+        run: |
+          if flutter analyze; then state=success; description="Mobile analysis passed"; else state=failure; description="Mobile analysis failed"; fi
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/mobile-analyze"}' "$state" "$description")
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          [[ "$state" == success ]]
+      - name: Test mobile application
+        working-directory: apps/mobile
+        shell: bash
+        run: |
+          if flutter test; then state=success; description="Mobile tests passed"; else state=failure; description="Mobile tests failed"; fi
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/mobile-tests"}' "$state" "$description")
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          [[ "$state" == success ]]
 
   report:
     name: Publish preflight result
@@ -124,14 +182,6 @@ jobs:
             state="failure"
             description="Preflight checks failed"
           fi
-
           payload=$(printf '{"state":"%s","description":"%s","context":"preflight/gate"}' "$state" "$description")
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            --data "$payload"
-
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
           [[ "$state" == "success" ]]
