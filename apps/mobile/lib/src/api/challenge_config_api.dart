@@ -72,6 +72,8 @@ class MobileChallengeConfiguration {
     required this.siteKey,
     required this.paymentCheckoutAction,
     this.orderCancelAction = 'order_cancel',
+    this.fulfilmentManageAction = 'fulfilment_manage',
+    this.fulfilmentConfirmAction = 'fulfilment_confirm',
   });
 
   final bool enabled;
@@ -79,6 +81,8 @@ class MobileChallengeConfiguration {
   final String? siteKey;
   final String paymentCheckoutAction;
   final String orderCancelAction;
+  final String fulfilmentManageAction;
+  final String fulfilmentConfirmAction;
 
   factory MobileChallengeConfiguration.fromJson(Map<String, dynamic> json) {
     final enabled = json['enabled'];
@@ -90,16 +94,24 @@ class MobileChallengeConfiguration {
       throw const FormatException('Invalid challenge configuration');
     }
 
-    final paymentCheckout = actions['paymentCheckout'];
-    if (paymentCheckout is! String ||
-        !_actionPattern.hasMatch(paymentCheckout)) {
-      throw const FormatException('Invalid checkout challenge action');
+    String requiredAction(String key, String label) {
+      final value = actions[key];
+      if (value is! String || !_actionPattern.hasMatch(value)) {
+        throw FormatException('Invalid $label challenge action');
+      }
+      return value;
     }
 
-    final orderCancel = actions['orderCancel'];
-    if (orderCancel is! String || !_actionPattern.hasMatch(orderCancel)) {
-      throw const FormatException('Invalid order cancellation challenge action');
-    }
+    final paymentCheckout = requiredAction('paymentCheckout', 'checkout');
+    final orderCancel = requiredAction('orderCancel', 'order cancellation');
+    final fulfilmentManage = requiredAction(
+      'fulfilmentManage',
+      'fulfilment management',
+    );
+    final fulfilmentConfirm = requiredAction(
+      'fulfilmentConfirm',
+      'fulfilment confirmation',
+    );
 
     if (enabled) {
       if (provider != 'turnstile' ||
@@ -118,6 +130,8 @@ class MobileChallengeConfiguration {
       siteKey: siteKey is String ? siteKey.trim() : null,
       paymentCheckoutAction: paymentCheckout,
       orderCancelAction: orderCancel,
+      fulfilmentManageAction: fulfilmentManage,
+      fulfilmentConfirmAction: fulfilmentConfirm,
     );
   }
 }
