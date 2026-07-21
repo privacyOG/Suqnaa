@@ -21,8 +21,8 @@ assert.match(
 assert.match(migration, /payment_intents_transaction_source_check/);
 assert.match(migration, /CREATE UNIQUE INDEX payment_intents_transaction_idx/);
 assert.match(migration, /CREATE UNIQUE INDEX fulfilments_payment_intent_unique_idx/);
-assert.match(migration, /transaction\.payment_provider IS NULL/);
-assert.match(migration, /transaction\.payment_reference IS NULL/);
+assert.match(migration, /market_order\.payment_provider IS NULL/);
+assert.match(migration, /market_order\.payment_reference IS NULL/);
 assert.match(migration, /WHEN 'xmr' THEN 'crypto_xmr'/);
 assert.match(migration, /WHEN 'paid' THEN 'held'/);
 assert.match(migration, /CREATE FUNCTION create_order_payment_context\(\)/);
