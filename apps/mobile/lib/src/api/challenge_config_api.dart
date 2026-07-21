@@ -71,12 +71,14 @@ class MobileChallengeConfiguration {
     required this.provider,
     required this.siteKey,
     required this.paymentCheckoutAction,
+    required this.orderCancelAction,
   });
 
   final bool enabled;
   final String provider;
   final String? siteKey;
   final String paymentCheckoutAction;
+  final String orderCancelAction;
 
   factory MobileChallengeConfiguration.fromJson(Map<String, dynamic> json) {
     final enabled = json['enabled'];
@@ -92,6 +94,11 @@ class MobileChallengeConfiguration {
     if (paymentCheckout is! String ||
         !_actionPattern.hasMatch(paymentCheckout)) {
       throw const FormatException('Invalid checkout challenge action');
+    }
+
+    final orderCancel = actions['orderCancel'];
+    if (orderCancel is! String || !_actionPattern.hasMatch(orderCancel)) {
+      throw const FormatException('Invalid order cancellation challenge action');
     }
 
     if (enabled) {
@@ -110,6 +117,7 @@ class MobileChallengeConfiguration {
       provider: provider,
       siteKey: siteKey is String ? siteKey.trim() : null,
       paymentCheckoutAction: paymentCheckout,
+      orderCancelAction: orderCancel,
     );
   }
 }
