@@ -216,7 +216,10 @@ async function run() {
     );
     assert.equal(capturedInit?.body, JSON.stringify({}));
 
-    assert.throws(() => getMyListingMedia('not-a-listing'), /UUID/);
+    await assert.rejects(
+      () => getMyListingMedia('not-a-listing'),
+      /UUID/
+    );
     assert.throws(
       () => deleteListingMedia(listingId, 'not-media'),
       /UUID/
