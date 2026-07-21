@@ -45,17 +45,15 @@ String orderRoleLabel(AppLocalizations text, OrderRole role) {
   return role == OrderRole.buyer ? text.buyer : text.seller;
 }
 
-String paymentMethodLabel(AppLocalizations text, String? value) {
+String paymentMethodLabel(
+  AppLocalizations text,
+  String? value, {
+  required bool isArabic,
+}) {
   return switch (value) {
-    'card' => Localizations.localeOf(text as dynamic).languageCode == 'ar'
-        ? 'بطاقة'
-        : 'Card',
-    'bank_transfer' => Localizations.localeOf(text as dynamic).languageCode == 'ar'
-        ? 'تحويل بنكي'
-        : 'Bank transfer',
-    'wallet' => Localizations.localeOf(text as dynamic).languageCode == 'ar'
-        ? 'محفظة'
-        : 'Wallet',
+    'card' => isArabic ? 'بطاقة' : 'Card',
+    'bank_transfer' => isArabic ? 'تحويل بنكي' : 'Bank transfer',
+    'wallet' => isArabic ? 'محفظة' : 'Wallet',
     'xmr' => 'XMR',
     null || '' => text.noPaymentMethod,
     _ => value!,
