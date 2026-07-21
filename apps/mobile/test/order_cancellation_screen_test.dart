@@ -229,24 +229,22 @@ void main() {
     expect(find.text('Seller laptop'), findsNothing);
     expect(cancellation.calls, 0);
 
-    await tester.tap(find.text('Cancel order').last);
+    await tester.tap(find.byKey(const Key('cancel-order-$buyerOrderId')));
     await tester.pumpAndSettle();
 
     expect(find.text('Confirm cancellation'), findsWidgets);
     expect(cancellation.calls, 0);
 
-    final dialog = find.byType(AlertDialog);
     await tester.tap(
-      find.descendant(
-        of: dialog,
-        matching: find.text('Confirm cancellation'),
-      ).last,
+      find.byKey(const Key('confirm-order-cancellation-button')),
     );
     await tester.pumpAndSettle();
 
     expect(cancellation.calls, 1);
-    expect(find.text('No purchases are waiting for payment preparation.'),
-        findsOneWidget);
+    expect(
+      find.text('No purchases are waiting for payment preparation.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('uses secure web handoff when browser verification is required', (
@@ -278,9 +276,10 @@ void main() {
       find.textContaining('Browser security verification is required'),
       findsOneWidget,
     );
-    expect(find.text('Open secure website'), findsOneWidget);
 
-    await tester.tap(find.text('Open secure website'));
+    await tester.tap(
+      find.byKey(const Key('open-secure-order-$buyerOrderId')),
+    );
     await tester.pumpAndSettle();
 
     expect(secureWeb.orderCalls, 1);
