@@ -34,6 +34,20 @@ The client widget uses the action values returned by `/v1/challenge/config`, all
 
 For local integration tests, use Cloudflare's published test sitekey and secret-key pairs through local environment files or CI secrets. Do not use testing keys in production.
 
+## Signed payment-provider events
+
+Payment-event ingestion is disabled by default. It is a server-to-server endpoint and is not exposed through the browser proxy or mobile clients.
+
+Configure these variables only after a payment provider and the applicable compliance controls have been approved:
+
+- `PAYMENT_EVENT_PROVIDER`: safe lowercase provider identifier using letters, digits, underscores, or hyphens. Use `none` to disable the endpoint.
+- `PAYMENT_EVENT_SIGNING_SECRET`: private HMAC signing secret containing 32 to 512 characters. Store it only in the deployment secret manager.
+- `PAYMENT_EVENT_MAX_AGE_SECONDS`: maximum accepted delivery age from 30 to 900 seconds; defaults to 300.
+
+The provider identifier and signing secret must be configured together. Invalid or partial configuration fails startup rather than accepting unsigned events. The signing secret is never returned through an API response or public configuration endpoint.
+
+The accepted event format, canonical signature fields, replay behavior, transition constraints, and disabled payment operations are documented in `PAYMENT_PROVIDER_EVENTS.md`.
+
 ## Web session cookies
 
 After successful authentication, the web client immediately transfers the access and refresh credentials to a same-origin route that stores them as HttpOnly, SameSite=Lax cookies. The application does not persist these credentials in localStorage or sessionStorage.
