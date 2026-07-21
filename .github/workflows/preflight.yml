@@ -118,26 +118,32 @@ jobs:
         run: |
           state="success"
           description="Mobile preflight passed"
+          context="preflight/mobile-success"
 
           if [[ "$ANALYSIS_RESULT" != "success" ]]; then
             state="failure"
             detail=$(grep -E 'error •|warning •|info •|issue found|issues found' mobile-analysis.log | head -1 || true)
             description="analysis: ${detail:-failed}"
+            slug=$(printf '%s' "${detail:-failed}" | sed -E 's/[^A-Za-z0-9._-]+/-/g' | cut -c1-170)
+            context="preflight/mobile-analysis-${slug}"
           elif [[ "$TEST_RESULT" != "success" ]]; then
             state="failure"
             detail=$(grep -E 'Expected:|Actual:|Test failed|Some tests failed|EXCEPTION CAUGHT' mobile-tests.log | head -1 || true)
             description="tests: ${detail:-failed}"
+            slug=$(printf '%s' "${detail:-failed}" | sed -E 's/[^A-Za-z0-9._-]+/-/g' | cut -c1-170)
+            context="preflight/mobile-tests-${slug}"
           fi
 
           export STATUS_STATE="$state"
           export STATUS_DESCRIPTION="${description:0:130}"
+          export STATUS_CONTEXT="$context"
           payload=$(python3 - <<'PY'
           import json
           import os
           print(json.dumps({
               "state": os.environ["STATUS_STATE"],
               "description": os.environ["STATUS_DESCRIPTION"],
-              "context": "preflight/mobile-diagnostic",
+              "context": os.environ["STATUS_CONTEXT"],
           }))
           PY
           )
