@@ -168,3 +168,44 @@ AFTER INSERT ON transactions
 FOR EACH ROW
 WHEN (NEW.payment_method IN ('card', 'bank_transfer', 'wallet', 'xmr'))
 EXECUTE FUNCTION create_order_payment_context();
+
+CREATE FUNCTION sync_order_payment_context()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  UPDATE payment_intents
+  SET
+    status = CASE NEW.status
+      WHEN 'pending' THEN 'created'
+      WHEN 'paid' THEN 'held'
+      WHEN 'released' THEN 'released'
+      WHEN 'refunded' THEN 'refunded'
+      WHEN 'disputed' THEN 'disputed'
+      WHEN 'cancelled' THEN 'cancelled'
+    END::payment_status,
+    provider = NEW.payment_provider,
+    provider_reference = NEW.payment_reference,
+    updated_at = NEW.updated_at
+  WHERE transaction_id = NEW.id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Order payment context is missing for transaction %', NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER transactions_sync_order_payment_context
+AFTER UPDATE OF status, payment_provider, payment_reference ON transactions
+FOR EACH ROW
+WHEN (
+  NEW.payment_method IN ('card', 'bank_transfer', 'wallet', 'xmr') AND
+  (
+    OLD.status IS DISTINCT FROM NEW.status OR
+    OLD.payment_provider IS DISTINCT FROM NEW.payment_provider OR
+    OLD.payment_reference IS DISTINCT FROM NEW.payment_reference
+  )
+)
+EXECUTE FUNCTION sync_order_payment_context();
