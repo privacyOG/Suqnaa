@@ -84,6 +84,16 @@ export interface ListingMediaDeleteResponse {
   mediaCount: number;
 }
 
+export interface OwnerListingMediaResponse {
+  listing: {
+    id: string;
+    title: string;
+    status: ListingStatus;
+  };
+  media: ListingMedia[];
+  mediaCount: number;
+}
+
 export interface SellerListing {
   id: string;
   title: string;
@@ -132,11 +142,30 @@ export interface ListingStatusResponse {
 }
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function requiredUuid(value: string, label: string): string {
+  const normalized = value.trim();
+  if (!uuidPattern.test(normalized)) {
+    throw new Error(`${label} must be a UUID`);
+  }
+  return normalized;
+}
 
 function withAbsoluteMediaUrl(media: ListingMedia): ListingMedia {
   return {
     ...media,
     url: media.url.startsWith('http') ? media.url : `${apiBaseUrl}${media.url}`
+  };
+}
+
+function withOwnerMediaUrl(media: ListingMedia): ListingMedia {
+  if (!media.url.startsWith('/v1/')) {
+    throw new Error('Owner media URL must be an API path');
+  }
+  return {
+    ...media,
+    url: `/api/authed${media.url}`
   };
 }
 
@@ -163,6 +192,7 @@ export async function uploadListingMedia(
   input: ListingMediaUploadInput,
   challengeResponse?: string
 ): Promise<ListingMediaUploadResponse> {
+  const normalizedListingId = requiredUuid(listingId, 'Listing identifier');
   const query = new URLSearchParams();
 
   if (input.width !== undefined) {
@@ -179,7 +209,7 @@ export async function uploadListingMedia(
   }
 
   const encoded = query.toString();
-  const path = `/v1/listings/${encodeURIComponent(listingId)}/media/upload${encoded ? `?${encoded}` : ''}`;
+  const path = `/v1/listings/${normalizedListingId}/media/upload${encoded ? `?${encoded}` : ''}`;
   const response = await postAuthedBinary<ListingMediaUploadResponse>(
     path,
     input.image,
@@ -197,11 +227,32 @@ export function deleteListingMedia(
   mediaId: string,
   challengeResponse?: string
 ): Promise<ListingMediaDeleteResponse> {
+  const normalizedListingId = requiredUuid(listingId, 'Listing identifier');
+  const normalizedMediaId = requiredUuid(mediaId, 'Media identifier');
   return postAuthed<ListingMediaDeleteResponse>(
-    `/v1/listings/${encodeURIComponent(listingId)}/media/${encodeURIComponent(mediaId)}/delete`,
+    `/v1/listings/${normalizedListingId}/media/${normalizedMediaId}/delete`,
     {},
     challengeResponse
   );
+}
+
+export async function getMyListingMedia(
+  listingId: string
+): Promise<OwnerListingMediaResponse> {
+  const normalizedListingId = requiredUuid(listingId, 'Listing identifier');
+  const response = await getAuthed<OwnerListingMediaResponse>(
+    `/v1/listings/${normalizedListingId}/media/mine`
+  );
+  if (response.listing.id !== normalizedListingId) {
+    throw new Error('Owner media response listing mismatch');
+  }
+  if (response.mediaCount !== response.media.length || response.media.length > 8) {
+    throw new Error('Owner media response count mismatch');
+  }
+  return {
+    ...response,
+    media: response.media.map(withOwnerMediaUrl)
+  };
 }
 
 export async function getMyListings(
@@ -234,8 +285,9 @@ export function updateListingStatus(
   status: ListingStatus,
   challengeResponse?: string
 ): Promise<ListingStatusResponse> {
+  const normalizedListingId = requiredUuid(listingId, 'Listing identifier');
   return postAuthed<ListingStatusResponse>(
-    `/v1/listings/${encodeURIComponent(listingId)}/status`,
+    `/v1/listings/${normalizedListingId}/status`,
     { status },
     challengeResponse
   );
