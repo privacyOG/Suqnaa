@@ -133,9 +133,17 @@ void main() {
     expect(find.text('Order ID'), findsOneWidget);
     expect(find.text(orderId), findsOneWidget);
     expect(find.text('Bank transfer'), findsOneWidget);
+    expect(find.text('Order progress'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Offer message'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Offer message'), findsOneWidget);
     expect(find.text('Can collect tomorrow.'), findsOneWidget);
-    expect(find.text('Order progress'), findsOneWidget);
     expect(gateway.detailCalls, 1);
   });
 
