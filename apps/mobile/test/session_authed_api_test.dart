@@ -140,54 +140,71 @@ void main() {
     );
   });
 
-  test('retries a message POST once with the identical idempotent payload', () async {
-    final expiry = DateTime.now().toUtc().add(const Duration(hours: 1));
-    final oldAccess = tokenWithExpiry(
-      expiry.millisecondsSinceEpoch ~/ 1000,
-      'old-post',
-    );
-    final newAccess = tokenWithExpiry(
-      expiry.millisecondsSinceEpoch ~/ 1000,
-      'new-post',
-    );
-    final authApi = FakeAuthApi(result: refreshedResult(newAccess));
-    final session = await createSession(
-      authApi: authApi,
-      oldAccess: oldAccess,
-    );
-    addTearDown(session.dispose);
-
-    final seenTokens = <String>[];
-    final seenBodies = <String>[];
-    final client = MockClient((request) async {
-      seenTokens.add(
-        request.headers['authorization']?.replaceFirst('Bearer ', '') ?? '',
+  test(
+    'retries a protected POST once with identical payload and headers',
+    () async {
+      final expiry = DateTime.now().toUtc().add(const Duration(hours: 1));
+      final oldAccess = tokenWithExpiry(
+        expiry.millisecondsSinceEpoch ~/ 1000,
+        'old-post',
       );
-      seenBodies.add(request.body);
-      if (seenBodies.length == 1) {
-        return http.Response('{"error":"expired"}', 401);
-      }
-      return http.Response(
-        '{"message":{"id":"message-1","status":"queued"}}',
-        201,
+      final newAccess = tokenWithExpiry(
+        expiry.millisecondsSinceEpoch ~/ 1000,
+        'new-post',
       );
-    });
-    final api = SessionAuthedApi(
-      baseUrl: Uri.parse('http://localhost:4000'),
-      sessionProvider: () => session,
-      client: client,
-    );
-    final payload = <String, dynamic>{
-      'recipientId': 'recipient-123',
-      'body': 'Hello',
-      'clientMessageId': '11111111-1111-4111-8111-111111111111',
-    };
+      final authApi = FakeAuthApi(result: refreshedResult(newAccess));
+      final session = await createSession(
+        authApi: authApi,
+        oldAccess: oldAccess,
+      );
+      addTearDown(session.dispose);
 
-    final response = await api.post('/v1/messages', oldAccess, payload);
+      final seenTokens = <String>[];
+      final seenBodies = <String>[];
+      final seenHumanChecks = <String>[];
+      final client = MockClient((request) async {
+        seenTokens.add(
+          request.headers['authorization']?.replaceFirst('Bearer ', '') ?? '',
+        );
+        seenBodies.add(request.body);
+        seenHumanChecks.add(
+          request.headers['x-suqnaa-human-check'] ?? '',
+        );
+        if (seenBodies.length == 1) {
+          return http.Response('{"error":"expired"}', 401);
+        }
+        return http.Response(
+          '{"message":{"id":"message-1","status":"queued"}}',
+          201,
+        );
+      });
+      final api = SessionAuthedApi(
+        baseUrl: Uri.parse('http://localhost:4000'),
+        sessionProvider: () => session,
+        client: client,
+      );
+      final payload = <String, dynamic>{
+        'recipientId': 'recipient-123',
+        'body': 'Hello',
+        'clientMessageId': '11111111-1111-4111-8111-111111111111',
+      };
 
-    expect(response['message'], isA<Map>());
-    expect(authApi.refreshCalls, 1);
-    expect(seenTokens, [oldAccess, newAccess]);
-    expect(seenBodies, [jsonEncode(payload), jsonEncode(payload)]);
-  });
+      final response = await api.postWithHeaders(
+        '/v1/messages',
+        oldAccess,
+        payload,
+        extraHeaders: const {
+          'x-suqnaa-human-check': 'protected-check',
+          'authorization': 'Bearer attacker-controlled',
+          'content-type': 'text/plain',
+        },
+      );
+
+      expect(response['message'], isA<Map>());
+      expect(authApi.refreshCalls, 1);
+      expect(seenTokens, [oldAccess, newAccess]);
+      expect(seenBodies, [jsonEncode(payload), jsonEncode(payload)]);
+      expect(seenHumanChecks, ['protected-check', 'protected-check']);
+    },
+  );
 }
