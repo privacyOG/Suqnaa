@@ -32,10 +32,7 @@ interface CreatedListingState {
   photoCount: number;
 }
 
-function errorMessage(
-  caught: unknown,
-  isArabic: boolean
-): string {
+function errorMessage(caught: unknown, isArabic: boolean): string {
   if (caught instanceof AuthedRequestError) {
     if (caught.status === 401) {
       return isArabic
@@ -82,7 +79,7 @@ function validatePhotos(files: File[], isArabic: boolean): string | null {
         ? 'استخدم صور JPG أو PNG أو WebP فقط.'
         : 'Use JPG, PNG, or WebP photos only.';
     }
-    if (file.size > maximumPhotoBytes) {
+    if (file.size <= 0 || file.size > maximumPhotoBytes) {
       return isArabic
         ? 'يجب ألا يتجاوز حجم كل صورة 4 ميجابايت.'
         : 'Each photo must be 4 MB or smaller.';
@@ -192,7 +189,9 @@ export function SellListingForm({ locale }: SellListingFormProps) {
     const countryCode = String(form.get('countryCode') ?? '').trim().toUpperCase();
     const allowPickup = form.get('allowPickup') === 'on';
     const allowDelivery = form.get('allowDelivery') === 'on';
-    const availabilityStatus = String(form.get('availabilityStatus') ?? 'in_stock') as ListingAvailabilityStatus;
+    const availabilityStatus = String(
+      form.get('availabilityStatus') ?? 'in_stock'
+    ) as ListingAvailabilityStatus;
     const quantityValue = String(form.get('availableQuantity') ?? '').trim();
     const availableQuantity = quantityValue ? Number(quantityValue) : undefined;
     const unitLabel = String(form.get('unitLabel') ?? '').trim() || undefined;
@@ -211,7 +210,10 @@ export function SellListingForm({ locale }: SellListingFormProps) {
       );
       return;
     }
-    if (availableQuantity !== undefined && (!Number.isInteger(availableQuantity) || availableQuantity < 0)) {
+    if (
+      availableQuantity !== undefined &&
+      (!Number.isInteger(availableQuantity) || availableQuantity < 0)
+    ) {
       setError(isArabic ? 'أدخل كمية صحيحة.' : 'Enter a valid available quantity.');
       return;
     }
@@ -220,6 +222,14 @@ export function SellListingForm({ locale }: SellListingFormProps) {
         isArabic
           ? 'اختر الاستلام أو التوصيل على الأقل.'
           : 'Select pickup or delivery.'
+      );
+      return;
+    }
+    if (challengeEnabled && photos.length > 0) {
+      setError(
+        isArabic
+          ? 'احفظ المسودة أولاً ثم أضف الصور من صفحة إدارة الصور، حيث تحصل كل صورة على تحقق مستقل.'
+          : 'Save the draft first, then add photos from Manage photos, where each image receives separate verification.'
       );
       return;
     }
@@ -304,7 +314,11 @@ export function SellListingForm({ locale }: SellListingFormProps) {
     <form className="form-grid listing-form" onSubmit={handleSubmit}>
       <label>
         {isArabic ? 'الفئة' : 'Category'}
-        <select name="categoryId" disabled={categoriesLoading || categories.length === 0} defaultValue="">
+        <select
+          name="categoryId"
+          disabled={categoriesLoading || categories.length === 0}
+          defaultValue=""
+        >
           <option value="">
             {categoriesLoading
               ? (isArabic ? 'جارٍ تحميل الفئات…' : 'Loading categories…')
@@ -345,7 +359,11 @@ export function SellListingForm({ locale }: SellListingFormProps) {
           minLength={10}
           maxLength={5000}
           required
-          placeholder={isArabic ? 'اكتب حالة المنتج وتفاصيله' : 'Describe the item, its condition, and important details'}
+          placeholder={
+            isArabic
+              ? 'اكتب حالة المنتج وتفاصيله'
+              : 'Describe the item, its condition, and important details'
+          }
         />
       </label>
 
@@ -357,13 +375,23 @@ export function SellListingForm({ locale }: SellListingFormProps) {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             multiple
+            disabled={challengeEnabled}
           />
         </label>
         <p>
-          {isArabic
-            ? 'ارفع حتى 8 صور. JPG أو PNG أو WebP، بحد أقصى 4 ميجابايت لكل صورة.'
-            : 'Upload up to 8 photos. JPG, PNG, or WebP, maximum 4 MB each.'}
+          {challengeEnabled
+            ? (isArabic
+              ? 'احفظ المسودة ثم استخدم إدارة الصور. كل رفع أو حذف يحتاج تحققاً مستقلاً.'
+              : 'Save the draft, then use Manage photos. Every upload or deletion requires separate verification.')
+            : (isArabic
+              ? 'ارفع حتى 8 صور. JPG أو PNG أو WebP، بحد أقصى 4 ميجابايت لكل صورة.'
+              : 'Upload up to 8 photos. JPG, PNG, or WebP, maximum 4 MB each.')}
         </p>
+        {challengeEnabled ? (
+          <a href={`/${locale}/sell/media`}>
+            {isArabic ? 'فتح إدارة الصور' : 'Open photo manager'}
+          </a>
+        ) : null}
       </div>
 
       <div className="form-row">
@@ -412,7 +440,12 @@ export function SellListingForm({ locale }: SellListingFormProps) {
 
       <label>
         {isArabic ? 'وحدة الكمية' : 'Unit label'}
-        <input name="unitLabel" maxLength={40} defaultValue="item" placeholder={isArabic ? 'قطعة، ساعة، خدمة' : 'item, hour, service'} />
+        <input
+          name="unitLabel"
+          maxLength={40}
+          defaultValue="item"
+          placeholder={isArabic ? 'قطعة، ساعة، خدمة' : 'item, hour, service'}
+        />
       </label>
 
       <div className="form-row">
@@ -480,11 +513,13 @@ export function SellListingForm({ locale }: SellListingFormProps) {
           <span>{created.title}</span>
           <small>
             {created.photoCount > 0
-              ? (isArabic ? `${created.photoCount} صور محفوظة` : `${created.photoCount} photo${created.photoCount === 1 ? '' : 's'} uploaded`)
+              ? (isArabic
+                ? `${created.photoCount} صور محفوظة`
+                : `${created.photoCount} photo${created.photoCount === 1 ? '' : 's'} uploaded`)
               : (isArabic ? 'لم تُرفع صور بعد' : 'No photos uploaded yet')}
           </small>
-          <a href={`/${locale}/sell/manage`}>
-            {isArabic ? 'إدارة إعلاناتي' : 'Manage my listings'}
+          <a href={`/${locale}/sell/media`}>
+            {isArabic ? 'إدارة صور الإعلان' : 'Manage listing photos'}
           </a>
         </div>
       ) : null}

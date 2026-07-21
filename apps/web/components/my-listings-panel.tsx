@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthedRequestError } from '../lib/authed-api';
 import {
-  deleteListingMedia,
   getMyListings,
   updateListingStatus,
   type ListingAvailabilityStatus,
@@ -149,7 +148,6 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [deletingMediaId, setDeletingMediaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [configuration, setConfiguration] = useState<ChallengeConfiguration | null>(null);
   const [configurationError, setConfigurationError] = useState(false);
@@ -160,7 +158,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
   const siteKey = configuration?.siteKey ?? null;
   const challengeAction = configuration?.actions.listingStatusUpdate;
   const challengeReady = !challengeEnabled || Boolean(siteKey && challengeAction && challengeToken);
-  const busy = updatingId !== null || deletingMediaId !== null;
+  const busy = updatingId !== null;
 
   useEffect(() => {
     let active = true;
@@ -276,53 +274,6 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
     }
   }
 
-  async function removeCoverPhoto(listing: SellerListing, mediaId: string) {
-    if (!challengeReady || busy) {
-      return;
-    }
-
-    if (!window.confirm(
-      isArabic
-        ? `هل تريد حذف الصورة الرئيسية من «${listing.title}»؟`
-        : `Remove the cover photo from “${listing.title}”?`
-    )) {
-      return;
-    }
-
-    setDeletingMediaId(mediaId);
-    setError(null);
-
-    try {
-      const response = await deleteListingMedia(
-        listing.id,
-        mediaId,
-        challengeToken ?? undefined
-      );
-
-      setListings((current) => current.map((item) =>
-        item.id === listing.id
-          ? {
-              ...item,
-              media: item.media.filter((photo) => photo.id !== mediaId),
-              mediaCount: response.mediaCount
-            }
-          : item
-      ));
-
-      if (response.mediaCount > 0) {
-        await loadListings(filter);
-      }
-    } catch (caught) {
-      setError(failureMessage(caught, isArabic));
-    } finally {
-      if (challengeEnabled) {
-        setChallengeToken(null);
-        setResetKey((value) => value + 1);
-      }
-      setDeletingMediaId(null);
-    }
-  }
-
   return (
     <section className="seller-dashboard">
       <div className="seller-dashboard-toolbar">
@@ -348,8 +299,8 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
         <div className="seller-security-check">
           <p>
             {isArabic
-              ? 'أكمل الفحص الأمني قبل تغيير حالة إعلان أو حذف صورة.'
-              : 'Complete the security check before changing a listing status or deleting a photo.'}
+              ? 'أكمل الفحص الأمني قبل تغيير حالة الإعلان.'
+              : 'Complete the security check before changing a listing status.'}
           </p>
           <ChallengeProviderScript />
           <ChallengeWidget
@@ -405,36 +356,16 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
               .join(', ');
             const availableTransitions = transitions[listing.status];
             const firstPhoto = listing.media[0];
-            const mediaChangesAllowed = listing.status !== 'sold' && listing.status !== 'removed';
 
             return (
               <article className="seller-listing-card" key={listing.id}>
                 {firstPhoto ? (
-                  <>
-                    <img
-                      className="seller-listing-photo"
-                      src={firstPhoto.url}
-                      alt={firstPhoto.altText ?? listing.title}
-                      loading="lazy"
-                    />
-                    {mediaChangesAllowed ? (
-                      <button
-                        className="button-secondary danger-button"
-                        type="button"
-                        disabled={
-                          busy ||
-                          configurationError ||
-                          configuration === null ||
-                          !challengeReady
-                        }
-                        onClick={() => void removeCoverPhoto(listing, firstPhoto.id)}
-                      >
-                        {deletingMediaId === firstPhoto.id
-                          ? (isArabic ? 'جارٍ حذف الصورة…' : 'Removing photo…')
-                          : (isArabic ? 'حذف الصورة الرئيسية' : 'Remove cover photo')}
-                      </button>
-                    ) : null}
-                  </>
+                  <img
+                    className="seller-listing-photo"
+                    src={firstPhoto.url}
+                    alt={firstPhoto.altText ?? listing.title}
+                    loading="lazy"
+                  />
                 ) : (
                   <div className="seller-listing-photo-placeholder" aria-hidden="true">
                     {listing.title.slice(0, 1).toUpperCase()}
@@ -481,34 +412,37 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
                   </div>
                 </dl>
 
-                {availableTransitions.length > 0 ? (
-                  <div className="listing-actions">
-                    {availableTransitions.map((status) => (
-                      <button
-                        key={status}
-                        className={status === 'removed' ? 'button-secondary danger-button' : 'button-secondary'}
-                        type="button"
-                        disabled={
-                          busy ||
-                          configurationError ||
-                          configuration === null ||
-                          !challengeReady
-                        }
-                        onClick={() => void changeStatus(listing, status)}
-                      >
-                        {updatingId === listing.id
-                          ? (isArabic ? 'جارٍ التحديث…' : 'Updating…')
-                          : actionLabel(status, isArabic)}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
+                <div className="listing-actions">
+                  <a className="button-secondary" href={`/${locale}/sell/media`}>
+                    {isArabic ? 'إدارة الصور' : 'Manage photos'}
+                  </a>
+                  {availableTransitions.map((status) => (
+                    <button
+                      key={status}
+                      className={status === 'removed' ? 'button-secondary danger-button' : 'button-secondary'}
+                      type="button"
+                      disabled={
+                        busy ||
+                        configurationError ||
+                        configuration === null ||
+                        !challengeReady
+                      }
+                      onClick={() => void changeStatus(listing, status)}
+                    >
+                      {updatingId === listing.id
+                        ? (isArabic ? 'جارٍ التحديث…' : 'Updating…')
+                        : actionLabel(status, isArabic)}
+                    </button>
+                  ))}
+                </div>
+
+                {availableTransitions.length === 0 ? (
                   <p className="listing-final-status">
                     {isArabic
                       ? 'لا توجد إجراءات إضافية لهذه الحالة.'
                       : 'No further status actions are available.'}
                   </p>
-                )}
+                ) : null}
               </article>
             );
           })}

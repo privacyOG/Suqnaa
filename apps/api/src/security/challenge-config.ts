@@ -5,6 +5,8 @@ export const challengeActions = {
   accountRegister: toTurnstileAction('account.register'),
   listingCreate: toTurnstileAction('listing.create'),
   listingStatusUpdate: toTurnstileAction('listing.status_update'),
+  listingMediaUpload: toTurnstileAction('listing.media_upload'),
+  listingMediaDelete: toTurnstileAction('listing.media_delete'),
   messageCreate: toTurnstileAction('message.create'),
   offerCreate: toTurnstileAction('offer.create'),
   offerManage: toTurnstileAction('offer.manage'),

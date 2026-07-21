@@ -41,6 +41,37 @@ assert.ok(resolveProtectedRoute(
   new URLSearchParams()
 ));
 
+const ownerGallery = resolveProtectedRoute(
+  'GET',
+  ['v1', 'listings', conversationId, 'media', 'mine'],
+  new URLSearchParams()
+);
+assert.deepEqual(ownerGallery, {
+  method: 'GET',
+  path: `/v1/listings/${conversationId}/media/mine`,
+  query: ''
+});
+const ownerMedia = resolveProtectedRoute(
+  'GET',
+  ['v1', 'listings', conversationId, 'media', mediaId, 'mine'],
+  new URLSearchParams()
+);
+assert.deepEqual(ownerMedia, {
+  method: 'GET',
+  path: `/v1/listings/${conversationId}/media/${mediaId}/mine`,
+  query: ''
+});
+assert.equal(resolveProtectedRoute(
+  'GET',
+  ['v1', 'listings', conversationId, 'media', 'mine'],
+  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
+), null);
+assert.equal(resolveProtectedRoute(
+  'GET',
+  ['v1', 'listings', 'not-a-uuid', 'media', mediaId, 'mine'],
+  new URLSearchParams()
+), null);
+
 const mediaUpload = resolveProtectedRoute(
   'POST',
   ['v1', 'listings', conversationId, 'media', 'upload'],

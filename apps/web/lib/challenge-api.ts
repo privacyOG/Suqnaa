@@ -3,6 +3,8 @@ export interface ChallengeActions {
   accountRegister: string;
   listingCreate: string;
   listingStatusUpdate: string;
+  listingMediaUpload: string;
+  listingMediaDelete: string;
   messageCreate: string;
   offerCreate: string;
   offerManage: string;
