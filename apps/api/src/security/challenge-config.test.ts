@@ -36,6 +36,8 @@ assert.deepEqual(enabled.actions, {
   offerManage: 'offer_manage',
   orderCreate: 'order_create',
   orderCancel: 'order_cancel',
+  fulfilmentManage: 'fulfilment_manage',
+  fulfilmentConfirm: 'fulfilment_confirm',
   paymentCheckout: 'payment_checkout_prepare',
   reportCreate: 'report_create'
 });
