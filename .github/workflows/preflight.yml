@@ -1,0 +1,60 @@
+name: Preflight
+
+on:
+  push:
+    branches:
+      - 'preflight/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-api:
+    name: Web and API preflight
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      WEB_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      API_BASE_URL: http://localhost:4000
+      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa
+      JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
+      PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
+      CHALLENGE_PROVIDER: none
+      ASSISTANT_ENABLED: false
+      ASSISTANT_PROVIDER: none
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm typecheck
+      - run: pnpm --dir apps/api test:security
+      - run: pnpm --dir apps/web test:session
+
+  mobile:
+    name: Mobile preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: apps/mobile
+        run: flutter pub get
+      - working-directory: apps/mobile
+        run: flutter gen-l10n
+      - working-directory: apps/mobile
+        run: flutter analyze
+      - working-directory: apps/mobile
+        run: flutter test
