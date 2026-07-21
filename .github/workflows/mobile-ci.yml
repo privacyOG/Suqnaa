@@ -17,19 +17,7 @@ jobs:
         run: flutter pub get
       - working-directory: apps/mobile
         run: flutter gen-l10n
-      - name: Run Flutter analysis
-        working-directory: apps/mobile
-        shell: bash
-        run: |
-          set -o pipefail
-          flutter analyze 2>&1 | tee analyzer-output.txt
-      - name: Upload analyzer diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-analyzer-diagnostics
-          path: apps/mobile/analyzer-output.txt
-          if-no-files-found: error
-          retention-days: 1
+      - working-directory: apps/mobile
+        run: flutter analyze
       - working-directory: apps/mobile
         run: flutter test
