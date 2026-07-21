@@ -112,5 +112,9 @@
   "configureCardProvider": "أعد مزود دفع البطاقات قبل قبول الأموال.",
   "configureBankTransfer": "أعد تعليمات تحويل بنكي موثقة قبل قبول الأموال.",
   "configureWalletProvider": "أعد مزود المحفظة قبل قبول الأموال.",
-  "configureXmrAddress": "أعد عنوان الدفع قبل قبول الأموال."
+  "configureXmrAddress": "أعد عنوان الدفع قبل قبول الأموال.",
+  "securePaymentWebsite": "موقع الدفع الآمن",
+  "securePaymentWebsiteSubtitle": "افتح سجل طلباتك على الويب لإتمام التحقق عبر المتصفح وإعداد الدفع",
+  "openingSecureWebsite": "جارٍ فتح الموقع الآمن...",
+  "unableToOpenSecureWebsite": "تعذر فتح الموقع الآمن."
 }
