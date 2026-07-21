@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { OrderActivityDetail } from '../../../../../components/order-activity-panel';
+import { OrderCheckoutPreparation } from '../../../../../components/order-checkout-preparation';
 import { SessionRefresh } from '../../../../../components/session-refresh';
 import { isLocale } from '../../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../../lib/account-session-state';
@@ -43,7 +44,10 @@ export default async function OrderDetailPage({
       </header>
 
       {user ? (
-        <OrderActivityDetail locale={params.locale} orderId={params.orderId} />
+        <>
+          <OrderActivityDetail locale={params.locale} orderId={params.orderId} />
+          <OrderCheckoutPreparation locale={params.locale} orderId={params.orderId} />
+        </>
       ) : needsRotation ? (
         <div className="seller-session-panel">
           <SessionRefresh locale={params.locale} />
