@@ -6,6 +6,7 @@ import '../../config/mobile_environment.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
 import '../account/account_login_screen.dart';
+import 'listing_media_manager_screen.dart';
 
 class CreateListingScreen extends StatefulWidget {
   const CreateListingScreen({super.key});
@@ -152,6 +153,20 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       appBar: AppBar(
         title: const Text('Create listing'),
         backgroundColor: SuqnaaBrand.ivory,
+        actions: [
+          IconButton(
+            key: const Key('open-listing-photo-manager-from-create'),
+            tooltip: 'Manage listing photos',
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn
+                    ? const ListingMediaManagerScreen()
+                    : const AccountLoginScreen(),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
@@ -214,7 +229,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                     label: 'Price',
                     controller: _priceController,
                     hint: '0.00',
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     validator: (value) {
                       final amount = double.tryParse(value?.trim() ?? '');
                       if (amount == null || amount < 0) {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class AuthedApi {
@@ -32,11 +33,27 @@ class AuthedApi {
       body: jsonEncode(body),
     );
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError('Request failed');
-    }
+    return _decodeJsonResponse(response);
+  }
 
-    return jsonDecode(response.body) as Map<String, dynamic>;
+  Future<Map<String, dynamic>> postBinaryWithHeaders(
+    String path,
+    String accessToken,
+    Uint8List body, {
+    required String contentType,
+    Map<String, String> extraHeaders = const {},
+  }) async {
+    final response = await _client.post(
+      baseUrl.resolve(path),
+      headers: {
+        ...extraHeaders,
+        'authorization': 'Bearer $accessToken',
+        'content-type': contentType,
+      },
+      body: body,
+    );
+
+    return _decodeJsonResponse(response);
   }
 
   Future<Map<String, dynamic>> get(String path, String accessToken) async {
@@ -45,10 +62,21 @@ class AuthedApi {
       headers: {'authorization': 'Bearer $accessToken'},
     );
 
+    return _decodeJsonResponse(response);
+  }
+
+  Map<String, dynamic> _decodeJsonResponse(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError('Request failed');
     }
+    if (response.body.isEmpty) {
+      return const {};
+    }
 
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map) {
+      throw const FormatException('Invalid API response');
+    }
+    return Map<String, dynamic>.from(decoded);
   }
 }

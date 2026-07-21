@@ -13,9 +13,24 @@ abstract interface class SecureWebHandoffGateway {
   });
 }
 
+abstract interface class SecureListingMediaWebHandoffGateway {
+  Future<bool> openListingMediaManager({required String locale});
+}
+
+extension SecureListingMediaHandoff on SecureWebHandoffGateway {
+  Future<bool> openListingMediaManager({required String locale}) {
+    if (this is SecureListingMediaWebHandoffGateway) {
+      return (this as SecureListingMediaWebHandoffGateway)
+          .openListingMediaManager(locale: locale);
+    }
+    return Future<bool>.value(false);
+  }
+}
+
 typedef ExternalUrlLauncher = Future<bool> Function(Uri uri);
 
-class BrowserSecureWebHandoff implements SecureWebHandoffGateway {
+class BrowserSecureWebHandoff
+    implements SecureWebHandoffGateway, SecureListingMediaWebHandoffGateway {
   BrowserSecureWebHandoff({
     required Uri webBaseUrl,
     ExternalUrlLauncher? launcher,
@@ -36,6 +51,11 @@ class BrowserSecureWebHandoff implements SecureWebHandoffGateway {
     required String orderId,
   }) {
     return _launcher(buildSecureOrderUri(_webBaseUrl, locale, orderId));
+  }
+
+  @override
+  Future<bool> openListingMediaManager({required String locale}) {
+    return _launcher(buildSecureListingMediaManagerUri(_webBaseUrl, locale));
   }
 }
 
@@ -65,6 +85,21 @@ Uri buildSecureOrderUri(Uri webBaseUrl, String locale, String orderId) {
       ...buildSecureOrdersUri(webBaseUrl, locale).pathSegments,
       normalizedOrderId,
     ],
+  );
+}
+
+Uri buildSecureListingMediaManagerUri(Uri webBaseUrl, String locale) {
+  final base = _validateBaseUrl(webBaseUrl);
+  final normalizedLocale = _validateLocale(locale);
+  return base.replace(
+    pathSegments: [
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      normalizedLocale,
+      'sell',
+      'media',
+    ],
+    query: null,
+    fragment: null,
   );
 }
 
