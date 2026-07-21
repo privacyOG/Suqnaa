@@ -2,15 +2,30 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AuthedApi {
-  AuthedApi({required this.baseUrl, http.Client? client}) : _client = client ?? http.Client();
+  AuthedApi({required this.baseUrl, http.Client? client})
+      : _client = client ?? http.Client();
 
   final Uri baseUrl;
   final http.Client _client;
 
-  Future<Map<String, dynamic>> post(String path, String accessToken, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> post(
+    String path,
+    String accessToken,
+    Map<String, dynamic> body,
+  ) {
+    return postWithHeaders(path, accessToken, body);
+  }
+
+  Future<Map<String, dynamic>> postWithHeaders(
+    String path,
+    String accessToken,
+    Map<String, dynamic> body, {
+    Map<String, String> extraHeaders = const {},
+  }) async {
     final response = await _client.post(
       baseUrl.resolve(path),
       headers: {
+        ...extraHeaders,
         'authorization': 'Bearer $accessToken',
         'content-type': 'application/json',
       },
