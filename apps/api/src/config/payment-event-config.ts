@@ -6,7 +6,7 @@ export interface PaymentEventConfigurationInput {
 
 export interface PaymentEventConfiguration {
   enabled: boolean;
-  provider: string | null;
+  provider: string;
   signingSecret: string;
   maxAgeSeconds: number;
 }
@@ -38,7 +38,7 @@ export function resolvePaymentEventConfiguration(
     }
     return {
       enabled: false,
-      provider: null,
+      provider: 'none',
       signingSecret: '',
       maxAgeSeconds
     };
