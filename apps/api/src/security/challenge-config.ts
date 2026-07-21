@@ -9,6 +9,7 @@ export const challengeActions = {
   offerCreate: toTurnstileAction('offer.create'),
   offerManage: toTurnstileAction('offer.manage'),
   orderCreate: toTurnstileAction('order.create'),
+  orderCancel: toTurnstileAction('order.cancel'),
   paymentCheckout: toTurnstileAction('payment.checkout_prepare'),
   reportCreate: toTurnstileAction('report.create')
 } as const;
