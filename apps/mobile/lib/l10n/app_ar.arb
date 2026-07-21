@@ -116,5 +116,19 @@
   "securePaymentWebsite": "موقع الدفع الآمن",
   "securePaymentWebsiteSubtitle": "افتح سجل طلباتك على الويب لإتمام التحقق عبر المتصفح وإعداد الدفع",
   "openingSecureWebsite": "جارٍ فتح الموقع الآمن...",
-  "unableToOpenSecureWebsite": "تعذر فتح الموقع الآمن."
+  "unableToOpenSecureWebsite": "تعذر فتح الموقع الآمن.",
+  "cancelOrder": "إلغاء الطلب",
+  "cancelOrderTitle": "أوقف هذه المعاملة قبل الدفع",
+  "cancelOrderBody": "يؤدي الإلغاء إلى إلغاء الطلب والعرض المقبول وإعادة الإعلان إلى السوق. لا يمكن التراجع عن هذا الإجراء.",
+  "confirmOrderCancellation": "تأكيد الإلغاء",
+  "confirmOrderCancellationBody": "سيُلغى العرض المقبول وسيصبح الإعلان متاحاً لمشترين آخرين. لا يمكن التراجع.",
+  "keepOrder": "الاحتفاظ بالطلب",
+  "cancellingOrder": "جارٍ إلغاء الطلب...",
+  "orderCancellationFailed": "تعذر إلغاء الطلب.",
+  "orderCancellationConflict": "تغيّرت حالة الطلب أو الدفع ولم يعد الإلغاء مسموحاً.",
+  "orderCancellationComplete": "أُلغي الطلب والعرض وأصبح الإعلان متاحاً من جديد.",
+  "orderAlreadyCancelled": "كان الطلب ملغى بالفعل. لم تُجرَ تغييرات إضافية.",
+  "openSecureOrderWebsite": "فتح الموقع الآمن",
+  "orderCancellationWebOnly": "التحقق الأمني عبر المتصفح مطلوب. افتح هذا الطلب على الموقع الآمن لإلغائه.",
+  "orderCancellationUnavailable": "تعذر تحميل إعدادات الأمان. إلغاء الطلب غير متاح."
 }
