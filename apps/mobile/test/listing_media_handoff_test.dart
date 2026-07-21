@@ -1,6 +1,47 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:suqnaa/src/navigation/secure_web_handoff.dart';
 
+class FakeCombinedHandoff
+    implements SecureWebHandoffGateway, SecureListingMediaWebHandoffGateway {
+  int mediaCalls = 0;
+  String? locale;
+
+  @override
+  Future<bool> openListingMediaManager({required String locale}) async {
+    mediaCalls += 1;
+    this.locale = locale;
+    return true;
+  }
+
+  @override
+  Future<bool> openOrder({
+    required String locale,
+    required String orderId,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> openOrders({required String locale}) async {
+    throw UnimplementedError();
+  }
+}
+
+class FakeOrderOnlyHandoff implements SecureWebHandoffGateway {
+  @override
+  Future<bool> openOrder({
+    required String locale,
+    required String orderId,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> openOrders({required String locale}) async {
+    throw UnimplementedError();
+  }
+}
+
 void main() {
   test('builds the exact localized listing media manager URL', () {
     expect(
@@ -17,6 +58,25 @@ void main() {
       ).toString(),
       'https://suqnaa.test/ar/sell/media',
     );
+  });
+
+  test('dispatches through the dedicated listing media handoff interface', () async {
+    final implementation = FakeCombinedHandoff();
+    final SecureWebHandoffGateway gateway = implementation;
+
+    final opened = await gateway.openListingMediaManager(locale: 'ar');
+
+    expect(opened, isTrue);
+    expect(implementation.mediaCalls, 1);
+    expect(implementation.locale, 'ar');
+  });
+
+  test('fails closed when an order-only handoff lacks media capability', () async {
+    final SecureWebHandoffGateway gateway = FakeOrderOnlyHandoff();
+
+    final opened = await gateway.openListingMediaManager(locale: 'en');
+
+    expect(opened, isFalse);
   });
 
   test('listing media handoff never retains query, fragment, or credentials', () {
