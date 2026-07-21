@@ -78,6 +78,32 @@ assert.equal(resolveProtectedRoute(
   new URLSearchParams('amount=1')
 ), null);
 
+const orderCancellation = resolveProtectedRoute(
+  'POST',
+  ['v1', 'market', 'orders', conversationId, 'cancel'],
+  new URLSearchParams()
+);
+assert.deepEqual(orderCancellation, {
+  method: 'POST',
+  path: `/v1/market/orders/${conversationId}/cancel`,
+  query: ''
+});
+assert.equal(resolveProtectedRoute(
+  'GET',
+  ['v1', 'market', 'orders', conversationId, 'cancel'],
+  new URLSearchParams()
+), null);
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'market', 'orders', 'not-a-uuid', 'cancel'],
+  new URLSearchParams()
+), null);
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'market', 'orders', conversationId, 'cancel'],
+  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
+), null);
+
 const queue = resolveProtectedRoute(
   'GET',
   ['v1', 'operations', 'queue'],

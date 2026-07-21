@@ -39,6 +39,7 @@ const rules: readonly RouteRule[] = [
   { method: 'POST', pattern: /^\/v1\/market\/timed-sale$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/offers$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/orders$/, queryKeys: new Set() },
+  { method: 'POST', pattern: new RegExp(`^/v1/market/orders/${uuid}/cancel$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/reviews$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/identity-checks$/, queryKeys: new Set() }
 ];
