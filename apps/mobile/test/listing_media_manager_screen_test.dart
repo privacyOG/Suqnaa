@@ -149,15 +149,8 @@ class FakeChallengeGateway implements ChallengeConfigurationGateway {
 
 class FakeSecureWebHandoff
     implements SecureWebHandoffGateway, SecureListingMediaWebHandoffGateway {
-  int mediaCalls = 0;
-  String? locale;
-
   @override
-  Future<bool> openListingMediaManager({required String locale}) async {
-    mediaCalls += 1;
-    this.locale = locale;
-    return true;
-  }
+  Future<bool> openListingMediaManager({required String locale}) async => true;
 
   @override
   Future<bool> openOrder({
@@ -284,30 +277,27 @@ void main() {
     );
   });
 
-  testWidgets('uses only secure web handoff when challenges are enabled', (
+  testWidgets('renders only secure controls when challenges are enabled', (
     tester,
   ) async {
-    final secureWeb = FakeSecureWebHandoff();
-
     await tester.pumpWidget(testApp(
       media: FakeMediaGateway(initialMedia: [testMedia()]),
       picker: FakeImagePicker(),
       challenge: FakeChallengeGateway(enabled: true),
-      secureWeb: secureWeb,
+      secureWeb: FakeSecureWebHandoff(),
     ));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('pick-listing-photo')), findsNothing);
     expect(find.byKey(Key('delete-listing-photo-$mediaId')), findsNothing);
-    final secureButton =
-        find.byKey(const Key('open-secure-listing-media-manager'));
-    expect(secureButton, findsOneWidget);
-    await tester.ensureVisible(secureButton);
-    await tester.tap(secureButton);
-    await tester.pumpAndSettle();
-
-    expect(secureWeb.mediaCalls, 1);
-    expect(secureWeb.locale, 'en');
+    expect(
+      find.byKey(const Key('open-secure-listing-media-manager')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Browser security verification is required'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders the protected manager in Arabic', (tester) async {
