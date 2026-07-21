@@ -41,7 +41,7 @@ assert.match(manager, /selectedListing\.status !== 'sold'/);
 assert.match(manager, /selectedListing\.status !== 'removed'/);
 assert.match(manager, /media\.url/);
 assert.match(manager, /challengeReady/);
-assert.match(manager, /one image per verified operation/i);
+assert.match(manager, /own action-bound verification/i);
 
 assert.match(page, /ListingMediaManagerPanel/);
 assert.match(page, /loadAccountSessionState/);
