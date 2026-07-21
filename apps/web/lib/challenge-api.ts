@@ -8,6 +8,8 @@ export interface ChallengeActions {
   offerManage: string;
   orderCreate: string;
   orderCancel: string;
+  fulfilmentManage: string;
+  fulfilmentConfirm: string;
   paymentCheckout: string;
   reportCreate: string;
 }
