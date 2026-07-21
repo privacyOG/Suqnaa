@@ -56,6 +56,6 @@ String paymentMethodLabel(
     'wallet' => isArabic ? 'محفظة' : 'Wallet',
     'xmr' => 'XMR',
     null || '' => text.noPaymentMethod,
-    _ => value!,
+    _ => value,
   };
 }
