@@ -11,6 +11,7 @@ const _allowedMimeTypes = <String>{
 };
 const maximumListingPhotoBytes = 4 * 1024 * 1024;
 const maximumListingPhotoCount = 8;
+const maximumChallengeResponseLength = 2048;
 
 Map<String, dynamic> _requiredMap(Map<String, dynamic> json, String key) {
   final value = json[key];
@@ -72,6 +73,18 @@ int _requiredCount(Object? value, String label) {
   return value;
 }
 
+String? _normalizedChallenge(String? value) {
+  final normalized = value?.trim();
+  if (normalized != null && normalized.length > maximumChallengeResponseLength) {
+    throw ArgumentError.value(
+      value,
+      'challengeResponse',
+      'Must not exceed $maximumChallengeResponseLength characters',
+    );
+  }
+  return normalized;
+}
+
 enum MobileListingStatus {
   draft('draft'),
   active('active'),
@@ -110,12 +123,15 @@ class SellerMediaListing {
       status != MobileListingStatus.sold &&
       status != MobileListingStatus.removed;
 
-  factory SellerMediaListing.fromJson(Map<String, dynamic> json) {
+  factory SellerMediaListing.fromJson(
+    Map<String, dynamic> json, {
+    int? mediaCount,
+  }) {
     return SellerMediaListing(
       id: _requiredUuid(json, 'id'),
       title: _requiredString(json, 'title', maximumLength: 120),
       status: MobileListingStatus.parse(json['status']),
-      mediaCount: _requiredCount(json['mediaCount'], 'media count'),
+      mediaCount: mediaCount ?? _requiredCount(json['mediaCount'], 'media count'),
     );
   }
 }
@@ -145,14 +161,16 @@ class SellerListingMediaItem {
 
   factory SellerListingMediaItem.fromJson(
     Map<String, dynamic> json,
-    Uri apiBaseUrl,
-  ) {
+    Uri apiBaseUrl, {
+    required String listingId,
+  }) {
+    final id = _requiredUuid(json, 'id');
     final rawPath = _requiredString(json, 'url', maximumLength: 240);
     final uri = Uri.tryParse(rawPath);
+    final expectedPath = '/v1/listings/$listingId/media/$id/mine';
     if (uri == null ||
         uri.isAbsolute ||
-        !rawPath.startsWith('/v1/listings/') ||
-        !rawPath.endsWith('/mine') ||
+        rawPath != expectedPath ||
         uri.hasQuery ||
         uri.hasFragment) {
       throw const FormatException('Invalid owner media URL');
@@ -179,7 +197,7 @@ class SellerListingMediaItem {
     }
 
     return SellerListingMediaItem(
-      id: _requiredUuid(json, 'id'),
+      id: id,
       uri: apiBaseUrl.resolve(rawPath),
       mimeType: mimeType,
       width: width as int?,
@@ -205,22 +223,31 @@ class SellerListingGallery {
     Map<String, dynamic> json,
     Uri apiBaseUrl,
   ) {
+    final mediaCount = _requiredCount(json['mediaCount'], 'gallery count');
     final listing = SellerMediaListing.fromJson(
       _requiredMap(json, 'listing'),
+      mediaCount: mediaCount,
     );
     final rawMedia = json['media'];
-    final mediaCount = _requiredCount(json['mediaCount'], 'gallery count');
     if (rawMedia is! List || rawMedia.length != mediaCount) {
       throw const FormatException('Invalid owner media gallery');
     }
+    final seenIds = <String>{};
+    var previousSortOrder = -1;
     final media = rawMedia.map((value) {
       if (value is! Map) {
         throw const FormatException('Invalid owner media entry');
       }
-      return SellerListingMediaItem.fromJson(
+      final item = SellerListingMediaItem.fromJson(
         Map<String, dynamic>.from(value),
         apiBaseUrl,
+        listingId: listing.id,
       );
+      if (!seenIds.add(item.id) || item.sortOrder < previousSortOrder) {
+        throw const FormatException('Invalid owner media ordering');
+      }
+      previousSortOrder = item.sortOrder;
+      return item;
     }).toList(growable: false);
 
     return SellerListingGallery(listing: listing, media: media);
@@ -360,14 +387,7 @@ class ListingMediaApi implements ListingMediaGateway {
         'sortOrder': '$sortOrder',
       },
     ).query;
-    final normalizedChallenge = challengeResponse?.trim();
-    if (normalizedChallenge != null && normalizedChallenge.length > 4096) {
-      throw ArgumentError.value(
-        challengeResponse,
-        'challengeResponse',
-        'Must not exceed 4096 characters',
-      );
-    }
+    final normalizedChallenge = _normalizedChallenge(challengeResponse);
     final response = await _authedApi.postBinaryWithHeaders(
       '/v1/listings/$normalizedListingId/media/upload?$query',
       accessToken,
@@ -380,6 +400,13 @@ class ListingMediaApi implements ListingMediaGateway {
     );
     final rawMedia = _requiredMap(response, 'media');
     final mediaId = _requiredUuid(rawMedia, 'id');
+    final responseUrl = _requiredString(rawMedia, 'url', maximumLength: 240);
+    if (responseUrl !=
+            '/v1/listings/$normalizedListingId/media/$mediaId' ||
+        rawMedia['mimeType'] != image.mimeType ||
+        rawMedia['sortOrder'] != sortOrder) {
+      throw const FormatException('Invalid uploaded media response');
+    }
     final mediaCount = _requiredCount(response['mediaCount'], 'media count');
     if (mediaCount < 1) {
       throw const FormatException('Invalid upload media count');
@@ -399,14 +426,7 @@ class ListingMediaApi implements ListingMediaGateway {
   }) async {
     final normalizedListingId = _requiredListingId(listingId);
     final normalizedMediaId = _requiredMediaId(mediaId);
-    final normalizedChallenge = challengeResponse?.trim();
-    if (normalizedChallenge != null && normalizedChallenge.length > 4096) {
-      throw ArgumentError.value(
-        challengeResponse,
-        'challengeResponse',
-        'Must not exceed 4096 characters',
-      );
-    }
+    final normalizedChallenge = _normalizedChallenge(challengeResponse);
     final response = await _authedApi.postWithHeaders(
       '/v1/listings/$normalizedListingId/media/$normalizedMediaId/delete',
       accessToken,
