@@ -8,6 +8,7 @@ import '../orders/payment_preparation_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
 import 'register_screen.dart';
+import 'secure_web_handoff_tile.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -108,6 +109,7 @@ class AccountScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (signedIn) const SecureWebHandoffTile(),
           const _AccountTile(
             icon: Icons.verified_user_outlined,
             title: 'Trust',
