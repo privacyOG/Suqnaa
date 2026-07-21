@@ -7,6 +7,7 @@ import '../orders/order_activity_screen.dart';
 import '../orders/order_cancellation_screen.dart';
 import '../orders/order_fulfilment_screen.dart';
 import '../orders/payment_preparation_screen.dart';
+import '../sell/listing_media_manager_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
 import 'register_screen.dart';
@@ -159,6 +160,21 @@ class AccountScreen extends StatelessWidget {
               ),
             ),
           ),
+          _AccountTile(
+            key: const Key('listing-photo-manager-account-tile'),
+            icon: Icons.photo_library_outlined,
+            title: 'Listing photos',
+            subtitle: signedIn
+                ? 'Preview and manage photos for your listings'
+                : 'Sign in to manage listing photos',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn
+                    ? const ListingMediaManagerScreen()
+                    : const AccountLoginScreen(),
+              ),
+            ),
+          ),
           if (signedIn)
             _AccountTile(
               icon: Icons.logout,
@@ -182,6 +198,7 @@ class AccountScreen extends StatelessWidget {
 
 class _AccountTile extends StatelessWidget {
   const _AccountTile({
+    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,
