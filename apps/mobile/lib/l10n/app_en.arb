@@ -130,5 +130,6 @@
   "orderAlreadyCancelled": "The order was already cancelled. No additional changes were made.",
   "openSecureOrderWebsite": "Open secure website",
   "orderCancellationWebOnly": "Browser security verification is required. Open this order on the secure website to cancel it.",
-  "orderCancellationUnavailable": "Security settings could not be loaded. Order cancellation is unavailable."
+  "orderCancellationUnavailable": "Security settings could not be loaded. Order cancellation is unavailable.",
+  "noCancellableBuyerOrders": "No buyer orders are currently eligible for cancellation."
 }
