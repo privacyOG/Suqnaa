@@ -88,7 +88,12 @@ void main() {
     );
     expect(requests, hasLength(2));
     expect(requests.first.url.queryParameters, {'limit': '50'});
-    expect(requests.every((item) => item.headers['authorization'] == 'Bearer access-token'), isTrue);
+    expect(
+      requests.every(
+        (item) => item.headers['authorization'] == 'Bearer access-token',
+      ),
+      isTrue,
+    );
   });
 
   test('uploads one binary image with exact metadata and protected headers', () async {
@@ -247,6 +252,11 @@ void main() {
       ),
       apiBaseUrl: Uri.parse('https://api.suqnaa.test'),
     );
+    final oversizedChallenge = List<String>.filled(
+      maximumChallengeResponseLength + 1,
+      'x',
+      growable: false,
+    ).join();
 
     await expectLater(
       api.fetchGallery('access-token', listingId: 'not-a-listing'),
@@ -265,7 +275,7 @@ void main() {
         'access-token',
         listingId: listingId,
         mediaId: mediaId,
-        challengeResponse: 'x' * (maximumChallengeResponseLength + 1),
+        challengeResponse: oversizedChallenge,
       ),
       throwsArgumentError,
     );
