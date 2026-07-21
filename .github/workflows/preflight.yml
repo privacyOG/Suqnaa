@@ -135,7 +135,10 @@ jobs:
           elif [[ "$TEST_RESULT" != "success" ]]; then
             state="failure"
             stage="tests"
-            detail=$(grep -E 'Expected:|Actual:|Test failed|Some tests failed|EXCEPTION CAUGHT' mobile-tests.log | head -1 || true)
+            location=$(grep -Eo 'test/order_cancellation_screen_test\.dart:[0-9]+:[0-9]+' mobile-tests.log | head -1 || true)
+            expectation=$(grep -A20 'EXCEPTION CAUGHT' mobile-tests.log | grep -E 'Expected:|Actual:|Which:|Found|RenderFlex overflowed|hit test' | head -1 || true)
+            test_name=$(grep -E 'order cancellation|cancels after confirmation|secure web handoff|Arabic cancellation' mobile-tests.log | tail -1 || true)
+            detail="${location:-unknown} ${expectation:-${test_name:-failed}}"
           fi
           context=$(printf 'preflight/mobile-%s-%s' "$stage" "${detail:-failed}" | tr ' /:•' '-' | tr -cd '[:alnum:]_.-')
           context=${context:0:140}
