@@ -19,9 +19,9 @@ abstract interface class SecureListingMediaWebHandoffGateway {
 
 extension SecureListingMediaHandoff on SecureWebHandoffGateway {
   Future<bool> openListingMediaManager({required String locale}) {
-    final gateway = this;
-    if (gateway is SecureListingMediaWebHandoffGateway) {
-      return gateway.openListingMediaManager(locale: locale);
+    if (this is SecureListingMediaWebHandoffGateway) {
+      return (this as SecureListingMediaWebHandoffGateway)
+          .openListingMediaManager(locale: locale);
     }
     return Future<bool>.value(false);
   }
