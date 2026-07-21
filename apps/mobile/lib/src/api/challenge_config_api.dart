@@ -59,7 +59,7 @@ class ChallengeConfigurationApi implements ChallengeConfigurationGateway {
     } on FormatException catch (error) {
       throw ChallengeConfigurationException(
         status: 502,
-        message: error.message,
+        message: error.message.toString(),
       );
     }
   }
