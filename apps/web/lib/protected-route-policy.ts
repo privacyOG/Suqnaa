@@ -21,6 +21,7 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: /^\/v1\/listings\/mine$/, queryKeys: new Set(['status', 'limit', 'before']) },
   { method: 'GET', pattern: /^\/v1\/operations\/queue$/, queryKeys: new Set(['status', 'limit', 'before']) },
   { method: 'GET', pattern: /^\/v1\/operations\/records$/, queryKeys: new Set(['limit', 'before', 'action', 'entityType']) },
+  { method: 'GET', pattern: new RegExp(`^/v1/market/orders/${uuid}/payment-context$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/messages$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/conversations/${uuid}/read$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/listings$/, queryKeys: new Set() },
@@ -40,6 +41,7 @@ const rules: readonly RouteRule[] = [
   { method: 'POST', pattern: /^\/v1\/market\/offers$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/orders$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/market/orders/${uuid}/cancel$`), queryKeys: new Set() },
+  { method: 'POST', pattern: new RegExp(`^/v1/market/orders/${uuid}/fulfilment$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/reviews$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/identity-checks$/, queryKeys: new Set() }
 ];

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { OrderActivityDetail } from '../../../../../components/order-activity-panel';
 import { OrderCancellationAction } from '../../../../../components/order-cancellation-action';
 import { OrderCheckoutPreparation } from '../../../../../components/order-checkout-preparation';
+import { OrderFulfilmentAction } from '../../../../../components/order-fulfilment-action';
 import { SessionRefresh } from '../../../../../components/session-refresh';
 import { isLocale } from '../../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../../lib/account-session-state';
@@ -47,6 +48,7 @@ export default async function OrderDetailPage({
       {user ? (
         <>
           <OrderActivityDetail locale={params.locale} orderId={params.orderId} />
+          <OrderFulfilmentAction locale={params.locale} orderId={params.orderId} />
           <OrderCheckoutPreparation locale={params.locale} orderId={params.orderId} />
           <OrderCancellationAction locale={params.locale} orderId={params.orderId} />
         </>
