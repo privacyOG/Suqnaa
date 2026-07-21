@@ -112,5 +112,9 @@
   "configureCardProvider": "Configure the card payment provider before accepting funds.",
   "configureBankTransfer": "Configure verified bank-transfer instructions before accepting funds.",
   "configureWalletProvider": "Configure the wallet payment provider before accepting funds.",
-  "configureXmrAddress": "Configure the payment address before accepting funds."
+  "configureXmrAddress": "Configure the payment address before accepting funds.",
+  "securePaymentWebsite": "Secure payment website",
+  "securePaymentWebsiteSubtitle": "Open your web order history for browser verification and payment preparation",
+  "openingSecureWebsite": "Opening secure website...",
+  "unableToOpenSecureWebsite": "The secure website could not be opened."
 }
