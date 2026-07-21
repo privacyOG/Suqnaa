@@ -71,7 +71,7 @@ class MobileChallengeConfiguration {
     required this.provider,
     required this.siteKey,
     required this.paymentCheckoutAction,
-    required this.orderCancelAction,
+    this.orderCancelAction = 'order_cancel',
   });
 
   final bool enabled;
