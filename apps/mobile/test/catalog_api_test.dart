@@ -49,6 +49,15 @@ Map<String, dynamic> listingPayload({String mediaListingId = listingId}) {
   };
 }
 
+Future<Object?> captureException(Future<Object?> Function() action) async {
+  try {
+    await action();
+    return null;
+  } catch (error) {
+    return error;
+  }
+}
+
 void main() {
   test('catalog search serializes complete filters and resolves media URLs', () async {
     Uri? requestedUri;
@@ -177,10 +186,11 @@ void main() {
       client: client,
     );
 
-    await expectLater(
-      api.search(const CatalogSearchOptions()),
-      throwsA(isA<FormatException>()),
+    final error = await captureException(
+      () => api.search(const CatalogSearchOptions()),
     );
+    expect(error, isA<FormatException>());
+    expect(error.toString(), contains('Invalid listing media URL'));
   });
 
   test('rejects contradictory pagination', () async {
@@ -199,10 +209,11 @@ void main() {
       client: client,
     );
 
-    await expectLater(
-      api.search(const CatalogSearchOptions()),
-      throwsA(isA<CatalogRequestException>()),
+    final error = await captureException(
+      () => api.search(const CatalogSearchOptions()),
     );
+    expect(error, isA<CatalogRequestException>());
+    expect(error.toString(), contains('Invalid listing pagination response'));
   });
 
   test('catalog categories retain bilingual names', () async {
