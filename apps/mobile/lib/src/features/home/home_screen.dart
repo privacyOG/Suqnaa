@@ -49,18 +49,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCategories() async {
     try {
       final categories = await _api.fetchCategories();
-      if (mounted) {
-        setState(() => _categories = categories);
-      }
+      if (mounted) setState(() => _categories = categories);
     } catch (_) {
-      // Listing search remains available when categories are unavailable.
+      // Search remains usable when category metadata is unavailable.
     }
   }
 
   Future<void> _loadListings({required bool reset}) async {
-    if (!reset && (_nextCursor == null || _loadingMore)) {
-      return;
-    }
+    if (!reset && (_nextCursor == null || _loadingMore)) return;
 
     final revision = ++_requestRevision;
     setState(() {
@@ -76,14 +72,16 @@ class _HomeScreenState extends State<HomeScreen> {
       final response = await _api.search(
         _options.withCursor(reset ? null : _nextCursor),
       );
-      if (!mounted || revision != _requestRevision) {
-        return;
-      }
+      if (!mounted || revision != _requestRevision) return;
 
+      final existingIds = reset
+          ? <String>{}
+          : _listings.map((listing) => listing.id).toSet();
+      final additions = response.listings
+          .where((listing) => existingIds.add(listing.id))
+          .toList(growable: false);
       setState(() {
-        _listings = reset
-            ? response.listings
-            : [..._listings, ...response.listings];
+        _listings = reset ? additions : [..._listings, ...additions];
         _nextCursor = response.hasMore ? response.nextCursor : null;
         _failed = false;
       });
@@ -103,28 +101,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   CatalogSearchOptions _optionsWith({
     String? query,
+    bool clearQuery = false,
     String? categoryId,
     bool clearCategory = false,
   }) {
-    return CatalogSearchOptions(
-      limit: _options.limit,
+    return _options.copyWith(
       query: query,
-      categoryId: clearCategory ? null : categoryId ?? _options.categoryId,
-      condition: _options.condition,
-      availabilityStatus: _options.availabilityStatus,
-      minimumPrice: _options.minimumPrice,
-      maximumPrice: _options.maximumPrice,
-      currency: _options.currency,
-      country: _options.country,
-      city: _options.city,
-      fulfilment: _options.fulfilment,
+      categoryId: categoryId,
+      clearQuery: clearQuery,
+      clearCategory: clearCategory,
+      clearBefore: true,
     );
   }
 
   void _submitSearch(String value) {
     final query = value.trim();
     setState(() {
-      _options = _optionsWith(query: query.isEmpty ? null : query);
+      _options = _optionsWith(
+        query: query.isEmpty ? null : query,
+        clearQuery: query.isEmpty,
+      );
     });
     _loadListings(reset: true);
   }
@@ -132,7 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _selectCategory(String? categoryId) {
     setState(() {
       _options = _optionsWith(
-        query: _options.query,
         categoryId: categoryId,
         clearCategory: categoryId == null,
       );
@@ -147,11 +142,9 @@ class _HomeScreenState extends State<HomeScreen> {
       useSafeArea: true,
       builder: (_) => CatalogFilterSheet(initial: _options),
     );
-    if (result == null || !mounted) {
-      return;
-    }
+    if (result == null || !mounted) return;
 
-    setState(() => _options = result);
+    setState(() => _options = result.withCursor(null));
     await _loadListings(reset: true);
   }
 
@@ -169,8 +162,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_options.availabilityStatus != null) count += 1;
     if (_options.minimumPrice != null || _options.maximumPrice != null) count += 1;
     if (_options.currency != null) count += 1;
-    if (_options.country != null || _options.city != null) count += 1;
+    if (_options.country != null ||
+        _options.region != null ||
+        _options.city != null ||
+        _options.suburb != null) {
+      count += 1;
+    }
     if (_options.fulfilment != null) count += 1;
+    if (_options.sort != 'newest') count += 1;
     return count;
   }
 
@@ -294,9 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.expand_more),
-                label: Text(
-                  _loadingMore ? text.loadingMore : text.loadMore,
-                ),
+                label: Text(_loadingMore ? text.loadingMore : text.loadMore),
               ),
             ],
           ],
@@ -333,10 +330,7 @@ class _SearchBox extends StatelessWidget {
         suffixIcon: Stack(
           alignment: Alignment.center,
           children: [
-            IconButton(
-              onPressed: onFilters,
-              icon: const Icon(Icons.tune),
-            ),
+            IconButton(onPressed: onFilters, icon: const Icon(Icons.tune)),
             if (activeFilterCount > 0)
               PositionedDirectional(
                 top: 7,
@@ -403,7 +397,6 @@ class _CategoryRow extends StatelessWidget {
               onSelected: (_) => onSelected(null),
             );
           }
-
           final category = categories[index - 1];
           return ChoiceChip(
             label: Text(category.labelFor(languageCode)),
@@ -553,6 +546,8 @@ class _ListingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cover = listing.coverMedia;
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final category = listing.category?.labelFor(languageCode);
 
     return Material(
       color: Colors.white,
@@ -602,7 +597,10 @@ class _ListingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      catalogConditionLabel(text, listing.condition),
+                      category ??
+                          catalogConditionLabel(text, listing.condition),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: SuqnaaBrand.teal,
                         fontSize: 11,
