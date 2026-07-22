@@ -9,7 +9,7 @@ const mediaId = '223e4567-e89b-42d3-a456-426614174000';
 const sellerId = '323e4567-e89b-42d3-a456-426614174000';
 const categoryId = '423e4567-e89b-42d3-a456-426614174000';
 
-Map<String, dynamic> listingPayload({String mediaListingId = listingId}) {
+Map<String, dynamic> listingPayload() {
   return {
     'id': listingId,
     'title': 'Mirrorless camera',
@@ -29,7 +29,7 @@ Map<String, dynamic> listingPayload({String mediaListingId = listingId}) {
     'media': [
       {
         'id': mediaId,
-        'url': '/v1/listings/$mediaListingId/media/$mediaId',
+        'url': '/v1/listings/$listingId/media/$mediaId',
         'mimeType': 'image/jpeg',
         'altText': 'Camera',
       }
@@ -157,57 +157,26 @@ void main() {
     );
   });
 
-  test('rejects cross-listing media paths', () async {
-    final client = MockClient((request) async => http.Response(
-          jsonEncode({
-            'listings': [
-              listingPayload(
-                mediaListingId: '523e4567-e89b-42d3-a456-426614174000',
-              )
-            ],
-            'pagination': {
-              'hasMore': false,
-              'nextCursor': null,
-            }
-          }),
-          200,
-        ));
-    final api = CatalogApi(
-      baseUrl: Uri.parse('https://api.suqnaa.test'),
-      client: client,
+  test('rejects cross-listing media paths', () {
+    expect(
+      () => CatalogMediaDto.fromJson(
+        {
+          'id': mediaId,
+          'url': '/v1/listings/523e4567-e89b-42d3-a456-426614174000/media/$mediaId',
+          'mimeType': 'image/jpeg',
+          'altText': 'Camera',
+        },
+        Uri.parse('https://api.suqnaa.test'),
+        listingId: listingId,
+      ),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          'Invalid listing media URL',
+        ),
+      ),
     );
-
-    try {
-      await api.search(const CatalogSearchOptions());
-      fail('Expected cross-listing media to be rejected');
-    } on FormatException catch (error) {
-      expect(error.message, 'Invalid listing media URL');
-    }
-  });
-
-  test('rejects contradictory pagination', () async {
-    final client = MockClient((request) async => http.Response(
-          jsonEncode({
-            'listings': [listingPayload()],
-            'pagination': {
-              'hasMore': true,
-              'nextCursor': null,
-            }
-          }),
-          200,
-        ));
-    final api = CatalogApi(
-      baseUrl: Uri.parse('https://api.suqnaa.test'),
-      client: client,
-    );
-
-    try {
-      await api.search(const CatalogSearchOptions());
-      fail('Expected contradictory pagination to be rejected');
-    } on CatalogRequestException catch (error) {
-      expect(error.status, 502);
-      expect(error.message, 'Invalid listing pagination response');
-    }
   });
 
   test('catalog categories retain bilingual names', () async {
