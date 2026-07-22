@@ -19,11 +19,18 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
   late final TextEditingController _maximumPriceController;
   late final TextEditingController _currencyController;
   late final TextEditingController _countryController;
+  late final TextEditingController _regionController;
   late final TextEditingController _cityController;
+  late final TextEditingController _suburbController;
   String? _condition;
   String? _availability;
   String? _fulfilment;
+  late String _sort;
   String? _error;
+
+  bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
+
+  String _label(String english, String arabic) => _isArabic ? arabic : english;
 
   @override
   void initState() {
@@ -31,6 +38,7 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
     _condition = widget.initial.condition;
     _availability = widget.initial.availabilityStatus;
     _fulfilment = widget.initial.fulfilment;
+    _sort = widget.initial.sort;
     _minimumPriceController = TextEditingController(
       text: _priceText(widget.initial.minimumPrice),
     );
@@ -43,8 +51,14 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
     _countryController = TextEditingController(
       text: widget.initial.country ?? '',
     );
+    _regionController = TextEditingController(
+      text: widget.initial.region ?? '',
+    );
     _cityController = TextEditingController(
       text: widget.initial.city ?? '',
+    );
+    _suburbController = TextEditingController(
+      text: widget.initial.suburb ?? '',
     );
   }
 
@@ -54,14 +68,14 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
     _maximumPriceController.dispose();
     _currencyController.dispose();
     _countryController.dispose();
+    _regionController.dispose();
     _cityController.dispose();
+    _suburbController.dispose();
     super.dispose();
   }
 
   String _priceText(double? value) {
-    if (value == null) {
-      return '';
-    }
+    if (value == null) return '';
     return value == value.roundToDouble()
         ? value.toInt().toString()
         : value.toString();
@@ -87,6 +101,17 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
 
     final currency = _currencyController.text.trim().toUpperCase();
     final country = _countryController.text.trim().toUpperCase();
+    final usesPrice = minimum != null ||
+        maximum != null ||
+        _sort == 'price_asc' ||
+        _sort == 'price_desc';
+    if (usesPrice && currency.length != 3) {
+      setState(() => _error = _label(
+        'Enter a 3-letter currency for price filters or sorting.',
+        'أدخل رمز عملة من 3 أحرف لتصفية السعر أو ترتيبه.',
+      ));
+      return;
+    }
     if ((currency.isNotEmpty && currency.length != 3) ||
         (country.isNotEmpty && country.length != 2)) {
       setState(() => _error = text.checkLocationCodes);
@@ -104,12 +129,18 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
         maximumPrice: maximum,
         currency: currency.isEmpty ? null : currency,
         country: country.isEmpty ? null : country,
-        city: _cityController.text.trim().isEmpty
-            ? null
-            : _cityController.text.trim(),
+        region: _emptyToNull(_regionController.text),
+        city: _emptyToNull(_cityController.text),
+        suburb: _emptyToNull(_suburbController.text),
         fulfilment: _fulfilment,
+        sort: _sort,
       ),
     );
+  }
+
+  String? _emptyToNull(String value) {
+    final normalized = value.trim();
+    return normalized.isEmpty ? null : normalized;
   }
 
   void _clear() {
@@ -157,6 +188,25 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
             ),
             const SizedBox(height: 18),
             _Dropdown(
+              label: _label('Sort', 'الترتيب'),
+              value: _sort,
+              items: {
+                'newest': _label('Newest first', 'الأحدث أولاً'),
+                'price_asc': _label(
+                  'Price: low to high',
+                  'السعر: من الأقل إلى الأعلى',
+                ),
+                'price_desc': _label(
+                  'Price: high to low',
+                  'السعر: من الأعلى إلى الأقل',
+                ),
+              },
+              anyLabel: _label('Newest first', 'الأحدث أولاً'),
+              includeAny: false,
+              onChanged: (value) => setState(() => _sort = value ?? 'newest'),
+            ),
+            const SizedBox(height: 14),
+            _Dropdown(
               label: text.condition,
               value: _condition,
               items: {
@@ -189,6 +239,7 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
               items: {
                 'pickup': text.pickup,
                 'delivery': text.delivery,
+                'both': _label('Pickup and delivery', 'الاستلام والتوصيل معاً'),
               },
               anyLabel: text.anyOption,
               onChanged: (value) => setState(() => _fulfilment = value),
@@ -239,8 +290,20 @@ class _CatalogFilterSheetState extends State<CatalogFilterSheet> {
             ),
             const SizedBox(height: 14),
             _TextField(
+              label: _label('State or region', 'الولاية أو المنطقة'),
+              controller: _regionController,
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 14),
+            _TextField(
               label: text.city,
               controller: _cityController,
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 14),
+            _TextField(
+              label: _label('Suburb', 'الحي'),
+              controller: _suburbController,
               textCapitalization: TextCapitalization.words,
             ),
             if (_error != null) ...[
@@ -282,6 +345,7 @@ class _Dropdown extends StatelessWidget {
     required this.items,
     required this.anyLabel,
     required this.onChanged,
+    this.includeAny = true,
   });
 
   final String label;
@@ -289,6 +353,7 @@ class _Dropdown extends StatelessWidget {
   final Map<String, String> items;
   final String anyLabel;
   final ValueChanged<String?> onChanged;
+  final bool includeAny;
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +366,8 @@ class _Dropdown extends StatelessWidget {
         border: const OutlineInputBorder(),
       ),
       items: [
-        DropdownMenuItem<String?>(value: null, child: Text(anyLabel)),
+        if (includeAny)
+          DropdownMenuItem<String?>(value: null, child: Text(anyLabel)),
         ...items.entries.map(
           (entry) => DropdownMenuItem<String?>(
             value: entry.key,
@@ -333,6 +399,7 @@ class _TextField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
+      maxLength: 120,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
