@@ -4,49 +4,62 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:suqnaa/src/api/catalog_api.dart';
 
+const listingId = '123e4567-e89b-42d3-a456-426614174000';
+const mediaId = '223e4567-e89b-42d3-a456-426614174000';
+const sellerId = '323e4567-e89b-42d3-a456-426614174000';
+const categoryId = '423e4567-e89b-42d3-a456-426614174000';
+
+Map<String, dynamic> listingPayload({String mediaListingId = listingId}) {
+  return {
+    'id': listingId,
+    'title': 'Mirrorless camera',
+    'description': 'Camera body in excellent condition.',
+    'priceAmount': '899.50',
+    'currencyCode': 'AUD',
+    'condition': 'like_new',
+    'availabilityStatus': 'in_stock',
+    'availableQuantity': 1,
+    'unitLabel': 'item',
+    'countryCode': 'AU',
+    'region': 'NSW',
+    'city': 'Sydney',
+    'suburb': 'Greenacre',
+    'allowPickup': true,
+    'allowDelivery': true,
+    'media': [
+      {
+        'id': mediaId,
+        'url': '/v1/listings/$mediaListingId/media/$mediaId',
+        'mimeType': 'image/jpeg',
+        'altText': 'Camera',
+      }
+    ],
+    'mediaCount': 1,
+    'category': {
+      'id': categoryId,
+      'slug': 'electronics',
+      'nameEn': 'Electronics',
+      'nameAr': 'إلكترونيات',
+    },
+    'seller': {
+      'id': sellerId,
+      'displayName': 'Seller',
+      'status': 'active',
+    }
+  };
+}
+
 void main() {
-  test('catalog search serializes filters and resolves media URLs', () async {
+  test('catalog search serializes complete filters and resolves media URLs', () async {
     Uri? requestedUri;
     final client = MockClient((request) async {
       requestedUri = request.url;
       return http.Response(
         jsonEncode({
-          'listings': [
-            {
-              'id': '123e4567-e89b-42d3-a456-426614174000',
-              'title': 'Mirrorless camera',
-              'description': 'Camera body in excellent condition.',
-              'priceAmount': '899.50',
-              'currencyCode': 'AUD',
-              'condition': 'like_new',
-              'availabilityStatus': 'in_stock',
-              'availableQuantity': 1,
-              'unitLabel': 'item',
-              'countryCode': 'AU',
-              'region': 'NSW',
-              'city': 'Sydney',
-              'suburb': 'Greenacre',
-              'allowPickup': true,
-              'allowDelivery': false,
-              'media': [
-                {
-                  'id': '223e4567-e89b-42d3-a456-426614174000',
-                  'url': '/v1/listings/123e4567-e89b-42d3-a456-426614174000/media/223e4567-e89b-42d3-a456-426614174000',
-                  'mimeType': 'image/jpeg',
-                  'altText': 'Camera',
-                }
-              ],
-              'mediaCount': 1,
-              'seller': {
-                'id': '323e4567-e89b-42d3-a456-426614174000',
-                'displayName': 'Seller',
-                'status': 'active',
-              }
-            }
-          ],
+          'listings': [listingPayload()],
           'pagination': {
             'hasMore': true,
-            'nextCursor': '2026-07-20T00:00:00.000Z',
+            'nextCursor': 'ls1.opaque-cursor',
           }
         }),
         200,
@@ -60,31 +73,122 @@ void main() {
 
     final page = await api.search(const CatalogSearchOptions(
       limit: 24,
+      before: 'ls1.previous-cursor',
       query: 'camera',
+      categoryId: categoryId,
       condition: 'like_new',
+      availabilityStatus: 'in_stock',
       minimumPrice: 100,
       maximumPrice: 1200,
       currency: 'aud',
       country: 'au',
+      region: 'NSW',
       city: 'Sydney',
-      fulfilment: 'pickup',
+      suburb: 'Greenacre',
+      fulfilment: 'both',
+      sort: 'price_asc',
     ));
 
     expect(requestedUri?.path, '/v1/listings/search');
+    expect(requestedUri?.queryParameters, containsPair('before', 'ls1.previous-cursor'));
     expect(requestedUri?.queryParameters, containsPair('q', 'camera'));
+    expect(requestedUri?.queryParameters, containsPair('categoryId', categoryId));
     expect(requestedUri?.queryParameters, containsPair('condition', 'like_new'));
+    expect(requestedUri?.queryParameters, containsPair('availabilityStatus', 'in_stock'));
     expect(requestedUri?.queryParameters, containsPair('minPrice', '100.0'));
     expect(requestedUri?.queryParameters, containsPair('maxPrice', '1200.0'));
     expect(requestedUri?.queryParameters, containsPair('currency', 'AUD'));
     expect(requestedUri?.queryParameters, containsPair('country', 'AU'));
-    expect(requestedUri?.queryParameters, containsPair('fulfilment', 'pickup'));
+    expect(requestedUri?.queryParameters, containsPair('region', 'NSW'));
+    expect(requestedUri?.queryParameters, containsPair('city', 'Sydney'));
+    expect(requestedUri?.queryParameters, containsPair('suburb', 'Greenacre'));
+    expect(requestedUri?.queryParameters, containsPair('fulfilment', 'both'));
+    expect(requestedUri?.queryParameters, containsPair('sort', 'price_asc'));
     expect(page.hasMore, isTrue);
-    expect(page.nextCursor, '2026-07-20T00:00:00.000Z');
+    expect(page.nextCursor, 'ls1.opaque-cursor');
     expect(page.listings.single.title, 'Mirrorless camera');
     expect(page.listings.single.priceAmount, 899.5);
+    expect(page.listings.single.category?.labelFor('ar'), 'إلكترونيات');
     expect(
       page.listings.single.coverMedia?.url,
-      'https://api.suqnaa.test/v1/listings/123e4567-e89b-42d3-a456-426614174000/media/223e4567-e89b-42d3-a456-426614174000',
+      'https://api.suqnaa.test/v1/listings/$listingId/media/$mediaId',
+    );
+  });
+
+  test('newest search omits the default sort parameter', () {
+    final query = const CatalogSearchOptions(
+      country: 'au',
+      city: 'Sydney',
+    ).toQueryParameters();
+
+    expect(query, containsPair('country', 'AU'));
+    expect(query, containsPair('city', 'Sydney'));
+    expect(query.containsKey('sort'), isFalse);
+  });
+
+  test('rejects invalid search option combinations before transport', () {
+    expect(
+      () => const CatalogSearchOptions(minimumPrice: 10).toQueryParameters(),
+      throwsArgumentError,
+    );
+    expect(
+      () => const CatalogSearchOptions(
+        minimumPrice: 20,
+        maximumPrice: 10,
+        currency: 'AUD',
+      ).toQueryParameters(),
+      throwsArgumentError,
+    );
+    expect(
+      () => const CatalogSearchOptions(
+        sort: 'price_desc',
+      ).toQueryParameters(),
+      throwsArgumentError,
+    );
+    expect(
+      () => const CatalogSearchOptions(
+        categoryId: 'not-a-category',
+      ).toQueryParameters(),
+      throwsArgumentError,
+    );
+    expect(
+      () => const CatalogSearchOptions(fulfilment: 'unknown').toQueryParameters(),
+      throwsArgumentError,
+    );
+  });
+
+  test('rejects cross-listing media paths and contradictory pagination', () async {
+    var crossListing = true;
+    final client = MockClient((request) async => http.Response(
+          jsonEncode({
+            'listings': [
+              listingPayload(
+                mediaListingId: crossListing
+                    ? '523e4567-e89b-42d3-a456-426614174000'
+                    : listingId,
+              )
+            ],
+            'pagination': {
+              'hasMore': crossListing ? false : true,
+              'nextCursor': null,
+            }
+          }),
+          200,
+        ));
+    final api = CatalogApi(
+      baseUrl: Uri.parse('https://api.suqnaa.test'),
+      client: client,
+    );
+
+    await expectLater(
+      api.search(const CatalogSearchOptions()),
+      throwsFormatException,
+    );
+
+    crossListing = false;
+    await expectLater(
+      api.search(const CatalogSearchOptions()),
+      throwsA(isA<CatalogRequestException>()),
     );
   });
 
@@ -93,7 +197,7 @@ void main() {
           utf8.encode(jsonEncode({
             'categories': [
               {
-                'id': '123e4567-e89b-42d3-a456-426614174000',
+                'id': categoryId,
                 'slug': 'electronics',
                 'name_en': 'Electronics',
                 'name_ar': 'إلكترونيات',
