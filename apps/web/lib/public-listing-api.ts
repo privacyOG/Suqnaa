@@ -11,7 +11,8 @@ export type PublicListingAvailabilityStatus =
   | 'out_of_stock'
   | 'service_available';
 
-export type PublicListingFulfilment = 'pickup' | 'delivery';
+export type PublicListingFulfilment = 'pickup' | 'delivery' | 'both';
+export type PublicListingSort = 'newest' | 'price_asc' | 'price_desc';
 
 export interface PublicListingMedia {
   id: string;
@@ -29,6 +30,13 @@ export interface PublicSellerSummary {
   id: string;
   displayName: string;
   status: string;
+}
+
+export interface PublicCategorySummary {
+  id: string;
+  slug: string;
+  nameEn: string;
+  nameAr: string | null;
 }
 
 export interface PublicListingSummary {
@@ -51,6 +59,7 @@ export interface PublicListingSummary {
   createdAt: string;
   media: PublicListingMedia[];
   mediaCount: number;
+  category: PublicCategorySummary | null;
   seller: PublicSellerSummary | null;
 }
 
@@ -58,12 +67,6 @@ export interface PublicListingDetail extends Omit<PublicListingSummary, 'seller'
   status: 'active';
   expiresAt: string | null;
   updatedAt: string;
-  category: {
-    id: string;
-    slug: string;
-    nameEn: string;
-    nameAr: string | null;
-  } | null;
   seller: PublicSellerSummary & {
     emailVerified: boolean;
     phoneVerified: boolean;
@@ -100,8 +103,11 @@ export interface PublicListingsOptions {
   maxPrice?: number;
   currency?: string;
   country?: string;
+  region?: string;
   city?: string;
+  suburb?: string;
   fulfilment?: PublicListingFulfilment;
+  sort?: PublicListingSort;
 }
 
 export class PublicListingRequestError extends Error {
@@ -148,42 +154,21 @@ export async function getPublicListings(
   options: PublicListingsOptions = {}
 ): Promise<PublicListingsResponse> {
   const query = new URLSearchParams();
-  if (options.limit !== undefined) {
-    query.set('limit', String(options.limit));
-  }
-  if (options.before) {
-    query.set('before', options.before);
-  }
-  if (options.q) {
-    query.set('q', options.q);
-  }
-  if (options.categoryId) {
-    query.set('categoryId', options.categoryId);
-  }
-  if (options.condition) {
-    query.set('condition', options.condition);
-  }
-  if (options.availabilityStatus) {
-    query.set('availabilityStatus', options.availabilityStatus);
-  }
-  if (options.minPrice !== undefined) {
-    query.set('minPrice', String(options.minPrice));
-  }
-  if (options.maxPrice !== undefined) {
-    query.set('maxPrice', String(options.maxPrice));
-  }
-  if (options.currency) {
-    query.set('currency', options.currency);
-  }
-  if (options.country) {
-    query.set('country', options.country);
-  }
-  if (options.city) {
-    query.set('city', options.city);
-  }
-  if (options.fulfilment) {
-    query.set('fulfilment', options.fulfilment);
-  }
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.before) query.set('before', options.before);
+  if (options.q) query.set('q', options.q);
+  if (options.categoryId) query.set('categoryId', options.categoryId);
+  if (options.condition) query.set('condition', options.condition);
+  if (options.availabilityStatus) query.set('availabilityStatus', options.availabilityStatus);
+  if (options.minPrice !== undefined) query.set('minPrice', String(options.minPrice));
+  if (options.maxPrice !== undefined) query.set('maxPrice', String(options.maxPrice));
+  if (options.currency) query.set('currency', options.currency.toUpperCase());
+  if (options.country) query.set('country', options.country.toUpperCase());
+  if (options.region) query.set('region', options.region);
+  if (options.city) query.set('city', options.city);
+  if (options.suburb) query.set('suburb', options.suburb);
+  if (options.fulfilment) query.set('fulfilment', options.fulfilment);
+  if (options.sort) query.set('sort', options.sort);
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
   const response = await fetch(`${apiBaseUrl}/v1/listings/search${suffix}`, {
