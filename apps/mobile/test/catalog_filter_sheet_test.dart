@@ -78,7 +78,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Apply filters'));
+    final apply = find.text('Apply filters');
+    await tester.ensureVisible(apply);
+    await tester.pumpAndSettle();
+    await tester.tap(apply);
     await tester.pumpAndSettle();
 
     expect(
