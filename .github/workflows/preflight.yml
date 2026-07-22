@@ -15,8 +15,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  start:
+    name: Start cross-listing diagnostic
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          payload='{"state":"pending","description":"Cross-listing test diagnostic is running","context":"preflight/cross-log"}'
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            --data "$payload"
+
   cross-test-log:
     name: Diagnose cross-listing catalogue test
+    needs: start
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -39,14 +57,24 @@ jobs:
           if [[ -z "$detail" ]]; then
             detail=$(tail -n 1 /tmp/cross-test.log)
           fi
-          normalized=$(printf '%s' "$detail" | tr -cs 'A-Za-z0-9' '-' | sed -E 's/^-+|-+$//g' | cut -c1-88)
-          context="diag-cross-test-${normalized:-unknown}"
+          normalized=$(printf '%s' "$detail" | tr -cs 'A-Za-z0-9' '-' | sed -E 's/^-+|-+$//g' | cut -c1-82)
+          context="diag-cross-${normalized:-unknown}"
           state=failure
           if [[ "$exit_code" -eq 0 ]]; then
-            context="diag-cross-test-passed"
+            context="diag-cross-passed"
             state=success
           fi
           payload=$(jq -n --arg state "$state" --arg description "Private test-output diagnostic" --arg context "$context" '{state:$state,description:$description,context:$context}')
-          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$payload"
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            --data "$payload"
           gate='{"state":"failure","description":"Private diagnostic run only","context":"preflight/gate"}'
-          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" --data "$gate"
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            --data "$gate"
