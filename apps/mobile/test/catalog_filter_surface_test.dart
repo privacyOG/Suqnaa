@@ -17,6 +17,8 @@ void main() {
     expect(api, contains("add('suburb', suburb)"));
     expect(api, contains("add('sort', sort)"));
     expect(api, contains('Required for price filters and sorting'));
+    expect(api, contains('(hasMore && nextCursor == null)'));
+    expect(api, contains('(!hasMore && nextCursor != null)'));
     expect(api, contains('Invalid listing pagination response'));
     expect(api, contains("rawUrl != expectedPath"));
 
