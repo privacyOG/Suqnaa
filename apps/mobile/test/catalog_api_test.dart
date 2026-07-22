@@ -157,19 +157,16 @@ void main() {
     );
   });
 
-  test('rejects cross-listing media paths and contradictory pagination', () async {
-    var crossListing = true;
+  test('rejects cross-listing media paths', () async {
     final client = MockClient((request) async => http.Response(
           jsonEncode({
             'listings': [
               listingPayload(
-                mediaListingId: crossListing
-                    ? '523e4567-e89b-42d3-a456-426614174000'
-                    : listingId,
+                mediaListingId: '523e4567-e89b-42d3-a456-426614174000',
               )
             ],
             'pagination': {
-              'hasMore': crossListing ? false : true,
+              'hasMore': false,
               'nextCursor': null,
             }
           }),
@@ -182,10 +179,26 @@ void main() {
 
     await expectLater(
       api.search(const CatalogSearchOptions()),
-      throwsFormatException,
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('rejects contradictory pagination', () async {
+    final client = MockClient((request) async => http.Response(
+          jsonEncode({
+            'listings': [listingPayload()],
+            'pagination': {
+              'hasMore': true,
+              'nextCursor': null,
+            }
+          }),
+          200,
+        ));
+    final api = CatalogApi(
+      baseUrl: Uri.parse('https://api.suqnaa.test'),
+      client: client,
     );
 
-    crossListing = false;
     await expectLater(
       api.search(const CatalogSearchOptions()),
       throwsA(isA<CatalogRequestException>()),
