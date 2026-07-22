@@ -1,50 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
-import { z } from 'zod';
 import { db } from '../db/index.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
-
-const listingCondition = z.enum([
-  'new',
-  'like_new',
-  'good',
-  'fair',
-  'parts_or_repair'
-]);
-
-const availabilityStatus = z.enum([
-  'in_stock',
-  'limited',
-  'out_of_stock',
-  'service_available'
-]);
-
-const publicListingSearchQuery = z.object({
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-  before: z.string().datetime().optional(),
-  q: z.string().trim().min(1).max(200).optional(),
-  categoryId: z.string().uuid().optional(),
-  condition: listingCondition.optional(),
-  availabilityStatus: availabilityStatus.optional(),
-  minPrice: z.coerce.number().nonnegative().optional(),
-  maxPrice: z.coerce.number().nonnegative().optional(),
-  currency: z.string().trim().length(3).optional(),
-  country: z.string().trim().length(2).optional(),
-  city: z.string().trim().min(1).max(120).optional(),
-  fulfilment: z.enum(['pickup', 'delivery']).optional()
-}).superRefine((value, context) => {
-  if (
-    value.minPrice !== undefined &&
-    value.maxPrice !== undefined &&
-    value.minPrice > value.maxPrice
-  ) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['maxPrice'],
-      message: 'Maximum price must be greater than or equal to minimum price'
-    });
-  }
-});
+import {
+  decodeListingSearchCursor,
+  encodeListingSearchCursor,
+  publicListingSearchQuery
+} from '../search/listing-search-policy.js';
 
 function enforcePublicSearchLimit(
   request: FastifyRequest,
@@ -118,6 +80,10 @@ async function countListingMedia(listingId: string): Promise<number> {
   return Number(row?.count ?? 0);
 }
 
+function containsPattern(value: string): string {
+  return `%${value.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+}
+
 export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
   app.get('/listings/search', async (request, reply) => {
     if (!enforcePublicSearchLimit(request, reply)) {
@@ -127,8 +93,10 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
     const query = publicListingSearchQuery.parse(request.query);
     let listingsQuery = db.selectFrom('listings')
       .innerJoin('users', 'users.id', 'listings.seller_id')
+      .leftJoin('categories', 'categories.id', 'listings.category_id')
       .select([
         'listings.id as id',
+        'listings.category_id as category_id',
         'listings.title as title',
         'listings.description as description',
         'listings.price_amount as price_amount',
@@ -147,14 +115,67 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
         'listings.created_at as created_at',
         'users.id as seller_id',
         'users.display_name as seller_display_name',
-        'users.status as seller_status'
+        'users.status as seller_status',
+        'categories.slug as category_slug',
+        'categories.name_en as category_name_en',
+        'categories.name_ar as category_name_ar'
       ])
       .where('listings.status', '=', 'active')
       .where('users.status', 'not in', ['suspended', 'closed']);
 
     if (query.before) {
-      listingsQuery = listingsQuery.where('listings.created_at', '<', new Date(query.before));
+      let cursor;
+      try {
+        cursor = decodeListingSearchCursor(query.before, query);
+      } catch {
+        return reply.code(400).send({ error: 'Invalid listing search cursor' });
+      }
+
+      if (cursor.kind === 'legacy') {
+        listingsQuery = listingsQuery.where(
+          'listings.created_at',
+          '<',
+          cursor.createdAt
+        );
+      } else if (query.sort === 'newest') {
+        listingsQuery = listingsQuery.where(sql<boolean>`
+          listings.created_at < ${cursor.createdAt}
+          OR (
+            listings.created_at = ${cursor.createdAt}
+            AND listings.id < ${cursor.id}::uuid
+          )
+        `);
+      } else if (query.sort === 'price_asc') {
+        listingsQuery = listingsQuery.where(sql<boolean>`
+          listings.price_amount > ${cursor.price}::numeric
+          OR (
+            listings.price_amount = ${cursor.price}::numeric
+            AND (
+              listings.created_at < ${cursor.createdAt}
+              OR (
+                listings.created_at = ${cursor.createdAt}
+                AND listings.id < ${cursor.id}::uuid
+              )
+            )
+          )
+        `);
+      } else {
+        listingsQuery = listingsQuery.where(sql<boolean>`
+          listings.price_amount < ${cursor.price}::numeric
+          OR (
+            listings.price_amount = ${cursor.price}::numeric
+            AND (
+              listings.created_at < ${cursor.createdAt}
+              OR (
+                listings.created_at = ${cursor.createdAt}
+                AND listings.id < ${cursor.id}::uuid
+              )
+            )
+          )
+        `);
+      }
     }
+
     if (query.q) {
       listingsQuery = listingsQuery.where(sql<boolean>`
         to_tsvector(
@@ -183,25 +204,25 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
       listingsQuery = listingsQuery.where('listings.price_amount', '<=', query.maxPrice);
     }
     if (query.currency) {
-      listingsQuery = listingsQuery.where(
-        'listings.currency_code',
-        '=',
-        query.currency.toUpperCase()
-      );
+      listingsQuery = listingsQuery.where('listings.currency_code', '=', query.currency);
     }
     if (query.country) {
-      listingsQuery = listingsQuery.where(
-        'listings.country_code',
-        '=',
-        query.country.toUpperCase()
-      );
+      listingsQuery = listingsQuery.where('listings.country_code', '=', query.country);
+    }
+    if (query.region) {
+      listingsQuery = listingsQuery.where(sql<boolean>`
+        listings.region ILIKE ${containsPattern(query.region)} ESCAPE E'\\'
+      `);
     }
     if (query.city) {
-      listingsQuery = listingsQuery.where(
-        'listings.city',
-        'ilike',
-        `%${query.city}%`
-      );
+      listingsQuery = listingsQuery.where(sql<boolean>`
+        listings.city ILIKE ${containsPattern(query.city)} ESCAPE E'\\'
+      `);
+    }
+    if (query.suburb) {
+      listingsQuery = listingsQuery.where(sql<boolean>`
+        listings.suburb ILIKE ${containsPattern(query.suburb)} ESCAPE E'\\'
+      `);
     }
     if (query.fulfilment === 'pickup') {
       listingsQuery = listingsQuery.where('listings.allow_pickup', '=', true);
@@ -209,9 +230,21 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
     if (query.fulfilment === 'delivery') {
       listingsQuery = listingsQuery.where('listings.allow_delivery', '=', true);
     }
+    if (query.fulfilment === 'both') {
+      listingsQuery = listingsQuery
+        .where('listings.allow_pickup', '=', true)
+        .where('listings.allow_delivery', '=', true);
+    }
+
+    if (query.sort === 'price_asc') {
+      listingsQuery = listingsQuery.orderBy('listings.price_amount', 'asc');
+    } else if (query.sort === 'price_desc') {
+      listingsQuery = listingsQuery.orderBy('listings.price_amount', 'desc');
+    }
 
     const rows = await listingsQuery
       .orderBy('listings.created_at', 'desc')
+      .orderBy('listings.id', 'desc')
       .limit(query.limit + 1)
       .execute();
     const hasMore = rows.length > query.limit;
@@ -242,6 +275,14 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
         createdAt: listing.created_at,
         media,
         mediaCount,
+        category: listing.category_id
+          ? {
+              id: listing.category_id,
+              slug: listing.category_slug,
+              nameEn: listing.category_name_en,
+              nameAr: listing.category_name_ar
+            }
+          : null,
         seller: {
           id: listing.seller_id,
           displayName: listing.seller_display_name,
@@ -256,7 +297,11 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
       pagination: {
         hasMore,
         nextCursor: hasMore && last
-          ? new Date(last.created_at).toISOString()
+          ? encodeListingSearchCursor(query, {
+              createdAt: last.created_at,
+              id: last.id,
+              price: last.price_amount
+            })
           : null
       }
     });
