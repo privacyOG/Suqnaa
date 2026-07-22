@@ -42,8 +42,12 @@ void main() {
     expect(find.text('Pickup and delivery'), findsOneWidget);
     expect(find.text('State or region'), findsOneWidget);
     expect(find.text('Suburb'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'NSW'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Greenacre'), findsOneWidget);
+    final values = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .map((field) => field.controller?.text)
+        .whereType<String>()
+        .toSet();
+    expect(values, containsAll(<String>{'AUD', 'AU', 'NSW', 'Sydney', 'Greenacre'}));
   });
 
   testWidgets('renders complete Arabic catalogue filters', (tester) async {
