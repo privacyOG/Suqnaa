@@ -15,13 +15,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  start:
-    name: Start private diagnostics
+  mobile-test-diagnostics:
+    name: Diagnose catalogue mobile tests
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Resolve dependencies
+        working-directory: apps/mobile
+        run: flutter pub get && flutter gen-l10n
       - name: Publish pending statuses
-        env:
-          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           publish() {
@@ -33,99 +40,12 @@ jobs:
               "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
               --data "$payload"
           }
-          publish "preflight/gate" "Private diagnostics are running"
-          publish "preflight/db" "Database migrations are pending"
-          publish "preflight/typecheck" "TypeScript checks are pending"
-          publish "preflight/api-tests" "API tests are pending"
-          publish "preflight/web-tests" "Web tests are pending"
-          publish "preflight/mobile-pub" "Mobile dependencies are pending"
-          publish "preflight/mobile-analyze" "Flutter analysis is pending"
-          publish "preflight/mobile-tests" "Flutter tests are pending"
-
-  web-and-api:
-    name: Diagnose web and API
-    needs: start
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_USER: suqnaa
-          POSTGRES_PASSWORD: suqnaa_dev_password
-          POSTGRES_DB: suqnaa
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U suqnaa -d suqnaa"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      NODE_ENV: test
-      API_HOST: 0.0.0.0
-      API_PORT: 4000
-      WEB_ORIGIN: http://localhost:3000
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
-      API_BASE_URL: http://localhost:4000
-      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa
-      JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
-      JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
-      PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
-      CHALLENGE_PROVIDER: none
-      ASSISTANT_ENABLED: false
-      ASSISTANT_PROVIDER: none
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: pnpm install --frozen-lockfile=false
-      - name: Diagnose stages
-        shell: bash
-        run: |
-          publish() {
-            payload=$(printf '{"state":"%s","description":"%s","context":"%s"}' "$2" "$3" "$1")
-            curl --fail-with-body --silent --show-error --request POST \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-              --data "$payload"
-          }
-          run_stage() {
-            context="$1"
-            description="$2"
-            shift 2
-            if "$@"; then
-              publish "$context" success "$description passed"
-            else
-              publish "$context" failure "$description failed"
-            fi
-          }
-          apply_migrations() {
-            for migration in infra/db/migrations/*.sql; do
-              psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file "$migration" || return 1
-            done
-          }
-          run_stage preflight/db "Database migrations" apply_migrations
-          run_stage preflight/typecheck "TypeScript checks" pnpm typecheck
-          run_stage preflight/api-tests "API tests" pnpm --dir apps/api test:security
-          run_stage preflight/web-tests "Web tests" pnpm --dir apps/web test:session
-
-  mobile:
-    name: Diagnose mobile
-    needs: start
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-      - name: Diagnose stages
+          publish preflight/gate "Private mobile-test diagnostics are running"
+          publish preflight/catalog-api-test "Catalogue API test is pending"
+          publish preflight/catalog-filter-widget "Filter widget test is pending"
+          publish preflight/catalog-filter-surface "Filter surface test is pending"
+          publish preflight/mobile-tests "Complete mobile tests are pending"
+      - name: Run diagnostic test files
         working-directory: apps/mobile
         shell: bash
         run: |
@@ -138,33 +58,25 @@ jobs:
               "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
               --data "$payload"
           }
-          if flutter pub get && flutter gen-l10n; then
-            publish preflight/mobile-pub success "Mobile dependencies passed"
-          else
-            publish preflight/mobile-pub failure "Mobile dependencies failed"
-          fi
-          if flutter analyze; then
-            publish preflight/mobile-analyze success "Flutter analysis passed"
-          else
-            publish preflight/mobile-analyze failure "Flutter analysis failed"
-          fi
+          run_test() {
+            context="$1"
+            file="$2"
+            if flutter test "$file"; then
+              publish "$context" success "$file passed"
+            else
+              publish "$context" failure "$file failed"
+            fi
+          }
+          run_test preflight/catalog-api-test test/catalog_api_test.dart
+          run_test preflight/catalog-filter-widget test/catalog_filter_sheet_test.dart
+          run_test preflight/catalog-filter-surface test/catalog_filter_surface_test.dart
           if flutter test; then
-            publish preflight/mobile-tests success "Flutter tests passed"
+            publish preflight/mobile-tests success "Complete mobile tests passed"
           else
-            publish preflight/mobile-tests failure "Flutter tests failed"
+            publish preflight/mobile-tests failure "Complete mobile tests failed"
           fi
-
-  report:
-    name: Publish diagnostic result
-    if: always()
-    needs:
-      - web-and-api
-      - mobile
-    runs-on: ubuntu-latest
-    steps:
       - name: Keep diagnostic gate closed
-        env:
-          GH_TOKEN: ${{ github.token }}
+        if: always()
         shell: bash
         run: |
           payload='{"state":"failure","description":"Private diagnostic run only","context":"preflight/gate"}'
