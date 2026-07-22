@@ -7,7 +7,10 @@ export interface CategorySummary {
   sortOrder: number;
 }
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+const apiBaseUrl =
+  process.env.API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  'http://localhost:4000';
 
 export class CategoryRequestError extends Error {
   constructor(message: string, readonly status: number) {
@@ -38,5 +41,7 @@ export async function getPublicCategories(): Promise<CategorySummary[]> {
   }
 
   const payload = await response.json() as { categories?: Record<string, unknown>[] };
-  return (payload.categories ?? []).map(normalizeCategory);
+  return (payload.categories ?? [])
+    .map(normalizeCategory)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.nameEn.localeCompare(right.nameEn));
 }
