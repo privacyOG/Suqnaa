@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   start:
-    name: Start cross-listing diagnostic
+    name: Start preflight gate
     runs-on: ubuntu-latest
     steps:
       - name: Publish pending status
@@ -24,57 +24,114 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          payload='{"state":"pending","description":"Cross-listing test diagnostic is running","context":"preflight/cross-log"}'
-          curl --fail-with-body --silent --show-error --request POST \
+          payload='{"state":"pending","description":"Preflight checks are running","context":"preflight/gate"}'
+          curl --fail-with-body --silent --show-error \
+            --request POST \
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
             --data "$payload"
 
-  cross-test-log:
-    name: Diagnose cross-listing catalogue test
+  web-and-api:
+    name: Web and API preflight
     needs: start
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: suqnaa
+          POSTGRES_PASSWORD: suqnaa_dev_password
+          POSTGRES_DB: suqnaa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suqnaa -d suqnaa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
-      GH_TOKEN: ${{ github.token }}
+      NODE_ENV: test
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      WEB_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      API_BASE_URL: http://localhost:4000
+      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa
+      JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
+      PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
+      CHALLENGE_PROVIDER: none
+      ASSISTANT_ENABLED: false
+      ASSISTANT_PROVIDER: none
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply database migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          for migration in infra/db/migrations/*.sql; do
+            echo "Applying $migration"
+            psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file "$migration"
+          done
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm typecheck
+      - run: pnpm --dir apps/api test:security
+      - run: pnpm --dir apps/web test:session
+
+  mobile:
+    name: Mobile preflight
+    needs: start
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
       - working-directory: apps/mobile
-        run: flutter pub get && flutter gen-l10n
-      - name: Capture failing test output
-        working-directory: apps/mobile
+        run: flutter pub get
+      - working-directory: apps/mobile
+        run: flutter gen-l10n
+      - working-directory: apps/mobile
+        run: flutter analyze
+      - working-directory: apps/mobile
+        run: flutter test
+
+  report:
+    name: Publish preflight result
+    if: always()
+    needs:
+      - web-and-api
+      - mobile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish final status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEB_RESULT: ${{ needs.web-and-api.result }}
+          MOBILE_RESULT: ${{ needs.mobile.result }}
         shell: bash
         run: |
-          set +e
-          flutter test test/catalog_api_test.dart --plain-name "rejects cross-listing media paths" 2>&1 | tee /tmp/cross-test.log
-          exit_code=${PIPESTATUS[0]}
-          set -e
-          detail=$(grep -E "Expected|Actual|TestFailure|Exception|No tests ran|Some tests failed|Expected cross" /tmp/cross-test.log | tail -n 1)
-          if [[ -z "$detail" ]]; then
-            detail=$(tail -n 1 /tmp/cross-test.log)
+          if [[ "$WEB_RESULT" == "success" && "$MOBILE_RESULT" == "success" ]]; then
+            state="success"
+            description="All preflight checks passed"
+          else
+            state="failure"
+            description="Preflight checks failed"
           fi
-          normalized=$(printf '%s' "$detail" | tr -cs 'A-Za-z0-9' '-' | sed -E 's/^-+|-+$//g' | cut -c1-82)
-          context="diag-cross-${normalized:-unknown}"
-          state=failure
-          if [[ "$exit_code" -eq 0 ]]; then
-            context="diag-cross-passed"
-            state=success
-          fi
-          payload=$(jq -n --arg state "$state" --arg description "Private test-output diagnostic" --arg context "$context" '{state:$state,description:$description,context:$context}')
-          curl --fail-with-body --silent --show-error --request POST \
+
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/gate"}' "$state" "$description")
+          curl --fail-with-body --silent --show-error \
+            --request POST \
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
             --data "$payload"
-          gate='{"state":"failure","description":"Private diagnostic run only","context":"preflight/gate"}'
-          curl --fail-with-body --silent --show-error --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            --data "$gate"
+
+          [[ "$state" == "success" ]]
