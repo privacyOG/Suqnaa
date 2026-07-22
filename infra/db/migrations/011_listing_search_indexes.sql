@@ -37,13 +37,13 @@ CREATE INDEX IF NOT EXISTS listings_active_search_document_idx
   WHERE status = 'active';
 
 CREATE INDEX IF NOT EXISTS listings_active_region_trgm_idx
-  ON listings USING gin (lower(region) gin_trgm_ops)
+  ON listings USING gin (region gin_trgm_ops)
   WHERE status = 'active' AND region IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS listings_active_city_trgm_idx
-  ON listings USING gin (lower(city) gin_trgm_ops)
+  ON listings USING gin (city gin_trgm_ops)
   WHERE status = 'active' AND city IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS listings_active_suburb_trgm_idx
-  ON listings USING gin (lower(suburb) gin_trgm_ops)
+  ON listings USING gin (suburb gin_trgm_ops)
   WHERE status = 'active' AND suburb IS NOT NULL;
