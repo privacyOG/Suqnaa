@@ -39,11 +39,14 @@ assets/      Brand assets and replaceable visual references
 ```bash
 cp .env.example .env
 docker compose up -d
-pnpm install
+pnpm install --frozen-lockfile
+pnpm db:migrate
 pnpm dev:api
 pnpm dev:web
 cd apps/mobile && flutter pub get && flutter run
 ```
+
+Database changes must run through `pnpm db:migrate`. The immutable manifest, checksum ledger, upgrade rules, and existing-database adoption procedure are documented in `docs/DATABASE_MIGRATIONS.md`.
 
 ## Security principles
 
