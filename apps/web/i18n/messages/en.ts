@@ -28,9 +28,9 @@ export const en = {
     { title: 'Quality', body: 'Curated standards for listings, sellers, and marketplace behaviour.' },
     { title: 'Connection', body: 'Real people, local communities, and regional commerce in one place.' }
   ],
-  assistant: {
-    title: 'Marketplace assistant',
-    body: 'Get help writing listings, comparing items, and understanding safe trade steps.'
+  safetyTip: {
+    title: 'Trade safely',
+    body: 'Review listing details, keep communication on Suqnaa, and follow the protected payment and handover steps.'
   },
   footer: {
     tagline: 'Trusted local and regional trade, built with safety, fairness, and quality-first marketplace standards.',
