@@ -37,12 +37,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Enforce repository policy
         run: pnpm policy
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run typecheck
         run: pnpm typecheck
