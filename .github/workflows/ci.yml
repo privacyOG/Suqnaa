@@ -1,4 +1,4 @@
-name: CI
+name: Quality Gate
 
 on:
   pull_request:
@@ -6,51 +6,126 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  web-and-api:
-    name: Typecheck and tests
+  policy:
+    name: Repository policy
     runs-on: ubuntu-latest
     env:
-      NODE_ENV: test
+      POLICY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      POLICY_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/repository-policy.mjs
+
+  database-and-node:
+    name: Database, API and web
+    needs: policy
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: suqnaa
+          POSTGRES_PASSWORD: suqnaa_dev_password
+          POSTGRES_DB: suqnaa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suqnaa -d suqnaa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
       API_HOST: 0.0.0.0
       API_PORT: 4000
       WEB_ORIGIN: http://localhost:3000
       NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
       API_BASE_URL: http://localhost:4000
-      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa
+      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa_fresh
       JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
       JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
       PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
       CHALLENGE_PROVIDER: none
-      POLICY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-      POLICY_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+      MIGRATION_ADMIN_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/postgres
+      MIGRATION_FRESH_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa_fresh
+      MIGRATION_UPGRADE_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa_upgrade
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Enforce repository policy
-        run: pnpm policy
-
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Run typecheck
+      - name: Validate fresh and upgrade migrations
+        run: bash scripts/validate-database-migrations.sh
+      - name: Typecheck
         run: pnpm typecheck
+      - name: Test API and web
+        env:
+          NODE_ENV: test
+        run: pnpm test
+      - name: Build API
+        run: pnpm build:api
+      - name: Build web
+        env:
+          NODE_ENV: production
+        run: pnpm build:web
 
-      - name: Run API security tests
-        run: pnpm --dir apps/api test:security
+  mobile:
+    name: Mobile analysis and tests
+    needs: policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - working-directory: apps/mobile
+        run: flutter pub get
+      - working-directory: apps/mobile
+        run: flutter gen-l10n
+      - working-directory: apps/mobile
+        run: flutter analyze
+      - working-directory: apps/mobile
+        run: flutter test
 
-      - name: Run web session tests
-        run: pnpm --dir apps/web test:session
+  quality-gate:
+    name: Quality gate
+    if: always()
+    needs:
+      - policy
+      - database-and-node
+      - mobile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation job
+        env:
+          POLICY_RESULT: ${{ needs.policy.result }}
+          NODE_RESULT: ${{ needs.database-and-node.result }}
+          MOBILE_RESULT: ${{ needs.mobile.result }}
+        shell: bash
+        run: |
+          [[ "$POLICY_RESULT" == "success" ]]
+          [[ "$NODE_RESULT" == "success" ]]
+          [[ "$MOBILE_RESULT" == "success" ]]
