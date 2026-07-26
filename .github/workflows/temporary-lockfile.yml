@@ -1,0 +1,33 @@
+name: Temporary dependency lock generator
+
+on:
+  push:
+    branches:
+      - preflight/dependency-lockfile
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Generate dependency lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate lockfile
+        run: pnpm install --lockfile-only --no-frozen-lockfile
+      - name: Verify lockfile
+        run: test -s pnpm-lock.yaml
+      - name: Upload lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-lockfile
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 1
