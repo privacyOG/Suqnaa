@@ -76,7 +76,7 @@ export default async function AccountPage({ params }: { params: { locale: string
               <span>{isArabic ? 'جلسة آمنة' : 'Secure session'}</span>
               <span>{user ? '✓' : needsRotation ? '…' : '○'}</span>
             </div>
-            <div className="assistant-card">
+            <div className="trade-note-card">
               <strong>
                 {user
                   ? (isArabic ? 'تم تسجيل الدخول' : 'Signed in')
