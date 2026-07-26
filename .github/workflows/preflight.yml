@@ -24,7 +24,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          payload='{"state":"pending","description":"Preflight checks are running","context":"preflight/gate"}'
+          target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          payload=$(printf '{"state":"pending","description":"Preflight checks are running","context":"preflight/gate","target_url":"%s"}' "$target_url")
           curl --fail-with-body --silent --show-error \
             --request POST \
             --header "Accept: application/vnd.github+json" \
@@ -141,7 +142,8 @@ jobs:
             description="Preflight checks failed"
           fi
 
-          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/gate"}' "$state" "$description")
+          target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          payload=$(printf '{"state":"%s","description":"%s","context":"preflight/gate","target_url":"%s"}' "$state" "$description" "$target_url")
           curl --fail-with-body --silent --show-error \
             --request POST \
             --header "Accept: application/vnd.github+json" \

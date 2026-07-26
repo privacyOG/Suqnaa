@@ -5,7 +5,7 @@
 - API authentication with password hashing, short-lived access tokens, refresh-session rotation, logout revocation, and account lookup.
 - Human-protection policy, provider-neutral challenge verification, Cloudflare Turnstile configuration, and security audit logging.
 - Bounded in-memory rate limiting for authentication, listings, listing media, messages, conversations, offers, market actions, fulfilment transitions, signed payment events, and protected activity reads.
-- Authenticated listing creation, seller-owned listing and media management, conversations, messages, persisted buyer offers, atomic seller decisions, accepted-offer orders, reviews, identity checks, and timed-sale actions.
+- Authenticated listing creation, seller-owned listing and media management, conversations, messages, persisted buyer offers, atomic seller decisions, accepted-offer orders, reviews, reporting, and operations moderation actions.
 - Same-origin web session cookies with automatic refresh rotation and one-retry authenticated proxy transport.
 - Live bilingual web registration, login, account, public marketplace, listing detail, Sell, My Listings, seller photo galleries, marketplace activity, order history/detail, conversation inbox, message-history, Message seller, and Make offer interfaces.
 - Public active-listing image delivery through API-owned URLs plus owner-only draft-image previews streamed through the authenticated same-origin web proxy.
@@ -19,7 +19,15 @@
 - Paid-order fulfilment transitions plus bilingual web and mobile controls for seller readiness/shipping and buyer receipt confirmation, with held-payment/provider-evidence requirements and no automatic fund release.
 - Mobile authentication, account, listing, listing-photo galleries, conversation, order activity, checkout preparation, secure web handoff, cancellation, and fulfilment controls with CI coverage.
 - Mobile seller-photo previews through owner-only bearer-authenticated URLs, one-image native upload/deletion when challenge verification is disabled, and exact secure-web handoff when browser verification is required.
-- PostgreSQL/PostGIS schema, seeded marketplace categories, local Docker infrastructure, migration-executing preflight, and CI workflows.
+- PostgreSQL/PostGIS schema, seeded marketplace categories, manifest-ordered checksum migration ledger, verified legacy adoption, local Docker infrastructure, pre-review validation, and a required pull-request/main quality gate.
+
+## Explicitly deferred
+
+- Timed sales and bidding are not exposed through the API.
+- Buyer and seller dispute submission is not exposed through the API.
+- Seller identity or business verification submission is not exposed through the API.
+- Reserved schema objects do not indicate product availability.
+- Reintroduction requirements are defined in `DEFERRED_MARKETPLACE_FEATURES.md`.
 
 ## Current protected marketplace journey
 
@@ -56,6 +64,6 @@
 - Separately authorized controlled release, refund, dispute, and compliance-hold event policies.
 - Shared production rate-limit storage for multi-instance deployments.
 - Optional digital-currency provider selection with compliance review.
-- Marketplace support-provider configuration and safety review.
+- Complete protected seller identity and business verification.
 - Generate native Android and iOS projects and complete release-signing pipelines.
 - Final production logo and app-icon exports.
