@@ -44,7 +44,3 @@ The Next.js app uses locale routes such as `/en` and `/ar`. The `dir` attribute 
 ## Mobile implementation
 
 Flutter uses locale-aware app configuration with Arabic as a supported locale. The app should use Arabic strings from a single localisation source and must not hard-code user-facing copy inside widgets once the screen moves beyond prototype status.
-
-## Assistant capability
-
-The assistant feature must also be localisation-aware. It should understand the selected language and return answers in the same language unless the user requests otherwise. The assistant must be provider-agnostic so the backend can change providers or run a self-hosted model without changing the app interface.

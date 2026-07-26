@@ -234,7 +234,7 @@ h1 {
   font-weight: 800;
 }
 
-.assistant-card {
+.trade-note-card {
   margin-top: 18px;
   border-radius: 22px;
   padding: 18px;
@@ -242,13 +242,13 @@ h1 {
   border: 1px solid rgba(217, 164, 65, 0.32);
 }
 
-.assistant-card strong {
+.trade-note-card strong {
   display: block;
   color: var(--suqnaa-blue);
   font-size: 18px;
 }
 
-.assistant-card p {
+.trade-note-card p {
   margin: 8px 0 0;
   font-size: 15px;
   color: var(--suqnaa-muted);

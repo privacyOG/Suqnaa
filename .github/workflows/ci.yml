@@ -22,11 +22,13 @@ jobs:
       JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
       PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
       CHALLENGE_PROVIDER: none
-      ASSISTANT_ENABLED: false
-      ASSISTANT_PROVIDER: none
+      POLICY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      POLICY_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -35,6 +37,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Enforce repository policy
+        run: pnpm policy
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
