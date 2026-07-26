@@ -10,7 +10,6 @@ services:
       - "5432:5432"
     volumes:
       - suqnaa-postgres-data:/var/lib/postgresql/data
-      - ./infra/db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U suqnaa -d suqnaa"]
       interval: 10s
