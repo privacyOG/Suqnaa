@@ -6,7 +6,6 @@ import { resolveWebOrigin } from './config/web-origin.js';
 import { accountRoutes } from './routes/account.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
-import { assistantRoutes } from './routes/assistant.js';
 import { categoryRoutes } from './routes/categories.js';
 import { challengeRoutes } from './routes/challenge.js';
 import { listingMediaRoutes } from './routes/listing-media.js';
@@ -84,7 +83,6 @@ app.setErrorHandler((error, _request, reply) => {
 await app.register(healthRoutes, { prefix: '/v1' });
 await app.register(accountRoutes, { prefix: '/v1' });
 await app.register(authRoutes, { prefix: '/v1' });
-await app.register(assistantRoutes, { prefix: '/v1' });
 await app.register(categoryRoutes, { prefix: '/v1' });
 await app.register(challengeRoutes, { prefix: '/v1' });
 await app.register(listingRoutes, { prefix: '/v1' });
