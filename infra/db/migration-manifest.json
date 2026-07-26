@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "migrations": [
+    { "id": "0001_initial_schema", "file": "001_init.sql" },
+    { "id": "0002_seed_categories", "file": "002_seed_categories.sql" },
+    { "id": "0003_trust_and_payment_schema", "file": "004_trust_auctions_payments.sql" },
+    { "id": "0004_message_persistence", "file": "005_message_persistence.sql" },
+    { "id": "0005_listing_offers", "file": "006_listing_offers.sql" },
+    { "id": "0006_offer_orders", "file": "007_offer_orders.sql" },
+    { "id": "0007_listing_media_inventory", "file": "008_listing_media_inventory.sql" },
+    { "id": "0008_order_payment_context", "file": "008_order_payment_context.sql" },
+    { "id": "0009_fulfilment_evidence_guards", "file": "009_fulfilment_evidence_guards.sql" },
+    { "id": "0010_listing_search", "file": "009_listing_search.sql" },
+    { "id": "0011_report_review_metadata", "file": "009_report_review_metadata.sql" },
+    { "id": "0012_payment_provider_events", "file": "010_payment_provider_events.sql" },
+    { "id": "0013_listing_search_indexes", "file": "011_listing_search_indexes.sql" },
+    { "id": "0014_retired_storage_cleanup", "file": "011_remove_dormant_text_storage.sql" }
+  ]
+}
