@@ -76,9 +76,9 @@ export default function LocalizedHomePage({ params }: { params: { locale: string
                 <div className="product" key={item}>{item}</div>
               ))}
             </div>
-            <div className="assistant-card">
-              <strong>{messages.assistant.title}</strong>
-              <p>{messages.assistant.body}</p>
+            <div className="trade-note-card">
+              <strong>{messages.safetyTip.title}</strong>
+              <p>{messages.safetyTip.body}</p>
             </div>
           </div>
         </aside>
