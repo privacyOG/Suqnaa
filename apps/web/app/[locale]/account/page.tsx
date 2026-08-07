@@ -45,7 +45,10 @@ export default async function AccountPage({ params }: { params: { locale: string
           <div className="actions">
             {user ? (
               <>
-                <a className="button-primary" href={`/${params.locale}/sell`}>
+                <a className="button-primary" href={`/${params.locale}/account/verify`}>
+                  {isArabic ? 'تحقق من وسيلة الاتصال' : 'Verify contact details'}
+                </a>
+                <a className="button-secondary" href={`/${params.locale}/sell`}>
                   {isArabic ? 'إنشاء إعلان' : 'Create listing'}
                 </a>
                 <a className="button-secondary" href={`/${params.locale}/sell/manage`}>
