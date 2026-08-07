@@ -25,6 +25,7 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/messages$`), queryKeys: new Set(['limit', 'before']) },
   { method: 'GET', pattern: /^\/v1\/listings\/mine$/, queryKeys: new Set(['status', 'limit', 'before']) },
   { method: 'GET', pattern: new RegExp(`^/v1/listings/${uuid}/manage$`), queryKeys: new Set() },
+  { method: 'GET', pattern: new RegExp(`^/v1/listings/${uuid}/lifecycle$`), queryKeys: new Set() },
   { method: 'GET', pattern: new RegExp(`^/v1/listings/${uuid}/media/mine$`), queryKeys: new Set() },
   { method: 'GET', pattern: new RegExp(`^/v1/listings/${uuid}/media/${uuid}/mine$`), queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/operations\/access\/me$/, queryKeys: new Set() },
@@ -47,6 +48,7 @@ const rules: readonly RouteRule[] = [
   { method: 'POST', pattern: /^\/v1\/listings$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/listings/${uuid}/edit$`), queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/listings/${uuid}/status$`), queryKeys: new Set() },
+  { method: 'POST', pattern: new RegExp(`^/v1/listings/${uuid}/renew$`), queryKeys: new Set() },
   {
     method: 'POST',
     pattern: new RegExp(`^/v1/listings/${uuid}/media/upload$`),

@@ -15,7 +15,20 @@ abstract interface class SellerListingEditGateway {
   });
 }
 
-class SellerListingApi implements SellerListingEditGateway {
+abstract interface class SellerListingLifecycleGateway {
+  Future<Map<String, dynamic>> getLifecycle(
+    String accessToken, {
+    required String listingId,
+  });
+
+  Future<Map<String, dynamic>> renewLifecycle(
+    String accessToken, {
+    required String listingId,
+    required int version,
+  });
+}
+
+class SellerListingApi implements SellerListingEditGateway, SellerListingLifecycleGateway {
   SellerListingApi({required AuthedApi authedApi}) : _authedApi = authedApi;
 
   final AuthedApi _authedApi;
@@ -49,6 +62,15 @@ class SellerListingApi implements SellerListingEditGateway {
   }
 
   @override
+  Future<Map<String, dynamic>> getLifecycle(
+    String accessToken, {
+    required String listingId,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.get('/v1/listings/$encodedId/lifecycle', accessToken);
+  }
+
+  @override
   Future<Map<String, dynamic>> getCategories(String accessToken) {
     return _authedApi.get('/v1/categories', accessToken);
   }
@@ -64,6 +86,20 @@ class SellerListingApi implements SellerListingEditGateway {
       '/v1/listings/$encodedId/edit',
       accessToken,
       input,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> renewLifecycle(
+    String accessToken, {
+    required String listingId,
+    required int version,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.post(
+      '/v1/listings/$encodedId/renew',
+      accessToken,
+      {'version': version},
     );
   }
 
