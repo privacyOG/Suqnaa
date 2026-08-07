@@ -36,6 +36,10 @@ export interface Database {
   password_reset_tokens: TableShape;
   verification_checks: TableShape;
   verification_provider_events: TableShape;
+  admin_permissions: TableShape;
+  admin_roles: TableShape;
+  admin_role_permissions: TableShape;
+  admin_role_assignments: TableShape;
   categories: TableShape;
   listings: TableShape;
   listing_media: TableShape;
