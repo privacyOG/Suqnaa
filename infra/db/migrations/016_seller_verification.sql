@@ -33,7 +33,7 @@ CREATE INDEX IF NOT EXISTS verification_checks_verified_expiry_idx
   ON verification_checks(expires_at)
   WHERE status = 'verified';
 
-CREATE INDEX IF NOT EXISTS verification_checks_provider_reference_idx
+CREATE UNIQUE INDEX IF NOT EXISTS verification_checks_provider_reference_idx
   ON verification_checks(provider, reference)
   WHERE provider IS NOT NULL AND reference IS NOT NULL;
 
