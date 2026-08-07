@@ -1,4 +1,4 @@
-import 'session_authed_api.dart';
+import 'authed_api.dart';
 
 const sellerVerificationPath = '/v1/account/seller-verification';
 const sellerVerificationStartPath = '/v1/account/seller-verification/start';
@@ -16,7 +16,7 @@ abstract interface class SellerVerificationGateway {
 class SellerVerificationApi implements SellerVerificationGateway {
   const SellerVerificationApi({required this.authedApi});
 
-  final SessionAuthedApi authedApi;
+  final AuthedApi authedApi;
 
   @override
   Future<MobileSellerVerificationStatus> fetchStatus(String accessToken) async {
