@@ -6,6 +6,7 @@ import '../../config/mobile_environment.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
 import 'create_listing_screen.dart';
+import 'edit_listing_screen.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -151,7 +152,24 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     );
 
     if (mounted && result != null) {
-      _reload();
+      await _reload();
+    }
+  }
+
+  Future<void> _editListing(Map<String, dynamic> listing) async {
+    final listingId = listing['id']?.toString();
+    if (listingId == null || listingId.isEmpty) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditListingScreen(listingId: listingId),
+      ),
+    );
+
+    if (mounted) {
+      await _reload();
     }
   }
 
@@ -315,9 +333,12 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
                               final listing = _items[index];
                               final listingId = listing['id']?.toString() ?? '';
+                              final listingStatus = listing['status']?.toString() ?? 'draft';
+                              final editable = const {'draft', 'active', 'expired'}.contains(listingStatus);
                               return _ListingCard(
                                 data: listing,
                                 busy: _updatingIds.contains(listingId),
+                                onEdit: editable ? () => _editListing(listing) : null,
                                 onStatusSelected: (status) => _changeStatus(listing, status),
                               );
                             },
@@ -373,10 +394,12 @@ class _ListingCard extends StatelessWidget {
     required this.data,
     required this.busy,
     required this.onStatusSelected,
+    this.onEdit,
   });
 
   final Map<String, dynamic> data;
   final bool busy;
+  final VoidCallback? onEdit;
   final ValueChanged<String> onStatusSelected;
 
   @override
@@ -418,25 +441,34 @@ class _ListingCard extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   )
-                else if (actions.isNotEmpty)
-                  PopupMenuButton<String>(
-                    tooltip: 'Listing actions',
-                    onSelected: onStatusSelected,
-                    itemBuilder: (context) => actions
-                        .map(
-                          (action) => PopupMenuItem<String>(
-                            value: action.status,
-                            child: Row(
-                              children: [
-                                Icon(action.icon, size: 20),
-                                const SizedBox(width: 10),
-                                Text(action.label),
-                              ],
+                else ...[
+                  if (onEdit != null)
+                    IconButton(
+                      key: Key('edit-listing-${data['id']}'),
+                      tooltip: 'Edit listing details',
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  if (actions.isNotEmpty)
+                    PopupMenuButton<String>(
+                      tooltip: 'Listing actions',
+                      onSelected: onStatusSelected,
+                      itemBuilder: (context) => actions
+                          .map(
+                            (action) => PopupMenuItem<String>(
+                              value: action.status,
+                              child: Row(
+                                children: [
+                                  Icon(action.icon, size: 20),
+                                  const SizedBox(width: 10),
+                                  Text(action.label),
+                                ],
+                              ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
+                          )
+                          .toList(),
+                    ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
