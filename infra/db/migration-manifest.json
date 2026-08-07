@@ -17,6 +17,7 @@
     { "id": "0014_retired_storage_cleanup", "file": "011_remove_dormant_text_storage.sql" },
     { "id": "0015_account_contact_verification", "file": "012_account_contact_verification.sql" },
     { "id": "0016_password_security", "file": "013_password_security.sql" },
-    { "id": "0017_phone_e164", "file": "014_phone_e164.sql" }
+    { "id": "0017_phone_e164", "file": "014_phone_e164.sql" },
+    { "id": "0018_account_profile_lifecycle", "file": "015_account_profile_lifecycle.sql" }
   ]
 }

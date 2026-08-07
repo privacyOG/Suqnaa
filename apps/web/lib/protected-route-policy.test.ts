@@ -12,6 +12,30 @@ assert.deepEqual(account, {
   query: ''
 });
 
+for (const segments of [
+  ['v1', 'account', 'profile'],
+  ['v1', 'account', 'profile', 'avatar'],
+  ['v1', 'account', 'export']
+]) {
+  assert.ok(resolveProtectedRoute('GET', segments, new URLSearchParams()));
+  assert.equal(
+    resolveProtectedRoute('GET', segments, new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')),
+    null
+  );
+}
+for (const segments of [
+  ['v1', 'account', 'profile'],
+  ['v1', 'account', 'profile', 'avatar', 'upload'],
+  ['v1', 'account', 'profile', 'avatar', 'delete'],
+  ['v1', 'account', 'closure']
+]) {
+  assert.ok(resolveProtectedRoute('POST', segments, new URLSearchParams()));
+  assert.equal(
+    resolveProtectedRoute('POST', segments, new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')),
+    null
+  );
+}
+
 const conversations = resolveProtectedRoute(
   'GET',
   ['v1', 'conversations'],

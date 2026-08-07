@@ -92,6 +92,15 @@ class AppSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDisplayName(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty || normalized == _displayName) {
+      return;
+    }
+    _displayName = normalized;
+    notifyListeners();
+  }
+
   Future<void> ensureFreshAccess({bool force = false}) {
     if (!isSignedIn || _refreshToken == null) {
       return Future.value();
