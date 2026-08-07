@@ -26,6 +26,10 @@ ALTER TABLE verification_checks
   ADD CONSTRAINT verification_checks_subject_snapshot_check
   CHECK (jsonb_typeof(subject_snapshot) = 'object');
 
+ALTER TABLE verification_checks
+  ADD CONSTRAINT verification_checks_no_self_review_check
+  CHECK (reviewed_by IS NULL OR reviewed_by <> user_id);
+
 CREATE INDEX IF NOT EXISTS verification_checks_operations_idx
   ON verification_checks(status, provider_result, updated_at DESC);
 
