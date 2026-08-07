@@ -19,6 +19,11 @@ export default function SignInPage({ params }: { params: { locale: string } }) {
             : 'Sign in through a secure session with automated abuse protection.'}
         </p>
         <AccountAuthForm locale={params.locale} mode="login" />
+        <p className="auth-status">
+          <a href={`/${params.locale}/account/forgot-password`}>
+            {isArabic ? 'نسيت كلمة المرور؟' : 'Forgot your password?'}
+          </a>
+        </p>
       </section>
     </main>
   );
