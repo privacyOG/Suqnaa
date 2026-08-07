@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { normalizePhoneE164 } from '../auth/phone.js';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { env } from '../config/env.js';
 import { createPasswordResetDeliveryProvider } from '../password-security/delivery.js';
+import { requestPhonePasswordReset } from '../password-security/phone-recovery.js';
 import {
   changePassword,
   listSecuritySessions,
@@ -22,9 +24,24 @@ import {
 } from '../security/human-protection.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 
+const phoneInput = z.string().trim().min(8).max(64)
+  .refine((value) => {
+    try {
+      normalizePhoneE164(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Phone number must use international format, for example +61412345678')
+  .transform((value) => normalizePhoneE164(value));
+
 const forgotBody = z.object({
-  email: z.string().email().max(254)
-});
+  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()).optional(),
+  phone: phoneInput.optional()
+}).refine(
+  (value) => Boolean(value.email) !== Boolean(value.phone),
+  'Provide exactly one of email or phone'
+);
 const resetBody = z.object({
   token: z.string().trim().min(40).max(120),
   newPassword: z.string().min(10).max(200)
@@ -62,8 +79,12 @@ function sendLimit(reply: any, result: ReturnType<typeof checkRateLimit>) {
 export async function passwordSecurityRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/password/forgot', async (request, reply) => {
     const body = forgotBody.parse(request.body);
-    const normalizedEmail = body.email.trim().toLowerCase();
-    const fingerprint = passwordResetTargetFingerprint(env.PASSWORD_RESET_PEPPER, normalizedEmail);
+    const channel = body.email ? 'email' : 'phone';
+    const destination = body.email ?? body.phone as string;
+    const fingerprint = passwordResetTargetFingerprint(
+      env.PASSWORD_RESET_PEPPER,
+      `${channel}:${destination}`
+    );
     const targetLimit = checkRateLimit({
       group: 'auth.password.forgot.target',
       identifiers: [`target:${fingerprint.slice(0, 24)}`],
@@ -95,12 +116,21 @@ export async function passwordSecurityRoutes(app: FastifyInstance): Promise<void
       return reply.code(403).send(humanProtectionResponse(protection));
     }
 
-    await requestPasswordReset({
-      email: normalizedEmail,
-      ipAddress: request.ip,
-      pepper: env.PASSWORD_RESET_PEPPER,
-      provider: resetDeliveryProvider
-    });
+    if (channel === 'email') {
+      await requestPasswordReset({
+        email: destination,
+        ipAddress: request.ip,
+        pepper: env.PASSWORD_RESET_PEPPER,
+        provider: resetDeliveryProvider
+      });
+    } else {
+      await requestPhonePasswordReset({
+        phone: destination,
+        ipAddress: request.ip,
+        pepper: env.PASSWORD_RESET_PEPPER,
+        provider: resetDeliveryProvider
+      });
+    }
 
     return reply.code(202).send({ accepted: true });
   });
