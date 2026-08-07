@@ -21,6 +21,7 @@ Map<String, dynamic> challengePayload({
         'fulfilmentConfirm': 'fulfilment_confirm',
         'listingMediaUpload': 'listing_media_upload',
         'listingMediaDelete': 'listing_media_delete',
+        'accountSellerVerificationStart': 'account_seller_verification_star',
       },
     },
   };
@@ -59,6 +60,7 @@ void main() {
     expect(result.fulfilmentConfirmAction, 'fulfilment_confirm');
     expect(result.listingMediaUploadAction, 'listing_media_upload');
     expect(result.listingMediaDeleteAction, 'listing_media_delete');
+    expect(result.sellerVerificationStartAction, 'account_seller_verification_star');
   });
 
   test('loads a complete enabled challenge configuration', () async {
@@ -89,6 +91,7 @@ void main() {
     expect(result.fulfilmentConfirmAction, 'fulfilment_confirm');
     expect(result.listingMediaUploadAction, 'listing_media_upload');
     expect(result.listingMediaDeleteAction, 'listing_media_delete');
+    expect(result.sellerVerificationStartAction, 'account_seller_verification_star');
   });
 
   test('rejects a contradictory disabled configuration', () async {
@@ -159,6 +162,25 @@ void main() {
       final challenge = payload['challenge'] as Map<String, dynamic>;
       final actions = challenge['actions'] as Map<String, dynamic>;
       actions.remove('listingMediaUpload');
+      return http.Response(jsonEncode(payload), 200);
+    });
+    final api = ChallengeConfigurationApi(
+      baseUrl: Uri.parse('https://api.suqnaa.test'),
+      client: client,
+    );
+
+    await expectLater(
+      api.fetch(),
+      throwsA(isA<ChallengeConfigurationException>()),
+    );
+  });
+
+  test('rejects a missing seller verification action', () async {
+    final client = MockClient((request) async {
+      final payload = challengePayload(enabled: false, provider: 'none');
+      final challenge = payload['challenge'] as Map<String, dynamic>;
+      final actions = challenge['actions'] as Map<String, dynamic>;
+      actions.remove('accountSellerVerificationStart');
       return http.Response(jsonEncode(payload), 200);
     });
     final api = ChallengeConfigurationApi(
