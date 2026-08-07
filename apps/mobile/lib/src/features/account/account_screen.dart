@@ -10,7 +10,9 @@ import '../orders/payment_preparation_screen.dart';
 import '../sell/listing_media_manager_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
+import 'account_security_screen.dart';
 import 'account_verification_screen.dart';
+import 'password_recovery_screen.dart';
 import 'register_screen.dart';
 import 'secure_web_handoff_tile.dart';
 
@@ -66,13 +68,24 @@ class AccountScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const AccountLoginScreen()),
               ),
             ),
+            _AccountTile(
+              key: const Key('password-recovery-account-tile'),
+              icon: Icons.lock_reset_outlined,
+              title: isArabic ? 'استعادة كلمة المرور' : 'Password recovery',
+              subtitle: isArabic
+                  ? 'اطلب رمز إعادة تعيين أو استخدم رمزاً مستلماً'
+                  : 'Request a reset or use a token you received',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PasswordRecoveryScreen()),
+              ),
+            ),
           ],
           const _AccountTile(
             icon: Icons.person_outline,
             title: 'Profile',
             subtitle: 'Manage your public marketplace profile',
           ),
-          if (signedIn)
+          if (signedIn) ...[
             _AccountTile(
               key: const Key('account-contact-verification-tile'),
               icon: Icons.verified_user_outlined,
@@ -86,6 +99,18 @@ class AccountScreen extends StatelessWidget {
                 ),
               ),
             ),
+            _AccountTile(
+              key: const Key('account-security-tile'),
+              icon: Icons.security_outlined,
+              title: isArabic ? 'كلمة المرور والجلسات' : 'Password and sessions',
+              subtitle: isArabic
+                  ? 'غيّر كلمة المرور وراجع الجلسات النشطة'
+                  : 'Change your password and review active sessions',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AccountSecurityScreen()),
+              ),
+            ),
+          ],
           _AccountTile(
             icon: Icons.forum_outlined,
             title: 'Messages',
