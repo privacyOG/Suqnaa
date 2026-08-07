@@ -16,6 +16,7 @@ import 'account_verification_screen.dart';
 import 'password_recovery_screen.dart';
 import 'register_screen.dart';
 import 'secure_web_handoff_tile.dart';
+import 'seller_verification_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -99,6 +100,19 @@ class AccountScreen extends StatelessWidget {
             ),
           ),
           if (signedIn) ...[
+            _AccountTile(
+              key: const Key('seller-verification-account-tile'),
+              icon: Icons.badge_outlined,
+              title: isArabic ? 'تحقق البائع' : 'Seller verification',
+              subtitle: isArabic
+                  ? 'تحقق من هوية البائع أو بيانات النشاط التجاري وتابع الحالة'
+                  : 'Verify seller or business identity and track status',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SellerVerificationScreen(),
+                ),
+              ),
+            ),
             _AccountTile(
               key: const Key('account-contact-verification-tile'),
               icon: Icons.verified_user_outlined,

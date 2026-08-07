@@ -46,6 +46,20 @@ void main() {
     expect(uri.userInfo, isEmpty);
   });
 
+  test('builds seller verification URL without account or provider data', () {
+    final uri = buildSecureSellerVerificationUri(
+      Uri.parse('https://suqnaa.example/app/'),
+      'en',
+    );
+    expect(
+      uri.toString(),
+      'https://suqnaa.example/app/en/account/seller-verification',
+    );
+    expect(uri.hasQuery, isFalse);
+    expect(uri.hasFragment, isFalse);
+    expect(uri.userInfo, isEmpty);
+  });
+
   test('uses the injected external launcher', () async {
     Uri? launched;
     final gateway = BrowserSecureWebHandoff(
@@ -56,12 +70,12 @@ void main() {
       },
     );
 
-    final opened = await gateway.openAccountProfile(locale: 'en');
+    final opened = await gateway.openSellerVerification(locale: 'en');
 
     expect(opened, isTrue);
     expect(
       launched.toString(),
-      'https://suqnaa.example/en/account/profile',
+      'https://suqnaa.example/en/account/seller-verification',
     );
   });
 

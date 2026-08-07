@@ -15,7 +15,8 @@ assert.deepEqual(account, {
 for (const segments of [
   ['v1', 'account', 'profile'],
   ['v1', 'account', 'profile', 'avatar'],
-  ['v1', 'account', 'export']
+  ['v1', 'account', 'export'],
+  ['v1', 'account', 'seller-verification']
 ]) {
   assert.ok(resolveProtectedRoute('GET', segments, new URLSearchParams()));
   assert.equal(
@@ -27,7 +28,8 @@ for (const segments of [
   ['v1', 'account', 'profile'],
   ['v1', 'account', 'profile', 'avatar', 'upload'],
   ['v1', 'account', 'profile', 'avatar', 'delete'],
-  ['v1', 'account', 'closure']
+  ['v1', 'account', 'closure'],
+  ['v1', 'account', 'seller-verification', 'start']
 ]) {
   assert.ok(resolveProtectedRoute('POST', segments, new URLSearchParams()));
   assert.equal(
@@ -181,6 +183,32 @@ assert.equal(
   'limit=25&action=operations.queue.complete&entityType=report'
 );
 
+const verifications = resolveProtectedRoute(
+  'GET',
+  ['v1', 'operations', 'verifications'],
+  new URLSearchParams('status=pending&providerResult=passed&limit=25')
+);
+assert.deepEqual(verifications, {
+  method: 'GET',
+  path: '/v1/operations/verifications',
+  query: 'status=pending&providerResult=passed&limit=25'
+});
+assert.ok(resolveProtectedRoute(
+  'POST',
+  ['v1', 'operations', 'verifications', conversationId, 'review'],
+  new URLSearchParams()
+));
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'operations', 'verifications', 'not-a-uuid', 'review'],
+  new URLSearchParams()
+), null);
+assert.equal(resolveProtectedRoute(
+  'GET',
+  ['v1', 'operations', 'verifications'],
+  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
+), null);
+
 assert.ok(resolveProtectedRoute(
   'POST',
   ['v1', 'operations', 'queue', conversationId, 'complete'],
@@ -197,6 +225,11 @@ assert.ok(resolveProtectedRoute(
   new URLSearchParams()
 ));
 
+assert.equal(resolveProtectedRoute(
+  'POST',
+  ['v1', 'market', 'identity-checks'],
+  new URLSearchParams()
+), null);
 assert.equal(resolveProtectedRoute(
   'DELETE',
   ['v1', 'listings', conversationId],

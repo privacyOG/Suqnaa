@@ -61,6 +61,24 @@ Password recovery accepts either email or phone and reuses the provider-neutral 
 
 Reset tokens expire after 20 minutes, are single-use, and are replaced by a newer request. Successful password reset and authenticated password change both revoke all refresh sessions and invalidate outstanding reset tokens. Active sessions can also be listed and revoked individually or all at once. See `PASSWORD_SECURITY.md` for the complete behavior and API contracts.
 
+## Seller identity and business verification
+
+Seller verification is disabled until a complete provider configuration is supplied. Configure the following through the deployment secret manager:
+
+- `SELLER_VERIFICATION_PROVIDER`: safe lowercase provider identifier using letters, digits, underscores, or hyphens. `none` disables seller verification.
+- `SELLER_VERIFICATION_URL`: provider-neutral hosted-session endpoint. Production requires HTTPS.
+- `SELLER_VERIFICATION_TOKEN`: bearer credential used only by the API when creating or resuming hosted verification sessions.
+- `SELLER_VERIFICATION_SIGNING_SECRET`: independent 32-to-512-character HMAC secret used to authenticate provider-result events.
+- `SELLER_VERIFICATION_TIMEOUT_MS`: provider session request timeout from 500 to 15000 milliseconds; defaults to 5000.
+- `SELLER_VERIFICATION_EVENT_MAX_AGE_SECONDS`: signed-event delivery window from 30 to 900 seconds; defaults to 300.
+- `SELLER_VERIFICATION_VALID_DAYS`: approved-verification validity from 30 to 730 days; defaults to 365.
+
+The provider endpoint receives a bounded JSON request with purpose, create/resume action, marketplace request/account identifiers, seller or business level, explicit country code, current business name when applicable, and the existing provider reference for a resume request. It returns a provider reference, HTTPS hosted URL, and expiry.
+
+Provider results arrive through `POST /v1/seller-verification/provider-events` with dedicated provider, event-ID, timestamp, and HMAC-signature headers. The API keeps a durable event ledger, accepts identical retries idempotently, rejects conflicting replay or stale events, and never converts a provider result directly into marketplace verification approval.
+
+Final approval/rejection is performed through the protected operations boundary. Approved verification expires after the configured validity period; a material verified-business-name change also expires business verification and requires a new cycle. See `SELLER_VERIFICATION.md` for the complete lifecycle and contracts.
+
 ## Human challenge provider
 
 The API supports a provider-neutral challenge verifier with Cloudflare Turnstile as the first real provider.
@@ -81,12 +99,13 @@ Turnstile actions are derived from the protected API action by replacing unsuppo
 - `account.login` becomes `account_login`
 - `account.register` becomes `account_register`
 - `account.password_reset_request` becomes `account_password_reset_request`
+- `account.seller_verification_start` becomes `account_seller_verification_star`
 - `listing.create` becomes `listing_create`
 - `message.create` becomes `message_create`
 
 The client widget uses the action values returned by `/v1/challenge/config`, allowing the server to reject action-mismatched tokens.
 
-For local integration tests, use Cloudflare's published test sitekey and secret-key pairs through local environment files or CI secrets. Do not use testing keys in production.
+For local integration tests, use the challenge provider's documented testing credentials through local environment files or CI secrets. Do not use testing credentials in production.
 
 ## Signed payment-provider events
 
@@ -112,4 +131,4 @@ Refresh and logout requests use separate per-session and per-IP limits. Rotation
 
 Signing out calls the API logout endpoint before removing the local cookies. Cookie removal still completes if the API is temporarily unavailable.
 
-Planned feature flags should cover protected checkout, timed sales, and optional digital currency support. These features should stay disabled until payment providers, verification rules, and country-specific compliance requirements are reviewed.
+Planned feature flags should cover protected checkout, timed sales, and optional digital currency support. These features should stay disabled until payment providers and country-specific compliance requirements are reviewed.

@@ -25,6 +25,10 @@ abstract interface class SecureAccountProfileWebHandoffGateway {
   Future<bool> openAccountProfile({required String locale});
 }
 
+abstract interface class SecureSellerVerificationWebHandoffGateway {
+  Future<bool> openSellerVerification({required String locale});
+}
+
 extension SecureListingMediaHandoff on SecureWebHandoffGateway {
   Future<bool> openListingMediaManager({required String locale}) {
     if (this is SecureListingMediaWebHandoffGateway) {
@@ -55,6 +59,16 @@ extension SecureAccountProfileHandoff on SecureWebHandoffGateway {
   }
 }
 
+extension SecureSellerVerificationHandoff on SecureWebHandoffGateway {
+  Future<bool> openSellerVerification({required String locale}) {
+    if (this is SecureSellerVerificationWebHandoffGateway) {
+      return (this as SecureSellerVerificationWebHandoffGateway)
+          .openSellerVerification(locale: locale);
+    }
+    return Future<bool>.value(false);
+  }
+}
+
 typedef ExternalUrlLauncher = Future<bool> Function(Uri uri);
 
 class BrowserSecureWebHandoff
@@ -62,7 +76,8 @@ class BrowserSecureWebHandoff
         SecureWebHandoffGateway,
         SecureListingMediaWebHandoffGateway,
         SecureAccountRecoveryWebHandoffGateway,
-        SecureAccountProfileWebHandoffGateway {
+        SecureAccountProfileWebHandoffGateway,
+        SecureSellerVerificationWebHandoffGateway {
   BrowserSecureWebHandoff({
     required Uri webBaseUrl,
     ExternalUrlLauncher? launcher,
@@ -98,6 +113,11 @@ class BrowserSecureWebHandoff
   @override
   Future<bool> openAccountProfile({required String locale}) {
     return _launcher(buildSecureAccountProfileUri(_webBaseUrl, locale));
+  }
+
+  @override
+  Future<bool> openSellerVerification({required String locale}) {
+    return _launcher(buildSecureSellerVerificationUri(_webBaseUrl, locale));
   }
 }
 
@@ -169,6 +189,21 @@ Uri buildSecureAccountProfileUri(Uri webBaseUrl, String locale) {
       normalizedLocale,
       'account',
       'profile',
+    ],
+    query: null,
+    fragment: null,
+  );
+}
+
+Uri buildSecureSellerVerificationUri(Uri webBaseUrl, String locale) {
+  final base = _validateBaseUrl(webBaseUrl);
+  final normalizedLocale = _validateLocale(locale);
+  return base.replace(
+    pathSegments: [
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      normalizedLocale,
+      'account',
+      'seller-verification',
     ],
     query: null,
     fragment: null,
