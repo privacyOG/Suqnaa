@@ -155,8 +155,13 @@ try {
     (error: unknown) => error instanceof SellerVerificationError && error.code === 'already_verified'
   );
 
+  const historicalVerifiedAt = new Date(Date.now() - 366 * 24 * 60 * 60 * 1000);
+  const historicalExpiresAt = new Date(Date.now() - 1000);
   await db.updateTable('verification_checks')
-    .set({ expires_at: new Date(Date.now() - 1000) })
+    .set({
+      verified_at: historicalVerifiedAt,
+      expires_at: historicalExpiresAt
+    })
     .where('id', '=', started.checkId)
     .execute();
   const expiredSeller = await readSellerVerificationStatus(sellerId, configuration);
