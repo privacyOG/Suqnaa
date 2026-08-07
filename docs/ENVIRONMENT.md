@@ -8,6 +8,12 @@ Set `WEB_ORIGIN` to the exact browser origin allowed to call the API, for exampl
 
 The web application uses `NEXT_PUBLIC_API_BASE_URL` for browser API requests and may use `API_BASE_URL` for server-side account requests. Local development defaults to `http://localhost:4000`.
 
+## Phone identities
+
+Phone registration, sign-in, verification, and recovery use canonical E.164 identities. The API accepts explicit international input beginning with `+` or `00`, removes safe presentation separators, converts Arabic/Eastern-Arabic numerals to ASCII digits, and stores only the canonical `+<country code><digits>` value.
+
+Local-only numbers are rejected because the service never guesses a country. PostgreSQL enforces the canonical shape after migration `014_phone_e164.sql`. Upgrade deployments must remediate any legacy phone value that cannot be safely normalized before the migration can complete. See `PHONE_IDENTITIES.md`.
+
 ## Account contact verification
 
 Email and phone verification use six-digit single-use codes backed by a PostgreSQL challenge ledger. Plaintext codes and plaintext duplicate contact values are never written to the verification table.
@@ -51,7 +57,7 @@ A pending account becomes active after its first configured contact method is su
 
 Set `PASSWORD_RESET_PEPPER` to an independent secret of at least 32 characters. It HMACs opaque reset tokens and target fingerprints. Do not reuse `PASSWORD_PEPPER` or `VERIFICATION_CODE_PEPPER`.
 
-Password recovery reuses the provider-neutral account-security delivery relay. For password-reset delivery the relay receives `purpose: account_password_reset`, `channel: email`, `destination`, the opaque `token`, and `expiresAt`. Production therefore has the same HTTP, bearer-token, and HTTPS requirements described above.
+Password recovery accepts either email or phone and reuses the provider-neutral account-security delivery relay. For password-reset delivery the relay receives `purpose: account_password_reset`, `channel` as `email` or `phone`, the normalized `destination`, the opaque `token`, and `expiresAt`. Production therefore has the same HTTP, bearer-token, and HTTPS requirements described above.
 
 Reset tokens expire after 20 minutes, are single-use, and are replaced by a newer request. Successful password reset and authenticated password change both revoke all refresh sessions and invalidate outstanding reset tokens. Active sessions can also be listed and revoked individually or all at once. See `PASSWORD_SECURITY.md` for the complete behavior and API contracts.
 

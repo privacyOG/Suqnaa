@@ -47,7 +47,7 @@ class FakeAuthedApi extends AuthedApi {
 }
 
 void main() {
-  test('submits public password recovery requests without exposing account state', () async {
+  test('submits email and phone recovery without exposing account state', () async {
     final requests = <http.Request>[];
     final client = MockClient((request) async {
       requests.add(request);
@@ -62,6 +62,7 @@ void main() {
     );
 
     await api.requestPasswordReset(' Person@Example.com ');
+    await api.requestPhonePasswordReset(' +61 412 345 678 ');
     await api.resetPassword(
       'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789',
       'Replacement-password-456',
@@ -69,9 +70,11 @@ void main() {
 
     expect(requests[0].url.path, '/v1/auth/password/forgot');
     expect(jsonDecode(requests[0].body), {'email': 'person@example.com'});
-    expect(requests[1].url.path, '/v1/auth/password/reset');
+    expect(requests[1].url.path, '/v1/auth/password/forgot');
+    expect(jsonDecode(requests[1].body), {'phone': '+61 412 345 678'});
+    expect(requests[2].url.path, '/v1/auth/password/reset');
     expect(
-      jsonDecode(requests[1].body),
+      jsonDecode(requests[2].body),
       containsPair('newPassword', 'Replacement-password-456'),
     );
   });
@@ -111,12 +114,15 @@ void main() {
     expect(transport.lastPath, '/v1/account/security/sessions/revoke-all');
   });
 
-  test('mobile account and sign-in expose password security flows', () {
+  test('mobile account surfaces expose phone authentication and recovery', () {
     final accountSource = File(
       'lib/src/features/account/account_screen.dart',
     ).readAsStringSync();
     final loginSource = File(
       'lib/src/features/account/account_login_screen.dart',
+    ).readAsStringSync();
+    final registerSource = File(
+      'lib/src/features/account/register_screen.dart',
     ).readAsStringSync();
     final recoverySource = File(
       'lib/src/features/account/password_recovery_screen.dart',
@@ -127,7 +133,11 @@ void main() {
 
     expect(accountSource, contains('password-recovery-account-tile'));
     expect(accountSource, contains('account-security-tile'));
-    expect(loginSource, contains('PasswordRecoveryScreen'));
+    expect(loginSource, contains("'phone': contact"));
+    expect(loginSource, contains('International phone number'));
+    expect(registerSource, contains("'phone': contact"));
+    expect(registerSource, contains('AccountVerificationScreen'));
+    expect(recoverySource, contains('requestPhonePasswordReset'));
     expect(recoverySource, contains('AutofillHints.oneTimeCode'));
     expect(recoverySource, contains('openPasswordRecovery'));
     expect(recoverySource, contains('لن نؤكد'));

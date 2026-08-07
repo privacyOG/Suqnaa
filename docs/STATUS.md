@@ -2,13 +2,13 @@
 
 ## Implemented
 
-- API authentication with password hashing, short-lived access tokens, refresh-session rotation, logout revocation, account lookup, enumeration-safe password recovery, one-time reset tokens, authenticated password changes, active-session listing, individual revocation, and revoke-all controls.
+- API authentication with password hashing, email-or-phone registration/sign-in, canonical E.164 phone identities, short-lived access tokens, refresh-session rotation, logout revocation, account lookup, enumeration-safe email/phone password recovery, one-time reset tokens, authenticated password changes, active-session listing, individual revocation, and revoke-all controls.
 - Email and phone contact verification with six-digit single-use codes, HMAC-only challenge storage, durable resend and issuance limits, five-attempt confirmation limits, provider-neutral delivery, audit records, account activation, and protected web/mobile flows.
 - Human-protection policy, provider-neutral challenge verification, Cloudflare Turnstile configuration, and security audit logging.
 - Bounded in-memory rate limiting for authentication, password recovery and session-security burst protection, account verification burst protection, listings, listing media, messages, conversations, offers, market actions, fulfilment transitions, signed payment events, and protected activity reads.
 - Authenticated listing creation, seller-owned listing and media management, conversations, messages, persisted buyer offers, atomic seller decisions, accepted-offer orders, reviews, reporting, and operations moderation actions.
 - Same-origin web session cookies with automatic refresh rotation and one-retry authenticated proxy transport.
-- Live bilingual web registration, login, password recovery/reset, password/session security, contact verification, account, public marketplace, listing detail, Sell, My Listings, seller photo galleries, marketplace activity, order history/detail, conversation inbox, message-history, Message seller, and Make offer interfaces.
+- Live bilingual web email/phone registration, login, password recovery/reset, password/session security, contact verification, account, public marketplace, listing detail, Sell, My Listings, seller photo galleries, marketplace activity, order history/detail, conversation inbox, message-history, Message seller, and Make offer interfaces.
 - Public active-listing image delivery through API-owned URLs plus owner-only draft-image previews streamed through the authenticated same-origin web proxy.
 - Dedicated challenge actions for password-reset requests, listing creation, listing status changes, media upload, and media deletion; verified mutations do not reuse unrelated challenge tokens.
 - Complete bilingual catalogue filtering across API, web, and mobile: text, category, condition, availability, bounded price and currency, country, region, city, suburb, pickup/delivery mode, and newest or price sorting.
@@ -18,9 +18,9 @@
 - One-to-one order, provider-neutral payment-intent, and fulfilment linkage with participant-only status reads and disabled collection/release capabilities.
 - Disabled-by-default HMAC-authenticated payment-event ingestion with durable replay protection and a single controlled `payment.held` transition from pending/created states to paid/held.
 - Paid-order fulfilment transitions plus bilingual web and mobile controls for seller readiness/shipping and buyer receipt confirmation, with held-payment/provider-evidence requirements and no automatic fund release.
-- Mobile authentication, password recovery/reset, password/session security, account contact verification, listing, listing-photo galleries, conversation, order activity, checkout preparation, secure web handoff, cancellation, and fulfilment controls with CI coverage.
+- Mobile email/phone authentication, password recovery/reset, password/session security, account contact verification, listing, listing-photo galleries, conversation, order activity, checkout preparation, secure web handoff, cancellation, and fulfilment controls with CI coverage.
 - Mobile seller-photo previews through owner-only bearer-authenticated URLs, one-image native upload/deletion when challenge verification is disabled, and exact secure-web handoff when browser verification is required.
-- PostgreSQL/PostGIS schema, seeded marketplace categories, manifest-ordered checksum migration ledger, verified legacy adoption, local Docker infrastructure, pre-review validation, and a required pull-request/main quality gate.
+- PostgreSQL/PostGIS schema, seeded marketplace categories, manifest-ordered checksum migration ledger, verified legacy adoption, canonical E.164 phone constraint/migration, local Docker infrastructure, pre-review validation, and a required pull-request/main quality gate.
 
 ## Explicitly deferred
 
@@ -35,10 +35,10 @@
 1. A visitor browses active listings and opens a public item page without authentication.
 2. Catalogue searches can combine text, category, condition, availability, price/currency, precise location, fulfilment, and deterministic sort controls on web or mobile.
 3. Pagination uses a filter-bound opaque cursor so a cursor cannot be replayed with different filters or sort order; legacy timestamp cursors remain accepted only for newest-first results.
-4. A user registers or signs in through the account flow.
+4. A user registers or signs in with email or an explicit international phone number. Phone input is canonicalized to E.164 before uniqueness checks, rate limiting, lookup, or persistence; local-only numbers are rejected rather than assigned an assumed country.
 5. A newly registered account requests a code for its configured email or phone. Only a HMAC-bound code and contact fingerprint are persisted; codes expire after 10 minutes, are single-use, and are subject to durable issuance and attempt limits.
 6. Successful contact confirmation records the channel verification time and activates a pending account. Web and mobile registration hand off directly to the protected verification flow.
-7. If a user forgets a password, the public recovery endpoint gives the same accepted response regardless of account existence. Existing eligible accounts receive a 20-minute opaque reset token while PostgreSQL stores only its HMAC digest.
+7. If a user forgets a password, the public recovery endpoint accepts email or phone and gives the same accepted response regardless of account existence. Existing eligible accounts receive a 20-minute opaque reset token while PostgreSQL stores only its HMAC digest.
 8. Consuming a valid reset token changes the password, invalidates every outstanding reset token, revokes all refresh sessions, and prevents token replay. Signed-in users can instead change their password after confirming the current password, with the same all-session revocation policy.
 9. Signed-in users can review active refresh sessions, revoke one owned session, or revoke all sessions from web or mobile.
 10. Access and refresh credentials move into protected session storage appropriate to the client.
@@ -66,7 +66,6 @@
 
 ## Next implementation targets
 
-- Phone registration/login consistency and E.164 normalization.
 - Editable profiles, avatar handling, business profile fields, privacy controls, export, and account closure.
 - Real protected-checkout provider integration and payment collection that can produce the already-defined signed held-payment event.
 - Separately authorized controlled release, refund, dispute, and compliance-hold event policies.

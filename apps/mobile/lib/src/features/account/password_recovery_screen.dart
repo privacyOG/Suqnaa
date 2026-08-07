@@ -19,12 +19,13 @@ class PasswordRecoveryScreen extends StatefulWidget {
 }
 
 class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
-  final _emailController = TextEditingController();
+  final _contactController = TextEditingController();
   final _tokenController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmController = TextEditingController();
   late final PasswordSecurityApi _api;
   SecureWebHandoffGateway? _handoff;
+  String _contactMode = 'email';
   bool _busy = false;
   bool _requestAccepted = false;
   bool _resetComplete = false;
@@ -53,7 +54,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _contactController.dispose();
     _tokenController.dispose();
     _newPasswordController.dispose();
     _confirmController.dispose();
@@ -61,15 +62,31 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
   }
 
   Future<void> _requestReset() async {
-    final email = _emailController.text.trim().toLowerCase();
-    if (_busy || email.isEmpty || !email.contains('@')) return;
+    final contact = _contactController.text.trim();
+    final phoneMode = _contactMode == 'phone';
+    final valid = phoneMode
+        ? (contact.startsWith('+') || contact.startsWith('00')) && contact.length >= 8
+        : contact.isNotEmpty && contact.contains('@');
+    if (_busy || !valid) {
+      setState(() {
+        _error = phoneMode
+            ? (_isArabic ? 'استخدم الصيغة الدولية مع + ورمز الدولة.' : 'Use international format with + and country code.')
+            : (_isArabic ? 'أدخل بريداً إلكترونياً صالحاً.' : 'Enter a valid email address.');
+      });
+      return;
+    }
+
     setState(() {
       _busy = true;
       _error = null;
       _requiresWebCheck = false;
     });
     try {
-      await _api.requestPasswordReset(email);
+      if (phoneMode) {
+        await _api.requestPhonePasswordReset(contact);
+      } else {
+        await _api.requestPasswordReset(contact.toLowerCase());
+      }
       if (!mounted) return;
       setState(() => _requestAccepted = true);
     } on PasswordRecoveryException catch (error) {
@@ -80,7 +97,9 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
             ? (_isArabic ? 'طلبات كثيرة. حاول لاحقاً.' : 'Too many requests. Try again later.')
             : error.statusCode == 403
                 ? (_isArabic ? 'يتطلب طلب الاستعادة فحص الأمان في الموقع الآمن.' : 'Recovery requires the security check on the secure website.')
-                : (_isArabic ? 'تعذر إرسال طلب الاستعادة.' : 'The recovery request could not be submitted.');
+                : error.statusCode == 400 && phoneMode
+                    ? (_isArabic ? 'رقم الهاتف ليس بصيغة دولية صالحة.' : 'The phone number is not valid international format.')
+                    : (_isArabic ? 'تعذر إرسال طلب الاستعادة.' : 'The recovery request could not be submitted.');
       });
     } catch (_) {
       if (mounted) {
@@ -139,6 +158,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final ar = _isArabic;
+    final phoneMode = _contactMode == 'phone';
     return Scaffold(
       appBar: AppBar(
         title: Text(ar ? 'استعادة الحساب' : 'Account recovery'),
@@ -149,23 +169,44 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
         children: [
           Text(
             ar ? 'إعادة تعيين كلمة المرور' : 'Reset your password',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: SuqnaaBrand.blue,
-            ),
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: SuqnaaBrand.blue),
           ),
           const SizedBox(height: 8),
           Text(ar
-              ? 'لن نؤكد ما إذا كان البريد الإلكتروني مرتبطاً بحساب.'
-              : 'We never confirm whether an email address is linked to an account.'),
+              ? 'لن نؤكد ما إذا كانت وسيلة الاتصال مرتبطة بحساب.'
+              : 'We never confirm whether a contact detail is linked to an account.'),
           const SizedBox(height: 24),
-          TextField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            autofillHints: const [AutofillHints.email],
+          DropdownButtonFormField<String>(
+            initialValue: _contactMode,
             decoration: InputDecoration(
-              labelText: ar ? 'البريد الإلكتروني' : 'Email',
+              labelText: ar ? 'طريقة الاستعادة' : 'Recovery method',
+              border: const OutlineInputBorder(),
+            ),
+            items: [
+              DropdownMenuItem(value: 'email', child: Text(ar ? 'البريد الإلكتروني' : 'Email')),
+              DropdownMenuItem(value: 'phone', child: Text(ar ? 'رقم الهاتف' : 'Phone')),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _contactMode = value;
+                _contactController.clear();
+                _requestAccepted = false;
+                _error = null;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: ValueKey(_contactMode),
+            controller: _contactController,
+            keyboardType: phoneMode ? TextInputType.phone : TextInputType.emailAddress,
+            autofillHints: [phoneMode ? AutofillHints.telephoneNumber : AutofillHints.email],
+            decoration: InputDecoration(
+              labelText: phoneMode
+                  ? (ar ? 'رقم الهاتف الدولي' : 'International phone number')
+                  : (ar ? 'البريد الإلكتروني' : 'Email'),
+              helperText: phoneMode ? (ar ? 'استخدم + ورمز الدولة.' : 'Use + and the country code.') : null,
               border: const OutlineInputBorder(),
             ),
           ),

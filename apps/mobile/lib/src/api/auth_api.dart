@@ -67,10 +67,17 @@ class AuthResult {
 }
 
 class AccountUser {
-  const AccountUser({required this.id, this.email, required this.displayName, required this.status});
+  const AccountUser({
+    required this.id,
+    this.email,
+    this.phone,
+    required this.displayName,
+    required this.status,
+  });
 
   final String id;
   final String? email;
+  final String? phone;
   final String displayName;
   final String status;
 
@@ -78,6 +85,7 @@ class AccountUser {
     return AccountUser(
       id: json['id'] as String,
       email: json['email'] as String?,
+      phone: json['phone'] as String?,
       displayName: json['displayName'] as String,
       status: json['status'] as String,
     );

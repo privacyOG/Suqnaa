@@ -2,6 +2,10 @@ import { getAuthed, postAuthed } from './authed-api';
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
+export type PasswordRecoveryContact =
+  | { email: string; phone?: never }
+  | { phone: string; email?: never };
+
 export interface SecuritySessionRecord {
   id: string;
   userAgent: string | null;
@@ -48,8 +52,11 @@ async function publicPost(
   return payload;
 }
 
-export async function requestPasswordReset(email: string, challengeResponse?: string): Promise<void> {
-  await publicPost('/v1/auth/password/forgot', { email }, challengeResponse);
+export async function requestPasswordReset(
+  contact: PasswordRecoveryContact,
+  challengeResponse?: string
+): Promise<void> {
+  await publicPost('/v1/auth/password/forgot', contact, challengeResponse);
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {

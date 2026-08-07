@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { createAccessToken } from '../auth/access.js';
+import { normalizePhoneE164 } from '../auth/phone.js';
 import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-token.js';
 import { db } from '../db/index.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
@@ -14,17 +15,33 @@ import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 const challengeVerifier = new NoopChallengeVerifier();
 const blockedUserStates = new Set(['suspended', 'closed']);
 
+const emailInput = z.string().trim().email().max(254).transform((value) => value.toLowerCase());
+const phoneInput = z.string().trim().min(8).max(64)
+  .refine((value) => {
+    try {
+      normalizePhoneE164(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Phone number must use international format, for example +61412345678')
+  .transform((value) => normalizePhoneE164(value));
+
 const registerBody = z.object({
-  email: z.string().email().optional(),
-  phone: z.string().min(8).max(20).optional(),
+  email: emailInput.optional(),
+  phone: phoneInput.optional(),
   displayName: z.string().trim().min(2).max(80),
   password: z.string().min(10).max(200)
 }).refine((value) => value.email || value.phone, 'Email or phone is required');
 
 const loginBody = z.object({
-  email: z.string().email(),
+  email: emailInput.optional(),
+  phone: phoneInput.optional(),
   password: z.string().min(1).max(200)
-});
+}).refine(
+  (value) => Boolean(value.email) !== Boolean(value.phone),
+  'Provide exactly one of email or phone'
+);
 
 const refreshBody = z.object({
   refreshToken: z.string().min(40).max(200)
@@ -38,11 +55,18 @@ function canIssueSession(status: string | null | undefined): boolean {
   return !blockedUserStates.has(status ?? '');
 }
 
-function authPayload(user: { id: string; email?: string | null; display_name?: string; status?: string }, session: unknown) {
+function authPayload(user: {
+  id: string;
+  email?: string | null;
+  phone_e164?: string | null;
+  display_name?: string;
+  status?: string;
+}, session: unknown) {
   return {
     user: {
       id: user.id,
       email: user.email ?? null,
+      phone: user.phone_e164 ?? null,
       displayName: user.display_name,
       status: user.status
     },
@@ -75,12 +99,13 @@ async function createRefreshSession(userId: string, userAgent: string | undefine
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', async (request, reply) => {
     const body = registerBody.parse(request.body);
-    const accountIdentifier = body.email
-      ? `email:${body.email.toLowerCase()}`
-      : `phone:${body.phone}`;
+    const contactIdentifiers = [
+      ...(body.email ? [`email:${body.email}`] : []),
+      ...(body.phone ? [`phone:${body.phone}`] : [])
+    ];
     const limit = checkRateLimit({
       group: 'auth.register',
-      identifiers: [`ip:${request.ip}`, accountIdentifier],
+      identifiers: [`ip:${request.ip}`, ...contactIdentifiers],
       limit: 5,
       windowMs: 15 * 60 * 1000
     });
@@ -104,19 +129,21 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(403).send(humanProtectionResponse(protection));
     }
 
-    const passwordHash = await hashPassword(body.password);
-
-    const existing = body.email
-      ? await db.selectFrom('users').select(['id']).where('email', '=', body.email.toLowerCase()).executeTakeFirst()
+    const existingEmail = body.email
+      ? await db.selectFrom('users').select(['id']).where('email', '=', body.email).executeTakeFirst()
+      : undefined;
+    const existingPhone = body.phone
+      ? await db.selectFrom('users').select(['id']).where('phone_e164', '=', body.phone).executeTakeFirst()
       : undefined;
 
-    if (existing) {
+    if (existingEmail || existingPhone) {
       return reply.code(409).send({ error: 'Account already exists' });
     }
 
+    const passwordHash = await hashPassword(body.password);
     const user = await db.insertInto('users')
       .values({
-        email: body.email?.toLowerCase() ?? null,
+        email: body.email ?? null,
         phone_e164: body.phone ?? null,
         display_name: body.displayName,
         password_hash: passwordHash,
@@ -126,16 +153,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .executeTakeFirstOrThrow();
 
     const session = await createRefreshSession(user.id, firstHeader(request.headers['user-agent']), request.ip);
-
     return reply.code(201).send(authPayload(user, session));
   });
 
   app.post('/auth/login', async (request, reply) => {
     const body = loginBody.parse(request.body);
-    const normalizedEmail = body.email.toLowerCase();
+    const accountIdentifier = body.email ? `email:${body.email}` : `phone:${body.phone}`;
     const limit = checkRateLimit({
       group: 'auth.login',
-      identifiers: [`ip:${request.ip}`, `email:${normalizedEmail}`],
+      identifiers: [`ip:${request.ip}`, accountIdentifier],
       limit: 10,
       windowMs: 15 * 60 * 1000
     });
@@ -159,10 +185,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(403).send(humanProtectionResponse(protection));
     }
 
-    const user = await db.selectFrom('users')
-      .select(['id', 'email', 'display_name', 'password_hash', 'status'])
-      .where('email', '=', normalizedEmail)
-      .executeTakeFirst();
+    let query = db.selectFrom('users')
+      .select(['id', 'email', 'phone_e164', 'display_name', 'password_hash', 'status']);
+    query = body.email
+      ? query.where('email', '=', body.email)
+      : query.where('phone_e164', '=', body.phone as string);
+    const user = await query.executeTakeFirst();
 
     if (!user?.password_hash) {
       return reply.code(401).send({ error: 'Invalid credentials' });
@@ -174,7 +202,6 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const session = await createRefreshSession(user.id, firstHeader(request.headers['user-agent']), request.ip);
-
     return reply.send(authPayload(user, session));
   });
 
@@ -226,7 +253,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const user = await transaction.selectFrom('users')
-        .select(['id', 'email', 'display_name', 'status'])
+        .select(['id', 'email', 'phone_e164', 'display_name', 'status'])
         .where('id', '=', existing.user_id)
         .executeTakeFirst();
 
