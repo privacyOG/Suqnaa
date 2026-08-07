@@ -1,6 +1,8 @@
+import { sql } from 'kysely';
 import { db } from '../db/index.js';
 
 export const platformAdministratorRole = 'platform_admin';
+const roleMutationLockKey = 742013;
 
 export class AdministrativeRoleError extends Error {
   constructor(
@@ -10,6 +12,10 @@ export class AdministrativeRoleError extends Error {
   ) {
     super(message);
   }
+}
+
+async function lockRoleMutations(executor: any): Promise<void> {
+  await sql`select pg_advisory_xact_lock(${roleMutationLockKey})`.execute(executor);
 }
 
 export async function readAdministrativeAccess(userId: string) {
@@ -145,11 +151,11 @@ export async function grantAdministrativeRole(input: {
   }
 
   return db.transaction().execute(async (trx) => {
+    await lockRoleMutations(trx);
     const actorPermissions = await requireRoleManager(trx, input.actorId);
     const target = await trx.selectFrom('users')
       .select(['id', 'status'])
       .where('id', '=', input.targetUserId)
-      .forUpdate()
       .executeTakeFirst();
     if (!target || target.status !== 'active') {
       throw new AdministrativeRoleError('target_unavailable', 404, 'Active target account not found');
@@ -217,6 +223,7 @@ export async function revokeAdministrativeRole(input: {
   }
 
   return db.transaction().execute(async (trx) => {
+    await lockRoleMutations(trx);
     const actorPermissions = await requireRoleManager(trx, input.actorId);
     const role = await trx.selectFrom('admin_roles')
       .select(['id', 'role_key'])
@@ -238,7 +245,6 @@ export async function revokeAdministrativeRole(input: {
       .where('user_id', '=', input.targetUserId)
       .where('role_id', '=', role.id)
       .where('revoked_at', 'is', null)
-      .forUpdate()
       .executeTakeFirst();
     if (!assignment) {
       throw new AdministrativeRoleError('assignment_not_found', 404, 'Active administrative role assignment not found');
@@ -286,10 +292,10 @@ export async function revokeAdministrativeRole(input: {
 
 export async function bootstrapPlatformAdministrator(userId: string) {
   return db.transaction().execute(async (trx) => {
+    await lockRoleMutations(trx);
     const user = await trx.selectFrom('users')
       .select(['id', 'status'])
       .where('id', '=', userId)
-      .forUpdate()
       .executeTakeFirst();
     if (!user || user.status !== 'active') {
       throw new AdministrativeRoleError('target_unavailable', 404, 'Active bootstrap account not found');
@@ -303,7 +309,6 @@ export async function bootstrapPlatformAdministrator(userId: string) {
       .select(['id'])
       .where('role_id', '=', role.id)
       .where('revoked_at', 'is', null)
-      .forUpdate()
       .executeTakeFirst();
     if (existingAdministrator) {
       throw new AdministrativeRoleError('bootstrap_closed', 409, 'A platform administrator already exists');
