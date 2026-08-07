@@ -126,6 +126,15 @@ Widget app({
   );
 }
 
+Future<void> scrollToSave(WidgetTester tester) async {
+  await tester.scrollUntilVisible(
+    find.byKey(const Key('save-listing-edit')),
+    450,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('native edit submits every field with the loaded version', (tester) async {
     final listingGateway = FakeListingGateway();
@@ -138,6 +147,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Version: 5'), findsOneWidget);
+    await scrollToSave(tester);
     expect(find.byKey(const Key('save-listing-edit')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('save-listing-edit')));
@@ -164,6 +174,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    await scrollToSave(tester);
     expect(find.text('Continue on secure web page'), findsOneWidget);
     await tester.tap(find.byKey(const Key('save-listing-edit')));
     await tester.pumpAndSettle();
@@ -185,7 +196,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('cannot be edited'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.byKey(const Key('save-listing-edit')));
+    await scrollToSave(tester);
+    final button = tester.widget<FilledButton>(
+      find.byKey(const Key('save-listing-edit')),
+    );
     expect(button.onPressed, isNull);
   });
 }
