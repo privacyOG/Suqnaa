@@ -9,6 +9,7 @@ const schema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
   PASSWORD_PEPPER: z.string().min(32),
+  PASSWORD_RESET_PEPPER: z.string().min(32),
   VERIFICATION_CODE_PEPPER: z.string().min(32),
   VERIFICATION_DELIVERY_PROVIDER: z.enum(['disabled', 'console', 'http']).default('console'),
   VERIFICATION_DELIVERY_URL: z.string().optional().default(''),

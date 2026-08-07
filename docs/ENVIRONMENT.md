@@ -47,6 +47,14 @@ Verification controls include:
 
 A pending account becomes active after its first configured contact method is successfully verified. Email and phone verification timestamps remain independent so both contacts can be verified when both are present.
 
+## Password recovery and session security
+
+Set `PASSWORD_RESET_PEPPER` to an independent secret of at least 32 characters. It HMACs opaque reset tokens and target fingerprints. Do not reuse `PASSWORD_PEPPER` or `VERIFICATION_CODE_PEPPER`.
+
+Password recovery reuses the provider-neutral account-security delivery relay. For password-reset delivery the relay receives `purpose: account_password_reset`, `channel: email`, `destination`, the opaque `token`, and `expiresAt`. Production therefore has the same HTTP, bearer-token, and HTTPS requirements described above.
+
+Reset tokens expire after 20 minutes, are single-use, and are replaced by a newer request. Successful password reset and authenticated password change both revoke all refresh sessions and invalidate outstanding reset tokens. Active sessions can also be listed and revoked individually or all at once. See `PASSWORD_SECURITY.md` for the complete behavior and API contracts.
+
 ## Human challenge provider
 
 The API supports a provider-neutral challenge verifier with Cloudflare Turnstile as the first real provider.
@@ -66,6 +74,7 @@ Turnstile actions are derived from the protected API action by replacing unsuppo
 
 - `account.login` becomes `account_login`
 - `account.register` becomes `account_register`
+- `account.password_reset_request` becomes `account_password_reset_request`
 - `listing.create` becomes `listing_create`
 - `message.create` becomes `message_create`
 

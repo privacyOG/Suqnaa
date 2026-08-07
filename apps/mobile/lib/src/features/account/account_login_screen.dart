@@ -4,6 +4,7 @@ import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/access_state.dart';
 import '../../session/session_scope.dart';
+import 'password_recovery_screen.dart';
 
 class AccountLoginScreen extends StatefulWidget {
   const AccountLoginScreen({super.key});
@@ -84,6 +85,7 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sign in'),
@@ -157,6 +159,17 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
                     return null;
                   },
                 ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PasswordRecoveryScreen(),
+                      ),
+                    ),
+                    child: Text(isArabic ? 'نسيت كلمة المرور؟' : 'Forgot your password?'),
+                  ),
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -164,7 +177,7 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: _submitting ? null : _submit,
                   icon: _submitting

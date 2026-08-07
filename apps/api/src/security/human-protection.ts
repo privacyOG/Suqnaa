@@ -20,11 +20,13 @@ export interface ProtectionResult {
 const publicAccountActions = new Set([
   'account.register',
   'account.login',
+  'account.password_reset_request'
 ]);
 
 const highImpactActions = new Set([
   'account.register',
   'account.login',
+  'account.password_reset_request',
   'listing.create',
   'listing.status_update',
   'message.create',
@@ -32,7 +34,7 @@ const highImpactActions = new Set([
   'order.create',
   'profile.check',
   'review.create',
-  'timed_sale.create',
+  'timed_sale.create'
 ]);
 
 const challengeThreshold = 50;
@@ -104,6 +106,6 @@ export function humanProtectionResponse(result: ProtectionResult) {
   return {
     requiresHumanCheck: result.decision === 'challenge',
     decision: result.decision,
-    reasonCodes: result.reasonCodes,
+    reasonCodes: result.reasonCodes
   };
 }

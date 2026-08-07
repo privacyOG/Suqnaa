@@ -33,6 +33,7 @@ export interface Database {
   user_profiles: TableShape;
   refresh_sessions: TableShape;
   account_contact_verifications: TableShape;
+  password_reset_tokens: TableShape;
   verification_checks: TableShape;
   categories: TableShape;
   listings: TableShape;

@@ -1,6 +1,7 @@
 export interface ChallengeActions {
   accountLogin: string;
   accountRegister: string;
+  accountPasswordResetRequest: string;
   listingCreate: string;
   listingStatusUpdate: string;
   listingMediaUpload: string;
