@@ -42,12 +42,14 @@ function trustedHostedUrl(value: string): boolean {
 }
 
 export class HttpSellerVerificationProvider implements SellerVerificationProvider {
+  readonly name: string;
+
   constructor(
     private readonly configuration: SellerVerificationConfiguration,
     private readonly fetchImpl: typeof fetch = fetch
-  ) {}
-
-  readonly name = this.configuration.provider;
+  ) {
+    this.name = configuration.provider;
+  }
 
   async createSession(input: ProviderSessionInput): Promise<ProviderSessionResult> {
     const controller = new AbortController();
