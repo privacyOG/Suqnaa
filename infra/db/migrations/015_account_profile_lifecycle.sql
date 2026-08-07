@@ -1,7 +1,7 @@
 ALTER TABLE user_profiles
   ADD COLUMN IF NOT EXISTS business_description text,
   ADD COLUMN IF NOT EXISTS business_website text,
-  ADD COLUMN IF NOT EXISTS profile_visibility text NOT NULL DEFAULT 'public',
+  ADD COLUMN IF NOT EXISTS profile_visibility text NOT NULL DEFAULT 'private',
   ADD COLUMN IF NOT EXISTS show_city boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS show_country boolean NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS show_business_details boolean NOT NULL DEFAULT true,
