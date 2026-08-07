@@ -22,6 +22,7 @@
     { "id": "0019_seller_verification", "file": "016_seller_verification.sql" },
     { "id": "0020_role_based_administration", "file": "017_role_based_administration.sql" },
     { "id": "0021_listing_optimistic_concurrency", "file": "018_listing_optimistic_concurrency.sql" },
-    { "id": "0022_listing_lifecycle_inventory", "file": "019_listing_lifecycle_inventory.sql" }
+    { "id": "0022_listing_lifecycle_inventory", "file": "019_listing_lifecycle_inventory.sql" },
+    { "id": "0023_listing_lifecycle_boundary_guards", "file": "020_listing_lifecycle_boundary_guards.sql" }
   ]
 }
