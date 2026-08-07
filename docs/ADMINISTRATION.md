@@ -31,13 +31,15 @@ Existing operations routes map to the narrow permission required for that action
 
 ## Initial administrator bootstrap
 
-After migration `017_role_based_administration.sql` is applied, bootstrap exactly one existing active account from a trusted deployment shell:
+After migration `017_role_based_administration.sql` is applied, bootstrap one existing active account from a trusted deployment shell:
 
 ```bash
 pnpm --filter suqnaa-api admin:bootstrap -- <active-user-uuid>
 ```
 
-The command refuses to run once any active `platform_admin` assignment exists. It writes both the durable assignment and an `operations.roles.bootstrap` audit record. It does not consume or create a runtime allowlist.
+The command refuses to run while an active account already holds an active `platform_admin` assignment. It writes both the durable assignment and an `operations.roles.bootstrap` audit record. It does not consume or create a runtime allowlist.
+
+If every previously assigned platform administrator has become suspended or closed, the same trusted-shell command may bootstrap a new active platform administrator for operational recovery. Historical assignments remain preserved.
 
 ## Protected role changes
 
@@ -50,8 +52,11 @@ A role grant or revocation requires `roles.manage`. The service also independent
 - an actor cannot grant or revoke a role containing a permission the actor does not hold;
 - active assignments are unique for each user/role pair;
 - revocation updates the historical assignment with actor, time, and optional reason instead of deleting it;
-- the service prevents removal of the last platform administrator when such a cross-account change is attempted;
+- role mutations are serialized in PostgreSQL to prevent concurrent bootstrap/grant/revoke races;
+- the service prevents removal of the last platform-administrator assignment during cross-account role changes;
 - role mutations are rate limited and audited.
+
+Moderation account-state changes have an additional cross-domain guard: `moderation.account.manage` alone cannot suspend or reactivate an account that carries an active administrative role. That action also requires `roles.manage`.
 
 ## Audit history
 
