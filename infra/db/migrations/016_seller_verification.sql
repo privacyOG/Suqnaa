@@ -70,7 +70,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF NEW.level NOT IN ('seller'::verification_level, 'business'::verification_level) THEN
+  IF NEW.level NOT IN ('seller', 'business') THEN
     RAISE EXCEPTION 'Only seller or business checks may become verified';
   END IF;
 
@@ -98,7 +98,7 @@ BEGIN
     RAISE EXCEPTION 'Manual approval requires a review note';
   END IF;
 
-  IF NEW.level = 'business'::verification_level THEN
+  IF NEW.level = 'business' THEN
     SELECT is_business, business_name
       INTO current_is_business, current_business_name
     FROM user_profiles
