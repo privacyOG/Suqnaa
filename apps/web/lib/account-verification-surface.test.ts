@@ -13,6 +13,7 @@ assert.match(panelSource, /autoComplete="one-time-code"/);
 assert.match(panelSource, /pattern="\[0-9\]\{6\}"/);
 assert.match(panelSource, /Send verification code/);
 assert.match(panelSource, /إرسال رمز التحقق/);
+assert.match(panelSource, /fetch\('\/api\/session\/refresh'/);
 assert.match(accountSource, /account\/verify/);
 assert.match(registrationSource, /mode === 'register' \? `\/\$\{locale\}\/account\/verify`/);
 
