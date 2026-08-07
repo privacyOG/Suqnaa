@@ -103,7 +103,7 @@ export function AccountAuthForm({ locale, mode }: AccountAuthFormProps) {
           );
 
       await establishSession(payload);
-      router.replace(`/${locale}/account`);
+      router.replace(mode === 'register' ? `/${locale}/account/verify` : `/${locale}/account`);
       router.refresh();
     } catch (caught) {
       if (caught instanceof ApiRequestError && caught.payload.requiresHumanCheck) {
