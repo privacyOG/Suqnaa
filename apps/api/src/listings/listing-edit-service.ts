@@ -41,7 +41,6 @@ function normalizedOptional(value: string | null): string | null {
 function normalizeInput(input: ListingEditInput): ListingEditInput {
   return {
     ...input,
-    categoryId: input.categoryId,
     title: input.title.trim(),
     description: input.description.trim(),
     currencyCode: input.currencyCode.trim().toUpperCase(),
@@ -80,33 +79,9 @@ function serializeListing(row: Record<string, any>) {
   };
 }
 
-const listingColumns = [
-  'id',
-  'seller_id',
-  'category_id',
-  'title',
-  'description',
-  'price_amount',
-  'currency_code',
-  'condition',
-  'availability_status',
-  'available_quantity',
-  'unit_label',
-  'status',
-  'country_code',
-  'region',
-  'city',
-  'suburb',
-  'allow_pickup',
-  'allow_delivery',
-  'edit_version',
-  'created_at',
-  'updated_at'
-] as const;
-
 export async function readSellerListingForEdit(userId: string, listingId: string) {
   const row = await db.selectFrom('listings')
-    .select(listingColumns as any)
+    .selectAll()
     .where('id', '=', listingId)
     .where('seller_id', '=', userId)
     .executeTakeFirst();
@@ -165,7 +140,7 @@ export async function updateSellerListing(input: {
   }
 
   const existing = await db.selectFrom('listings')
-    .select(listingColumns as any)
+    .selectAll()
     .where('id', '=', input.listingId)
     .where('seller_id', '=', input.userId)
     .executeTakeFirst();
@@ -225,7 +200,7 @@ export async function updateSellerListing(input: {
     .where('seller_id', '=', input.userId)
     .where('edit_version', '=', edit.version)
     .where('status', 'in', [...editableListingStatuses])
-    .returning(listingColumns as any)
+    .returningAll()
     .executeTakeFirst();
 
   if (!updated) {
@@ -237,10 +212,11 @@ export async function updateSellerListing(input: {
     if (!latest) {
       throw new ListingEditError('listing_not_found', 404, 'Listing not found');
     }
+    const stillEditable = editableListingStatuses.has(String(latest.status));
     throw new ListingEditError(
-      editableListingStatuses.has(String(latest.status)) ? 'listing_conflict' : 'listing_not_editable',
+      stillEditable ? 'listing_conflict' : 'listing_not_editable',
       409,
-      editableListingStatuses.has(String(latest.status))
+      stillEditable
         ? 'Listing changed; reload before saving'
         : 'Listing cannot be edited in its current status',
       Number(latest.edit_version),
