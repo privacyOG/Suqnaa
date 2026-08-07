@@ -42,7 +42,10 @@ function trustedHostedUrl(value: string): boolean {
 }
 
 export class HttpSellerVerificationProvider implements SellerVerificationProvider {
-  constructor(private readonly configuration: SellerVerificationConfiguration) {}
+  constructor(
+    private readonly configuration: SellerVerificationConfiguration,
+    private readonly fetchImpl: typeof fetch = fetch
+  ) {}
 
   readonly name = this.configuration.provider;
 
@@ -50,7 +53,7 @@ export class HttpSellerVerificationProvider implements SellerVerificationProvide
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.configuration.timeoutMs);
     try {
-      const response = await fetch(this.configuration.endpoint, {
+      const response = await this.fetchImpl(this.configuration.endpoint, {
         method: 'POST',
         headers: {
           accept: 'application/json',
@@ -93,8 +96,9 @@ export class HttpSellerVerificationProvider implements SellerVerificationProvide
 }
 
 export function createSellerVerificationProvider(
-  configuration: SellerVerificationConfiguration
+  configuration: SellerVerificationConfiguration,
+  fetchImpl?: typeof fetch
 ): SellerVerificationProvider | null {
   if (!configuration.enabled) return null;
-  return new HttpSellerVerificationProvider(configuration);
+  return new HttpSellerVerificationProvider(configuration, fetchImpl);
 }
