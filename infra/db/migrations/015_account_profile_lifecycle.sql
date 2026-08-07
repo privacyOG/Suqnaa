@@ -41,6 +41,29 @@ ALTER TABLE user_profiles
     (avatar_object_key IS NOT NULL AND avatar_mime_type IS NOT NULL AND avatar_size_bytes IS NOT NULL AND avatar_sha256 IS NOT NULL)
   );
 
+INSERT INTO user_profiles (user_id, profile_visibility)
+SELECT id, 'private'
+FROM users
+ON CONFLICT (user_id) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION ensure_private_user_profile()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  INSERT INTO user_profiles (user_id, profile_visibility)
+  VALUES (NEW.id, 'private')
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS users_ensure_private_profile ON users;
+CREATE TRIGGER users_ensure_private_profile
+AFTER INSERT ON users
+FOR EACH ROW
+EXECUTE FUNCTION ensure_private_user_profile();
+
 ALTER TABLE users
   ADD COLUMN IF NOT EXISTS closed_at timestamptz,
   ADD COLUMN IF NOT EXISTS deletion_requested_at timestamptz,
