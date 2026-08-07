@@ -1,6 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import {
   detectProfileAvatarMime,
   maximumProfileAvatarBytes,
@@ -9,14 +8,15 @@ import {
   supportedProfileAvatarMimeTypes
 } from '../account-profile/avatar.js';
 import { saveAccountProfile } from '../account-profile/mutation.js';
+import { readVisiblePublicProfile } from '../account-profile/public-profile.js';
 import {
   buildAccountExport,
   closeAccount,
   readAccountProfile,
-  readPublicProfile,
   type AccountClosureMode,
   type AccountProfileInput
 } from '../account-profile/service.js';
+import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
 import { getListingMediaStorage, type MediaDelivery } from '../media/listing-media-storage.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
@@ -112,7 +112,7 @@ function applyPublicLimit(request: FastifyRequest, reply: FastifyReply): boolean
   return false;
 }
 
-async function sendMedia(reply: FastifyReply, delivery: MediaDelivery) {
+function sendMedia(reply: FastifyReply, delivery: MediaDelivery) {
   reply.header('X-Content-Type-Options', 'nosniff');
   if (delivery.type === 'redirect') {
     reply.header('Location', delivery.url);
@@ -151,7 +151,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
   app.get('/profiles/:userId', async (request, reply) => {
     if (!applyPublicLimit(request, reply)) return;
     const params = publicProfileParams.parse(request.params);
-    const profile = await readPublicProfile(params.userId);
+    const profile = await readVisiblePublicProfile(params.userId);
     if (!profile) return reply.code(404).send({ error: 'Profile not found' });
     return reply.send({ profile });
   });
@@ -171,7 +171,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
         String(profile.avatar_object_key),
         String(profile.avatar_mime_type)
       );
-      reply.header('Cache-Control', 'private, max-age=60');
+      reply.header('Cache-Control', 'no-store');
       return sendMedia(reply, delivery);
     } catch {
       return reply.code(404).send({ error: 'Avatar not found' });
@@ -190,8 +190,12 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
       .where('user_id', '=', params.userId)
       .executeTakeFirst();
     if (
-      !user || user.status !== 'active' || !profile?.avatar_object_key || !profile.avatar_mime_type ||
-      profile.profile_visibility === 'private' || profile.show_avatar === false
+      !user ||
+      user.status !== 'active' ||
+      !profile?.avatar_object_key ||
+      !profile.avatar_mime_type ||
+      profile.profile_visibility !== 'public' ||
+      profile.show_avatar === false
     ) {
       return reply.code(404).send({ error: 'Avatar not found' });
     }
@@ -214,11 +218,6 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
       const authRequest = request as AuthenticatedRequest;
       const userId = accountId(authRequest);
       if (!applyLimit(request, reply, 'account.avatar.upload', userId, 20, 60 * 60 * 1000)) return;
-
-      const user = await db.selectFrom('users').select(['status']).where('id', '=', userId).executeTakeFirst();
-      if (!user || user.status === 'closed') {
-        return reply.code(409).send({ error: 'Account is not available for avatar changes' });
-      }
 
       const declared = normalizeProfileAvatarMime(request.headers['content-type']);
       const buffer = Buffer.isBuffer(request.body) ? request.body : null;
@@ -256,10 +255,14 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
           updated_at: now
         };
         await db.transaction().execute(async (transaction) => {
-          await transaction.insertInto('user_profiles')
-            .values({ user_id: userId, ...avatarValues, created_at: now })
-            .onConflict((conflict) => conflict.column('user_id').doUpdateSet(avatarValues))
-            .execute();
+          const updated = await transaction.updateTable('user_profiles')
+            .set(avatarValues)
+            .where('user_id', '=', userId)
+            .returning(['user_id'])
+            .executeTakeFirst();
+          if (!updated) {
+            throw new Error('Profile row is missing');
+          }
           await transaction.insertInto('audit_logs').values({
             actor_user_id: userId,
             action: 'account.avatar.updated',
