@@ -22,6 +22,9 @@ export default async function EditListingPage({
         <a className="brand-word" href={`/${params.locale}`}>Suqnaa · سوقنا</a>
         <div className="nav-links">
           <a href={`/${params.locale}/sell/manage`}>{isArabic ? 'إعلاناتي' : 'My listings'}</a>
+          <a href={`/${params.locale}/sell/manage/${params.listingId}/lifecycle`}>
+            {isArabic ? 'الانتهاء والتجديد' : 'Expiry and renewal'}
+          </a>
           <a href={`/${params.locale}/sell/media`}>{isArabic ? 'إدارة الصور' : 'Manage photos'}</a>
           <a href={`/${params.locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
         </div>
