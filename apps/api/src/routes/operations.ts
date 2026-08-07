@@ -17,7 +17,7 @@ const itemParams = z.object({
 });
 
 const completeBody = z.object({
-  result: z.enum(['no_change', 'changed_listing', 'changed_account', 'other']),
+  result: z.enum(['no_change', 'other']),
   note: z.string().trim().max(1200).optional()
 });
 
@@ -204,10 +204,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const listing = await trx.updateTable('listings')
-        .set({
-          status: body.status,
-          updated_at: now
-        })
+        .set({ status: body.status, updated_at: now })
         .where('id', '=', item.listing_id)
         .returning(['id', 'status'])
         .executeTakeFirst();
@@ -229,9 +226,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         .returning(['id', 'resolved_at', 'review_action'])
         .executeTakeFirst();
 
-      if (!review) {
-        return { code: 409 as const, error: 'Queue item is already closed' };
-      }
+      if (!review) return { code: 409 as const, error: 'Queue item is already closed' };
 
       await recordQueueAudit(trx, {
         actorId: authRequest.operationsUserId,
@@ -251,9 +246,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
       return { code: 200 as const, listing, review };
     });
 
-    if (result.code !== 200) {
-      return reply.code(result.code).send({ error: result.error });
-    }
+    if (result.code !== 200) return reply.code(result.code).send({ error: result.error });
 
     writeSecurityAudit(app.log, {
       action: 'operations.listing_status',
@@ -275,10 +268,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         resolvedAt: result.review.resolved_at,
         reviewAction: result.review.review_action
       },
-      listing: {
-        id: result.listing.id,
-        status: result.listing.status
-      }
+      listing: { id: result.listing.id, status: result.listing.status }
     });
   });
 
@@ -300,29 +290,20 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         .where('id', '=', params.id)
         .executeTakeFirst();
 
-      if (!item || !item.reported_user_id) {
-        return { code: 404 as const, error: 'Open queue item not found' };
-      }
-      if (item.resolved_at) {
-        return { code: 409 as const, error: 'Queue item is already closed' };
-      }
+      if (!item || !item.reported_user_id) return { code: 404 as const, error: 'Open queue item not found' };
+      if (item.resolved_at) return { code: 409 as const, error: 'Queue item is already closed' };
       if (item.reported_user_id === authRequest.operationsUserId) {
         return { code: 409 as const, error: 'Cannot change own account status' };
       }
 
       const account = await trx.updateTable('users')
-        .set({
-          status: body.status,
-          updated_at: now
-        })
+        .set({ status: body.status, updated_at: now })
         .where('id', '=', item.reported_user_id)
         .where('status', '!=', 'closed')
         .returning(['id', 'status'])
         .executeTakeFirst();
 
-      if (!account) {
-        return { code: 404 as const, error: 'Linked account not found' };
-      }
+      if (!account) return { code: 404 as const, error: 'Linked account not found' };
 
       const review = await trx.updateTable('reports')
         .set({
@@ -337,9 +318,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         .returning(['id', 'resolved_at', 'review_action'])
         .executeTakeFirst();
 
-      if (!review) {
-        return { code: 409 as const, error: 'Queue item is already closed' };
-      }
+      if (!review) return { code: 409 as const, error: 'Queue item is already closed' };
 
       await recordQueueAudit(trx, {
         actorId: authRequest.operationsUserId,
@@ -359,9 +338,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
       return { code: 200 as const, account, review };
     });
 
-    if (result.code !== 200) {
-      return reply.code(result.code).send({ error: result.error });
-    }
+    if (result.code !== 200) return reply.code(result.code).send({ error: result.error });
 
     writeSecurityAudit(app.log, {
       action: 'operations.account_status',
@@ -383,10 +360,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         resolvedAt: result.review.resolved_at,
         reviewAction: result.review.review_action
       },
-      account: {
-        id: result.account.id,
-        status: result.account.status
-      }
+      account: { id: result.account.id, status: result.account.status }
     });
   });
 }
