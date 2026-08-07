@@ -52,3 +52,67 @@ CREATE TABLE verification_provider_events (
 
 CREATE INDEX verification_provider_events_check_idx
   ON verification_provider_events(verification_check_id, received_at DESC);
+
+CREATE OR REPLACE FUNCTION enforce_seller_verification_approval()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  account_status user_status;
+  current_is_business boolean;
+  current_business_name text;
+BEGIN
+  IF NEW.status <> 'verified' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.level NOT IN ('seller'::verification_level, 'business'::verification_level) THEN
+    RAISE EXCEPTION 'Only seller or business checks may become verified';
+  END IF;
+
+  SELECT status INTO account_status
+  FROM users
+  WHERE id = NEW.user_id;
+
+  IF account_status IS DISTINCT FROM 'active'::user_status THEN
+    RAISE EXCEPTION 'Verification subject account must be active';
+  END IF;
+
+  IF NEW.provider_result NOT IN ('passed', 'review_required') THEN
+    RAISE EXCEPTION 'Provider result does not permit verification approval';
+  END IF;
+
+  IF NEW.reviewed_by IS NULL OR NEW.reviewed_at IS NULL OR NEW.verified_at IS NULL OR NEW.expires_at IS NULL THEN
+    RAISE EXCEPTION 'Verified checks require reviewer, review time, verification time, and expiry';
+  END IF;
+
+  IF NEW.expires_at <= NEW.verified_at THEN
+    RAISE EXCEPTION 'Verification expiry must be after verification time';
+  END IF;
+
+  IF NEW.provider_result = 'review_required' AND NULLIF(btrim(NEW.review_note), '') IS NULL THEN
+    RAISE EXCEPTION 'Manual approval requires a review note';
+  END IF;
+
+  IF NEW.level = 'business'::verification_level THEN
+    SELECT is_business, business_name
+      INTO current_is_business, current_business_name
+    FROM user_profiles
+    WHERE user_id = NEW.user_id;
+
+    IF current_is_business IS DISTINCT FROM true OR
+       NULLIF(btrim(current_business_name), '') IS NULL OR
+       NEW.subject_snapshot->>'businessName' IS DISTINCT FROM btrim(current_business_name) THEN
+      RAISE EXCEPTION 'Business verification subject changed before approval';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS verification_checks_approval_guard ON verification_checks;
+CREATE TRIGGER verification_checks_approval_guard
+BEFORE INSERT OR UPDATE ON verification_checks
+FOR EACH ROW
+EXECUTE FUNCTION enforce_seller_verification_approval();
