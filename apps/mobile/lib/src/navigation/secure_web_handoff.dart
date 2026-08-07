@@ -1,6 +1,6 @@
 import 'package:url_launcher/url_launcher.dart';
 
-final _orderIdPattern = RegExp(
+final _resourceIdPattern = RegExp(
   r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
 );
 
@@ -15,6 +15,13 @@ abstract interface class SecureWebHandoffGateway {
 
 abstract interface class SecureListingMediaWebHandoffGateway {
   Future<bool> openListingMediaManager({required String locale});
+}
+
+abstract interface class SecureListingEditWebHandoffGateway {
+  Future<bool> openListingEdit({
+    required String locale,
+    required String listingId,
+  });
 }
 
 abstract interface class SecureAccountRecoveryWebHandoffGateway {
@@ -34,6 +41,21 @@ extension SecureListingMediaHandoff on SecureWebHandoffGateway {
     if (this is SecureListingMediaWebHandoffGateway) {
       return (this as SecureListingMediaWebHandoffGateway)
           .openListingMediaManager(locale: locale);
+    }
+    return Future<bool>.value(false);
+  }
+}
+
+extension SecureListingEditHandoff on SecureWebHandoffGateway {
+  Future<bool> openListingEdit({
+    required String locale,
+    required String listingId,
+  }) {
+    if (this is SecureListingEditWebHandoffGateway) {
+      return (this as SecureListingEditWebHandoffGateway).openListingEdit(
+        locale: locale,
+        listingId: listingId,
+      );
     }
     return Future<bool>.value(false);
   }
@@ -75,6 +97,7 @@ class BrowserSecureWebHandoff
     implements
         SecureWebHandoffGateway,
         SecureListingMediaWebHandoffGateway,
+        SecureListingEditWebHandoffGateway,
         SecureAccountRecoveryWebHandoffGateway,
         SecureAccountProfileWebHandoffGateway,
         SecureSellerVerificationWebHandoffGateway {
@@ -103,6 +126,14 @@ class BrowserSecureWebHandoff
   @override
   Future<bool> openListingMediaManager({required String locale}) {
     return _launcher(buildSecureListingMediaManagerUri(_webBaseUrl, locale));
+  }
+
+  @override
+  Future<bool> openListingEdit({
+    required String locale,
+    required String listingId,
+  }) {
+    return _launcher(buildSecureListingEditUri(_webBaseUrl, locale, listingId));
   }
 
   @override
@@ -137,11 +168,7 @@ Uri buildSecureOrdersUri(Uri webBaseUrl, String locale) {
 }
 
 Uri buildSecureOrderUri(Uri webBaseUrl, String locale, String orderId) {
-  final normalizedOrderId = orderId.trim();
-  if (!_orderIdPattern.hasMatch(normalizedOrderId)) {
-    throw ArgumentError.value(orderId, 'orderId', 'Must be a UUID');
-  }
-
+  final normalizedOrderId = _validateResourceId(orderId, 'orderId');
   return buildSecureOrdersUri(webBaseUrl, locale).replace(
     pathSegments: [
       ...buildSecureOrdersUri(webBaseUrl, locale).pathSegments,
@@ -159,6 +186,28 @@ Uri buildSecureListingMediaManagerUri(Uri webBaseUrl, String locale) {
       normalizedLocale,
       'sell',
       'media',
+    ],
+    query: null,
+    fragment: null,
+  );
+}
+
+Uri buildSecureListingEditUri(
+  Uri webBaseUrl,
+  String locale,
+  String listingId,
+) {
+  final base = _validateBaseUrl(webBaseUrl);
+  final normalizedLocale = _validateLocale(locale);
+  final normalizedListingId = _validateResourceId(listingId, 'listingId');
+  return base.replace(
+    pathSegments: [
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      normalizedLocale,
+      'sell',
+      'manage',
+      normalizedListingId,
+      'edit',
     ],
     query: null,
     fragment: null,
@@ -208,6 +257,14 @@ Uri buildSecureSellerVerificationUri(Uri webBaseUrl, String locale) {
     query: null,
     fragment: null,
   );
+}
+
+String _validateResourceId(String value, String name) {
+  final normalized = value.trim();
+  if (!_resourceIdPattern.hasMatch(normalized)) {
+    throw ArgumentError.value(value, name, 'Must be a UUID');
+  }
+  return normalized;
 }
 
 Uri _validateBaseUrl(Uri value) {
