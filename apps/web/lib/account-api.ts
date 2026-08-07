@@ -1,20 +1,22 @@
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
-export interface RegisterInput {
-  email?: string;
-  phone?: string;
+export type AccountContactInput =
+  | { email: string; phone?: never }
+  | { phone: string; email?: never };
+
+export type RegisterInput = AccountContactInput & {
   displayName: string;
   password: string;
-}
+};
 
-export interface LoginInput {
-  email: string;
+export type LoginInput = AccountContactInput & {
   password: string;
-}
+};
 
 export interface AuthUser {
   id: string;
   email: string | null;
+  phone: string | null;
   displayName?: string;
   status?: string;
 }
