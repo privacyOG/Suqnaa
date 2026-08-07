@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import {
   ListingLifecycleError,
+  readSellerListingLifecycle,
   renewOrReactivateListing
 } from '../listings/listing-lifecycle-service.js';
 import { checkHumanProtection, humanProtectionResponse } from '../security/human-protection.js';
@@ -16,7 +17,32 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function lifecycleError(reply: any, error: unknown) {
+  if (!(error instanceof ListingLifecycleError)) return false;
+  reply.code(error.statusCode).send({
+    error: error.message,
+    code: error.code,
+    ...error.details
+  });
+  return true;
+}
+
 export async function listingLifecycleRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/listings/:listingId/lifecycle', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
+    const params = paramsSchema.parse(request.params);
+    try {
+      const result = await readSellerListingLifecycle({
+        userId: authRequest.user.sub,
+        listingId: params.listingId
+      });
+      return reply.send(result);
+    } catch (error) {
+      if (lifecycleError(reply, error)) return;
+      throw error;
+    }
+  });
+
   app.post('/listings/:listingId/renew', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const params = paramsSchema.parse(request.params);
@@ -82,13 +108,7 @@ export async function listingLifecycleRoutes(app: FastifyInstance): Promise<void
       });
       return reply.send(result);
     } catch (error) {
-      if (error instanceof ListingLifecycleError) {
-        return reply.code(error.statusCode).send({
-          error: error.message,
-          code: error.code,
-          ...error.details
-        });
-      }
+      if (lifecycleError(reply, error)) return;
       throw error;
     }
   });
