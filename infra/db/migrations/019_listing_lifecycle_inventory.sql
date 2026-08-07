@@ -119,3 +119,195 @@ CREATE TRIGGER listing_inventory_reservation_guard
 BEFORE INSERT OR UPDATE ON listing_inventory_reservations
 FOR EACH ROW
 EXECUTE FUNCTION enforce_listing_inventory_reservation();
+
+CREATE OR REPLACE FUNCTION enforce_listing_lifecycle_state()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.status = 'sold' AND NEW.availability_status <> 'service_available' THEN
+    NEW.available_quantity := 0;
+    NEW.availability_status := 'out_of_stock';
+  END IF;
+
+  IF NEW.status = 'active' THEN
+    IF NEW.availability_status <> 'service_available' AND COALESCE(NEW.available_quantity, 0) <= 0 THEN
+      IF OLD.status = 'active' THEN
+        NEW.status := 'reserved';
+      ELSE
+        RAISE EXCEPTION 'Listing cannot be activated without available inventory';
+      END IF;
+    END IF;
+
+    IF NEW.status = 'active' AND OLD.status = 'draft' THEN
+      NEW.published_at := COALESCE(NEW.published_at, now());
+      NEW.expires_at := COALESCE(NEW.expires_at, now() + interval '30 days');
+    ELSIF NEW.status = 'active' AND OLD.status = 'expired' THEN
+      NEW.published_at := now();
+      NEW.expires_at := now() + interval '30 days';
+      NEW.last_renewed_at := now();
+    ELSIF NEW.status = 'active' AND OLD.status = 'reserved' AND OLD.expires_at IS NOT NULL AND OLD.expires_at <= now() THEN
+      NEW.status := 'expired';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS listings_lifecycle_state_guard ON listings;
+CREATE TRIGGER listings_lifecycle_state_guard
+BEFORE UPDATE ON listings
+FOR EACH ROW
+EXECUTE FUNCTION enforce_listing_lifecycle_state();
+
+CREATE OR REPLACE FUNCTION reserve_inventory_on_offer_acceptance()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  target listings%ROWTYPE;
+  reserve_quantity integer;
+  prior_availability text;
+BEGIN
+  IF OLD.status <> 'pending' OR NEW.status <> 'accepted' THEN
+    RETURN NEW;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM listing_inventory_reservations WHERE offer_id = NEW.id) THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO target FROM listings WHERE id = NEW.listing_id FOR UPDATE;
+  IF target.id IS NULL OR target.status NOT IN ('active', 'reserved') THEN
+    RAISE EXCEPTION 'Listing is not available for inventory reservation';
+  END IF;
+
+  prior_availability := target.availability_status;
+  IF target.availability_status = 'service_available' THEN
+    reserve_quantity := 0;
+  ELSE
+    IF COALESCE(target.available_quantity, 0) <= 0 OR target.availability_status = 'out_of_stock' THEN
+      RAISE EXCEPTION 'Listing is out of stock';
+    END IF;
+    reserve_quantity := 1;
+    UPDATE listings
+    SET
+      available_quantity = target.available_quantity - 1,
+      availability_status = CASE WHEN target.available_quantity - 1 = 0 THEN 'out_of_stock' ELSE target.availability_status END,
+      status = 'reserved',
+      updated_at = now()
+    WHERE id = target.id;
+  END IF;
+
+  INSERT INTO listing_inventory_reservations (
+    listing_id,
+    offer_id,
+    quantity,
+    previous_availability_status,
+    status,
+    expires_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    NEW.listing_id,
+    NEW.id,
+    reserve_quantity,
+    prior_availability,
+    'reserved',
+    now() + interval '60 minutes',
+    now(),
+    now()
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS offers_reserve_listing_inventory ON offers;
+CREATE TRIGGER offers_reserve_listing_inventory
+AFTER UPDATE OF status ON offers
+FOR EACH ROW
+EXECUTE FUNCTION reserve_inventory_on_offer_acceptance();
+
+CREATE OR REPLACE FUNCTION attach_inventory_reservation_on_order_create()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.offer_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE listing_inventory_reservations
+  SET order_id = NEW.id, expires_at = NULL, updated_at = now()
+  WHERE offer_id = NEW.offer_id
+    AND status = 'reserved'
+    AND order_id IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Accepted offer inventory reservation is unavailable';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS transactions_attach_inventory_reservation ON transactions;
+CREATE TRIGGER transactions_attach_inventory_reservation
+AFTER INSERT ON transactions
+FOR EACH ROW
+EXECUTE FUNCTION attach_inventory_reservation_on_order_create();
+
+CREATE OR REPLACE FUNCTION restore_inventory_on_order_cancellation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  reservation listing_inventory_reservations%ROWTYPE;
+  target listings%ROWTYPE;
+BEGIN
+  IF OLD.status = NEW.status OR NEW.status <> 'cancelled' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO reservation
+  FROM listing_inventory_reservations
+  WHERE order_id = NEW.id AND status = 'reserved'
+  FOR UPDATE;
+
+  IF reservation.id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO target FROM listings WHERE id = reservation.listing_id FOR UPDATE;
+  IF reservation.quantity = 1 THEN
+    UPDATE listings
+    SET
+      available_quantity = COALESCE(target.available_quantity, 0) + 1,
+      availability_status = CASE
+        WHEN target.availability_status = 'out_of_stock' THEN reservation.previous_availability_status
+        ELSE target.availability_status
+      END,
+      updated_at = now()
+    WHERE id = target.id;
+  END IF;
+
+  UPDATE listing_inventory_reservations
+  SET
+    status = 'released',
+    released_at = now(),
+    release_reason = 'order_cancelled',
+    expires_at = NULL,
+    updated_at = now()
+  WHERE id = reservation.id;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS transactions_restore_listing_inventory ON transactions;
+CREATE TRIGGER transactions_restore_listing_inventory
+AFTER UPDATE OF status ON transactions
+FOR EACH ROW
+EXECUTE FUNCTION restore_inventory_on_order_cancellation();
