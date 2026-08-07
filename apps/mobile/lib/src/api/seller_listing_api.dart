@@ -1,6 +1,21 @@
 import 'authed_api.dart';
 
-class SellerListingApi {
+abstract interface class SellerListingEditGateway {
+  Future<Map<String, dynamic>> getForEdit(
+    String accessToken, {
+    required String listingId,
+  });
+
+  Future<Map<String, dynamic>> getCategories(String accessToken);
+
+  Future<Map<String, dynamic>> updateDetails(
+    String accessToken, {
+    required String listingId,
+    required Map<String, dynamic> input,
+  });
+}
+
+class SellerListingApi implements SellerListingEditGateway {
   SellerListingApi({required AuthedApi authedApi}) : _authedApi = authedApi;
 
   final AuthedApi _authedApi;
@@ -22,6 +37,34 @@ class SellerListingApi {
     ).toString();
 
     return _authedApi.get(path, accessToken);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getForEdit(
+    String accessToken, {
+    required String listingId,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.get('/v1/listings/$encodedId/manage', accessToken);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getCategories(String accessToken) {
+    return _authedApi.get('/v1/categories', accessToken);
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateDetails(
+    String accessToken, {
+    required String listingId,
+    required Map<String, dynamic> input,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.post(
+      '/v1/listings/$encodedId/edit',
+      accessToken,
+      input,
+    );
   }
 
   Future<Map<String, dynamic>> updateStatus(

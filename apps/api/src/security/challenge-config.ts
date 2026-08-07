@@ -6,6 +6,7 @@ export const challengeActions = {
   accountPasswordResetRequest: toTurnstileAction('account.password_reset_request'),
   accountSellerVerificationStart: toTurnstileAction('account.seller_verification_start'),
   listingCreate: toTurnstileAction('listing.create'),
+  listingEdit: toTurnstileAction('listing.edit'),
   listingStatusUpdate: toTurnstileAction('listing.status_update'),
   listingMediaUpload: toTurnstileAction('listing.media_upload'),
   listingMediaDelete: toTurnstileAction('listing.media_delete'),

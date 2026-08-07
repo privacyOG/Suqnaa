@@ -21,15 +21,9 @@ export interface MyListingsPanelProps {
 }
 
 const filters: Array<ListingStatus | 'all'> = [
-  'all',
-  'draft',
-  'active',
-  'reserved',
-  'sold',
-  'expired',
-  'removed'
+  'all', 'draft', 'active', 'reserved', 'sold', 'expired', 'removed'
 ];
-
+const editableStatuses = new Set<ListingStatus>(['draft', 'active', 'expired']);
 const transitions: Record<ListingStatus, ListingStatus[]> = {
   draft: ['active', 'removed'],
   active: ['reserved', 'sold', 'removed'],
@@ -98,12 +92,9 @@ function formatPrice(listing: SellerListing, locale: string): string {
   if (!Number.isFinite(amount)) {
     return `${listing.priceAmount} ${listing.currencyCode}`;
   }
-
   try {
     return new Intl.NumberFormat(locale === 'ar' ? 'ar-AU' : 'en-AU', {
-      style: 'currency',
-      currency: listing.currencyCode,
-      maximumFractionDigits: 2
+      style: 'currency', currency: listing.currencyCode, maximumFractionDigits: 2
     }).format(amount);
   } catch {
     return `${amount.toFixed(2)} ${listing.currencyCode}`;
@@ -113,14 +104,10 @@ function formatPrice(listing: SellerListing, locale: string): string {
 function failureMessage(caught: unknown, isArabic: boolean): string {
   if (caught instanceof AuthedRequestError) {
     if (caught.status === 401) {
-      return isArabic
-        ? 'انتهت جلسة الحساب. سجّل الدخول مرة أخرى.'
-        : 'Your account session ended. Sign in again.';
+      return isArabic ? 'انتهت جلسة الحساب. سجّل الدخول مرة أخرى.' : 'Your account session ended. Sign in again.';
     }
     if (caught.status === 409) {
-      return isArabic
-        ? 'تغيّر الإعلان. حدّث القائمة ثم أعد المحاولة.'
-        : 'The listing changed. Refresh the list and try again.';
+      return isArabic ? 'تغيّر الإعلان. حدّث القائمة ثم أعد المحاولة.' : 'The listing changed. Refresh the list and try again.';
     }
     if (caught.status === 429) {
       return isArabic
@@ -128,15 +115,10 @@ function failureMessage(caught: unknown, isArabic: boolean): string {
         : `Too many attempts. Wait${caught.retryAfter ? ` ${caught.retryAfter} seconds` : ''}.`;
     }
     if (caught.payload.requiresHumanCheck) {
-      return isArabic
-        ? 'أكمل الفحص الأمني مرة أخرى.'
-        : 'Complete the security check again.';
+      return isArabic ? 'أكمل الفحص الأمني مرة أخرى.' : 'Complete the security check again.';
     }
   }
-
-  return isArabic
-    ? 'تعذر إكمال الطلب حالياً.'
-    : 'The request could not be completed right now.';
+  return isArabic ? 'تعذر إكمال الطلب حالياً.' : 'The request could not be completed right now.';
 }
 
 export function MyListingsPanel({ locale }: MyListingsPanelProps) {
@@ -162,22 +144,10 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
 
   useEffect(() => {
     let active = true;
-
     getChallengeConfiguration()
-      .then((value) => {
-        if (active) {
-          setConfiguration(value);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setConfigurationError(true);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
+      .then((value) => { if (active) setConfiguration(value); })
+      .catch(() => { if (active) setConfigurationError(true); });
+    return () => { active = false; };
   }, []);
 
   const loadListings = useCallback(async (
@@ -187,18 +157,13 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
     const append = Boolean(cursor);
     append ? setLoadingMore(true) : setLoading(true);
     setError(null);
-
     try {
       const response = await getMyListings({
         status: selectedFilter === 'all' ? undefined : selectedFilter,
         limit: 20,
         before: cursor
       });
-
-      setListings((current) => append
-        ? [...current, ...response.listings]
-        : response.listings
-      );
+      setListings((current) => append ? [...current, ...response.listings] : response.listings);
       setHasMore(response.pagination.hasMore);
       setNextCursor(response.pagination.nextCursor);
     } catch (caught) {
@@ -213,55 +178,33 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
     }
   }, [isArabic]);
 
-  useEffect(() => {
-    void loadListings(filter);
-  }, [filter, loadListings]);
+  useEffect(() => { void loadListings(filter); }, [filter, loadListings]);
 
-  const listingCountText = useMemo(() => {
-    if (isArabic) {
-      return `${listings.length} إعلان`;
-    }
-    return `${listings.length} listing${listings.length === 1 ? '' : 's'}`;
-  }, [isArabic, listings.length]);
+  const listingCountText = useMemo(() => isArabic
+    ? `${listings.length} إعلان`
+    : `${listings.length} listing${listings.length === 1 ? '' : 's'}`,
+  [isArabic, listings.length]);
 
   async function changeStatus(listing: SellerListing, status: ListingStatus) {
-    if (!challengeReady || busy) {
-      return;
-    }
-
+    if (!challengeReady || busy) return;
     if ((status === 'sold' || status === 'removed') && !window.confirm(
       isArabic
         ? `هل أنت متأكد من تغيير حالة «${listing.title}» إلى ${statusLabel(status, true)}؟`
         : `Change “${listing.title}” to ${statusLabel(status, false)}?`
-    )) {
-      return;
-    }
+    )) return;
 
     setUpdatingId(listing.id);
     setError(null);
-
     try {
-      const response = await updateListingStatus(
-        listing.id,
-        status,
-        challengeToken ?? undefined
-      );
+      const response = await updateListingStatus(listing.id, status, challengeToken ?? undefined);
       const updatedStatus = response.listing.status;
-
       setListings((current) => {
         if (filter !== 'all' && filter !== updatedStatus) {
           return current.filter((item) => item.id !== listing.id);
         }
-
-        return current.map((item) =>
-          item.id === listing.id
-            ? {
-                ...item,
-                status: updatedStatus,
-                updatedAt: response.listing.updatedAt ?? item.updatedAt
-              }
-            : item
-        );
+        return current.map((item) => item.id === listing.id
+          ? { ...item, status: updatedStatus, updatedAt: response.listing.updatedAt ?? item.updatedAt }
+          : item);
       });
     } catch (caught) {
       setError(failureMessage(caught, isArabic));
@@ -283,25 +226,15 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
         </div>
         <label>
           <span>{isArabic ? 'الحالة' : 'Status'}</span>
-          <select
-            value={filter}
-            onChange={(event) => setFilter(event.target.value as ListingStatus | 'all')}
-            disabled={loading || busy}
-          >
-            {filters.map((item) => (
-              <option key={item} value={item}>{statusLabel(item, isArabic)}</option>
-            ))}
+          <select value={filter} onChange={(event) => setFilter(event.target.value as ListingStatus | 'all')} disabled={loading || busy}>
+            {filters.map((item) => <option key={item} value={item}>{statusLabel(item, isArabic)}</option>)}
           </select>
         </label>
       </div>
 
       {challengeEnabled && siteKey && challengeAction ? (
         <div className="seller-security-check">
-          <p>
-            {isArabic
-              ? 'أكمل الفحص الأمني قبل تغيير حالة الإعلان.'
-              : 'Complete the security check before changing a listing status.'}
-          </p>
+          <p>{isArabic ? 'أكمل الفحص الأمني قبل تغيير حالة الإعلان.' : 'Complete the security check before changing a listing status.'}</p>
           <ChallengeProviderScript />
           <ChallengeWidget
             siteKey={siteKey}
@@ -312,11 +245,7 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
             onExpired={() => setChallengeToken(null)}
             onError={() => {
               setChallengeToken(null);
-              setError(
-                isArabic
-                  ? 'تعذر إكمال الفحص الأمني.'
-                  : 'The security check could not be completed.'
-              );
+              setError(isArabic ? 'تعذر إكمال الفحص الأمني.' : 'The security check could not be completed.');
             }}
           />
         </div>
@@ -325,123 +254,75 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
       {configurationError ? (
         <p className="auth-error" role="alert">
           {isArabic
-            ? 'تعذر تحميل إعدادات الفحص الأمني. عرض الإعلانات متاح، لكن التغييرات متوقفة.'
-            : 'Security settings could not be loaded. Listings remain visible, but changes are unavailable.'}
+            ? 'تعذر تحميل إعدادات الفحص الأمني. عرض الإعلانات متاح، لكن تغييرات الحالة متوقفة.'
+            : 'Security settings could not be loaded. Listings remain visible, but status changes are unavailable.'}
         </p>
       ) : null}
-
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
 
       {loading ? (
-        <p className="auth-status" aria-live="polite">
-          {isArabic ? 'جارٍ تحميل الإعلانات…' : 'Loading listings…'}
-        </p>
+        <p className="auth-status" aria-live="polite">{isArabic ? 'جارٍ تحميل الإعلانات…' : 'Loading listings…'}</p>
       ) : listings.length === 0 ? (
         <div className="empty-listings">
           <strong>{isArabic ? 'لا توجد إعلانات هنا' : 'No listings here'}</strong>
-          <p>
-            {isArabic
-              ? 'أنشئ مسودة جديدة أو اختر حالة أخرى.'
-              : 'Create a new draft or choose another status.'}
-          </p>
-          <a className="button-primary" href={`/${locale}/sell`}>
-            {isArabic ? 'إنشاء إعلان' : 'Create listing'}
-          </a>
+          <p>{isArabic ? 'أنشئ مسودة جديدة أو اختر حالة أخرى.' : 'Create a new draft or choose another status.'}</p>
+          <a className="button-primary" href={`/${locale}/sell`}>{isArabic ? 'إنشاء إعلان' : 'Create listing'}</a>
         </div>
       ) : (
         <div className="seller-listing-grid">
           {listings.map((listing) => {
-            const location = [listing.suburb, listing.city, listing.region, listing.countryCode]
-              .filter(Boolean)
-              .join(', ');
+            const location = [listing.suburb, listing.city, listing.region, listing.countryCode].filter(Boolean).join(', ');
             const availableTransitions = transitions[listing.status];
             const firstPhoto = listing.media[0];
-
             return (
               <article className="seller-listing-card" key={listing.id}>
                 {firstPhoto ? (
-                  <img
-                    className="seller-listing-photo"
-                    src={firstPhoto.url}
-                    alt={firstPhoto.altText ?? listing.title}
-                    loading="lazy"
-                  />
+                  <img className="seller-listing-photo" src={firstPhoto.url} alt={firstPhoto.altText ?? listing.title} loading="lazy" />
                 ) : (
-                  <div className="seller-listing-photo-placeholder" aria-hidden="true">
-                    {listing.title.slice(0, 1).toUpperCase()}
-                  </div>
+                  <div className="seller-listing-photo-placeholder" aria-hidden="true">{listing.title.slice(0, 1).toUpperCase()}</div>
                 )}
-
                 <div className="seller-listing-heading">
                   <div>
-                    <span className={`listing-status listing-status-${listing.status}`}>
-                      {statusLabel(listing.status, isArabic)}
-                    </span>
+                    <span className={`listing-status listing-status-${listing.status}`}>{statusLabel(listing.status, isArabic)}</span>
                     <h2>{listing.title}</h2>
                   </div>
                   <strong>{formatPrice(listing, locale)}</strong>
                 </div>
-
                 <p className="seller-listing-description">{listing.description}</p>
-
                 <dl className="seller-listing-meta">
-                  <div>
-                    <dt>{isArabic ? 'الحالة' : 'Condition'}</dt>
-                    <dd>{conditionLabel(listing.condition, isArabic)}</dd>
-                  </div>
-                  <div>
-                    <dt>{isArabic ? 'التوفر' : 'Availability'}</dt>
-                    <dd>{quantityLabel(listing, isArabic)}</dd>
-                  </div>
-                  <div>
-                    <dt>{isArabic ? 'الصور' : 'Photos'}</dt>
-                    <dd>{listing.mediaCount}</dd>
-                  </div>
-                  <div>
-                    <dt>{isArabic ? 'الموقع' : 'Location'}</dt>
-                    <dd>{location || (isArabic ? 'غير محدد' : 'Not specified')}</dd>
-                  </div>
+                  <div><dt>{isArabic ? 'الحالة' : 'Condition'}</dt><dd>{conditionLabel(listing.condition, isArabic)}</dd></div>
+                  <div><dt>{isArabic ? 'التوفر' : 'Availability'}</dt><dd>{quantityLabel(listing, isArabic)}</dd></div>
+                  <div><dt>{isArabic ? 'الصور' : 'Photos'}</dt><dd>{listing.mediaCount}</dd></div>
+                  <div><dt>{isArabic ? 'الموقع' : 'Location'}</dt><dd>{location || (isArabic ? 'غير محدد' : 'Not specified')}</dd></div>
                   <div>
                     <dt>{isArabic ? 'التسليم' : 'Fulfilment'}</dt>
-                    <dd>
-                      {[
-                        listing.allowPickup ? (isArabic ? 'استلام' : 'Pickup') : null,
-                        listing.allowDelivery ? (isArabic ? 'توصيل' : 'Delivery') : null
-                      ].filter(Boolean).join(' · ') || '—'}
-                    </dd>
+                    <dd>{[
+                      listing.allowPickup ? (isArabic ? 'استلام' : 'Pickup') : null,
+                      listing.allowDelivery ? (isArabic ? 'توصيل' : 'Delivery') : null
+                    ].filter(Boolean).join(' · ') || '—'}</dd>
                   </div>
                 </dl>
-
                 <div className="listing-actions">
-                  <a className="button-secondary" href={`/${locale}/sell/media`}>
-                    {isArabic ? 'إدارة الصور' : 'Manage photos'}
-                  </a>
+                  {editableStatuses.has(listing.status) ? (
+                    <a className="button-primary" href={`/${locale}/sell/manage/${listing.id}/edit`}>
+                      {isArabic ? 'تعديل التفاصيل' : 'Edit details'}
+                    </a>
+                  ) : null}
+                  <a className="button-secondary" href={`/${locale}/sell/media`}>{isArabic ? 'إدارة الصور' : 'Manage photos'}</a>
                   {availableTransitions.map((status) => (
                     <button
                       key={status}
                       className={status === 'removed' ? 'button-secondary danger-button' : 'button-secondary'}
                       type="button"
-                      disabled={
-                        busy ||
-                        configurationError ||
-                        configuration === null ||
-                        !challengeReady
-                      }
+                      disabled={busy || configurationError || configuration === null || !challengeReady}
                       onClick={() => void changeStatus(listing, status)}
                     >
-                      {updatingId === listing.id
-                        ? (isArabic ? 'جارٍ التحديث…' : 'Updating…')
-                        : actionLabel(status, isArabic)}
+                      {updatingId === listing.id ? (isArabic ? 'جارٍ التحديث…' : 'Updating…') : actionLabel(status, isArabic)}
                     </button>
                   ))}
                 </div>
-
                 {availableTransitions.length === 0 ? (
-                  <p className="listing-final-status">
-                    {isArabic
-                      ? 'لا توجد إجراءات إضافية لهذه الحالة.'
-                      : 'No further status actions are available.'}
-                  </p>
+                  <p className="listing-final-status">{isArabic ? 'لا توجد إجراءات إضافية لهذه الحالة.' : 'No further status actions are available.'}</p>
                 ) : null}
               </article>
             );
@@ -450,15 +331,8 @@ export function MyListingsPanel({ locale }: MyListingsPanelProps) {
       )}
 
       {hasMore && nextCursor ? (
-        <button
-          className="button-secondary load-more-button"
-          type="button"
-          disabled={loadingMore || busy}
-          onClick={() => void loadListings(filter, nextCursor)}
-        >
-          {loadingMore
-            ? (isArabic ? 'جارٍ التحميل…' : 'Loading…')
-            : (isArabic ? 'تحميل المزيد' : 'Load more')}
+        <button className="button-secondary load-more-button" type="button" disabled={loadingMore || busy} onClick={() => void loadListings(filter, nextCursor)}>
+          {loadingMore ? (isArabic ? 'جارٍ التحميل…' : 'Loading…') : (isArabic ? 'تحميل المزيد' : 'Load more')}
         </button>
       ) : null}
     </section>

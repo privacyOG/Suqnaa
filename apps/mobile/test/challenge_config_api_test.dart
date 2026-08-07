@@ -19,6 +19,7 @@ Map<String, dynamic> challengePayload({
         'orderCancel': 'order_cancel',
         'fulfilmentManage': 'fulfilment_manage',
         'fulfilmentConfirm': 'fulfilment_confirm',
+        'listingEdit': 'listing_edit',
         'listingMediaUpload': 'listing_media_upload',
         'listingMediaDelete': 'listing_media_delete',
         'accountSellerVerificationStart': 'account_seller_verification_star',
@@ -33,9 +34,7 @@ void main() {
     final client = MockClient((request) async {
       requested = request.url;
       return http.Response(
-        jsonEncode(
-          challengePayload(enabled: false, provider: 'none'),
-        ),
+        jsonEncode(challengePayload(enabled: false, provider: 'none')),
         200,
         headers: {'content-type': 'application/json'},
       );
@@ -47,10 +46,7 @@ void main() {
 
     final result = await api.fetch();
 
-    expect(
-      requested.toString(),
-      'https://api.suqnaa.test/v1/challenge/config',
-    );
+    expect(requested.toString(), 'https://api.suqnaa.test/v1/challenge/config');
     expect(result.enabled, isFalse);
     expect(result.provider, 'none');
     expect(result.siteKey, isNull);
@@ -58,6 +54,7 @@ void main() {
     expect(result.orderCancelAction, 'order_cancel');
     expect(result.fulfilmentManageAction, 'fulfilment_manage');
     expect(result.fulfilmentConfirmAction, 'fulfilment_confirm');
+    expect(result.listingEditAction, 'listing_edit');
     expect(result.listingMediaUploadAction, 'listing_media_upload');
     expect(result.listingMediaDeleteAction, 'listing_media_delete');
     expect(result.sellerVerificationStartAction, 'account_seller_verification_star');
@@ -66,13 +63,7 @@ void main() {
   test('loads a complete enabled challenge configuration', () async {
     final client = MockClient((request) async {
       return http.Response(
-        jsonEncode(
-          challengePayload(
-            enabled: true,
-            provider: 'turnstile',
-            siteKey: 'site-key',
-          ),
-        ),
+        jsonEncode(challengePayload(enabled: true, provider: 'turnstile', siteKey: 'site-key')),
         200,
       );
     });
@@ -86,24 +77,15 @@ void main() {
     expect(result.enabled, isTrue);
     expect(result.provider, 'turnstile');
     expect(result.siteKey, 'site-key');
-    expect(result.orderCancelAction, 'order_cancel');
-    expect(result.fulfilmentManageAction, 'fulfilment_manage');
-    expect(result.fulfilmentConfirmAction, 'fulfilment_confirm');
+    expect(result.listingEditAction, 'listing_edit');
     expect(result.listingMediaUploadAction, 'listing_media_upload');
     expect(result.listingMediaDeleteAction, 'listing_media_delete');
-    expect(result.sellerVerificationStartAction, 'account_seller_verification_star');
   });
 
   test('rejects a contradictory disabled configuration', () async {
     final client = MockClient((request) async {
       return http.Response(
-        jsonEncode(
-          challengePayload(
-            enabled: false,
-            provider: 'turnstile',
-            siteKey: 'site-key',
-          ),
-        ),
+        jsonEncode(challengePayload(enabled: false, provider: 'turnstile', siteKey: 'site-key')),
         200,
       );
     });
@@ -112,85 +94,30 @@ void main() {
       client: client,
     );
 
-    await expectLater(
-      api.fetch(),
-      throwsA(isA<ChallengeConfigurationException>()),
-    );
+    await expectLater(api.fetch(), throwsA(isA<ChallengeConfigurationException>()));
   });
 
-  test('rejects a missing order cancellation action', () async {
-    final client = MockClient((request) async {
-      final payload = challengePayload(enabled: false, provider: 'none');
-      final challenge = payload['challenge'] as Map<String, dynamic>;
-      final actions = challenge['actions'] as Map<String, dynamic>;
-      actions.remove('orderCancel');
-      return http.Response(jsonEncode(payload), 200);
+  for (final missing in [
+    'orderCancel',
+    'fulfilmentConfirm',
+    'listingEdit',
+    'listingMediaUpload',
+    'accountSellerVerificationStart',
+  ]) {
+    test('rejects a missing $missing action', () async {
+      final client = MockClient((request) async {
+        final payload = challengePayload(enabled: false, provider: 'none');
+        final challenge = payload['challenge'] as Map<String, dynamic>;
+        final actions = challenge['actions'] as Map<String, dynamic>;
+        actions.remove(missing);
+        return http.Response(jsonEncode(payload), 200);
+      });
+      final api = ChallengeConfigurationApi(
+        baseUrl: Uri.parse('https://api.suqnaa.test'),
+        client: client,
+      );
+
+      await expectLater(api.fetch(), throwsA(isA<ChallengeConfigurationException>()));
     });
-    final api = ChallengeConfigurationApi(
-      baseUrl: Uri.parse('https://api.suqnaa.test'),
-      client: client,
-    );
-
-    await expectLater(
-      api.fetch(),
-      throwsA(isA<ChallengeConfigurationException>()),
-    );
-  });
-
-  test('rejects a missing fulfilment action', () async {
-    final client = MockClient((request) async {
-      final payload = challengePayload(enabled: false, provider: 'none');
-      final challenge = payload['challenge'] as Map<String, dynamic>;
-      final actions = challenge['actions'] as Map<String, dynamic>;
-      actions.remove('fulfilmentConfirm');
-      return http.Response(jsonEncode(payload), 200);
-    });
-    final api = ChallengeConfigurationApi(
-      baseUrl: Uri.parse('https://api.suqnaa.test'),
-      client: client,
-    );
-
-    await expectLater(
-      api.fetch(),
-      throwsA(isA<ChallengeConfigurationException>()),
-    );
-  });
-
-  test('rejects a missing listing media action', () async {
-    final client = MockClient((request) async {
-      final payload = challengePayload(enabled: false, provider: 'none');
-      final challenge = payload['challenge'] as Map<String, dynamic>;
-      final actions = challenge['actions'] as Map<String, dynamic>;
-      actions.remove('listingMediaUpload');
-      return http.Response(jsonEncode(payload), 200);
-    });
-    final api = ChallengeConfigurationApi(
-      baseUrl: Uri.parse('https://api.suqnaa.test'),
-      client: client,
-    );
-
-    await expectLater(
-      api.fetch(),
-      throwsA(isA<ChallengeConfigurationException>()),
-    );
-  });
-
-  test('rejects a missing seller verification action', () async {
-    final client = MockClient((request) async {
-      final payload = challengePayload(enabled: false, provider: 'none');
-      final challenge = payload['challenge'] as Map<String, dynamic>;
-      final actions = challenge['actions'] as Map<String, dynamic>;
-      actions.remove('accountSellerVerificationStart');
-      return http.Response(jsonEncode(payload), 200);
-    });
-    final api = ChallengeConfigurationApi(
-      baseUrl: Uri.parse('https://api.suqnaa.test'),
-      client: client,
-    );
-
-    await expectLater(
-      api.fetch(),
-      throwsA(isA<ChallengeConfigurationException>()),
-    );
-  });
+  }
 }

@@ -32,6 +32,7 @@ assert.deepEqual(enabled.actions, {
   accountPasswordResetRequest: 'account_password_reset_request',
   accountSellerVerificationStart: 'account_seller_verification_star',
   listingCreate: 'listing_create',
+  listingEdit: 'listing_edit',
   listingStatusUpdate: 'listing_status_update',
   listingMediaUpload: 'listing_media_upload',
   listingMediaDelete: 'listing_media_delete',

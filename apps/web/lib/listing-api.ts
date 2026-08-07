@@ -117,6 +117,58 @@ export interface SellerListing {
   updatedAt: string;
 }
 
+export interface EditableSellerListing {
+  id: string;
+  categoryId: string | null;
+  title: string;
+  description: string;
+  priceAmount: string | number;
+  currencyCode: string;
+  condition: ListingCondition;
+  availabilityStatus: ListingAvailabilityStatus;
+  availableQuantity: number | null;
+  unitLabel: string | null;
+  status: ListingStatus;
+  countryCode: string;
+  region: string | null;
+  city: string | null;
+  suburb: string | null;
+  allowPickup: boolean;
+  allowDelivery: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListingEditInput extends JsonBody {
+  version: number;
+  categoryId: string | null;
+  title: string;
+  description: string;
+  priceAmount: number;
+  currencyCode: string;
+  condition: ListingCondition;
+  availabilityStatus: ListingAvailabilityStatus;
+  availableQuantity: number | null;
+  unitLabel: string | null;
+  countryCode: string;
+  region: string | null;
+  city: string | null;
+  suburb: string | null;
+  allowPickup: boolean;
+  allowDelivery: boolean;
+}
+
+export interface SellerListingEditSnapshotResponse {
+  listing: EditableSellerListing;
+  editable: boolean;
+}
+
+export interface SellerListingEditResponse {
+  listing: EditableSellerListing;
+  unchanged: boolean;
+}
+
 export interface MyListingsResponse {
   listings: SellerListing[];
   pagination: {
@@ -278,6 +330,28 @@ export async function getMyListings(
     ...response,
     listings: response.listings.map(normalizeListingMedia)
   };
+}
+
+export function getSellerListingForEdit(
+  listingId: string
+): Promise<SellerListingEditSnapshotResponse> {
+  const normalizedListingId = requiredUuid(listingId, 'Listing identifier');
+  return getAuthed<SellerListingEditSnapshotResponse>(
+    `/v1/listings/${normalizedListingId}/manage`
+  );
+}
+
+export function updateSellerListingDetails(
+  listingId: string,
+  input: ListingEditInput,
+  challengeResponse?: string
+): Promise<SellerListingEditResponse> {
+  const normalizedListingId = requiredUuid(listingId, 'Listing identifier');
+  return postAuthed<SellerListingEditResponse>(
+    `/v1/listings/${normalizedListingId}/edit`,
+    input,
+    challengeResponse
+  );
 }
 
 export function updateListingStatus(

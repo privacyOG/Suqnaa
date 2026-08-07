@@ -4,6 +4,7 @@ export interface ChallengeActions {
   accountPasswordResetRequest: string;
   accountSellerVerificationStart: string;
   listingCreate: string;
+  listingEdit: string;
   listingStatusUpdate: string;
   listingMediaUpload: string;
   listingMediaDelete: string;
