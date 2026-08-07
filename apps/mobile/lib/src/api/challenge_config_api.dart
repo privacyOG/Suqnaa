@@ -76,6 +76,7 @@ class MobileChallengeConfiguration {
     this.fulfilmentConfirmAction = 'fulfilment_confirm',
     this.listingMediaUploadAction = 'listing_media_upload',
     this.listingMediaDeleteAction = 'listing_media_delete',
+    this.sellerVerificationStartAction = 'account_seller_verification_star',
   });
 
   final bool enabled;
@@ -87,6 +88,7 @@ class MobileChallengeConfiguration {
   final String fulfilmentConfirmAction;
   final String listingMediaUploadAction;
   final String listingMediaDeleteAction;
+  final String sellerVerificationStartAction;
 
   factory MobileChallengeConfiguration.fromJson(Map<String, dynamic> json) {
     final enabled = json['enabled'];
@@ -124,6 +126,10 @@ class MobileChallengeConfiguration {
       'listingMediaDelete',
       'listing media deletion',
     );
+    final sellerVerificationStart = requiredAction(
+      'accountSellerVerificationStart',
+      'seller verification',
+    );
 
     if (enabled) {
       if (provider != 'turnstile' ||
@@ -146,6 +152,7 @@ class MobileChallengeConfiguration {
       fulfilmentConfirmAction: fulfilmentConfirm,
       listingMediaUploadAction: listingMediaUpload,
       listingMediaDeleteAction: listingMediaDelete,
+      sellerVerificationStartAction: sellerVerificationStart,
     );
   }
 }
