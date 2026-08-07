@@ -10,6 +10,7 @@ import '../orders/payment_preparation_screen.dart';
 import '../sell/listing_media_manager_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
+import 'account_profile_screen.dart';
 import 'account_security_screen.dart';
 import 'account_verification_screen.dart';
 import 'password_recovery_screen.dart';
@@ -80,10 +81,22 @@ class AccountScreen extends StatelessWidget {
               ),
             ),
           ],
-          const _AccountTile(
+          _AccountTile(
+            key: const Key('account-profile-tile'),
             icon: Icons.person_outline,
-            title: 'Profile',
-            subtitle: 'Manage your public marketplace profile',
+            title: isArabic ? 'الملف والخصوصية' : 'Profile and privacy',
+            subtitle: signedIn
+                ? (isArabic
+                    ? 'عدّل الملف والبيانات التجارية والخصوصية وبيانات الحساب'
+                    : 'Edit profile, business details, privacy, and account data')
+                : (isArabic ? 'سجّل الدخول لإدارة ملفك' : 'Sign in to manage your profile'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn
+                    ? const AccountProfileScreen()
+                    : const AccountLoginScreen(),
+              ),
+            ),
           ),
           if (signedIn) ...[
             _AccountTile(
