@@ -27,6 +27,7 @@ const highImpactActions = new Set([
   'account.register',
   'account.login',
   'account.password_reset_request',
+  'account.seller_verification_start',
   'listing.create',
   'listing.status_update',
   'message.create',
