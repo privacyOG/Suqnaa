@@ -322,8 +322,15 @@ try {
     .execute();
   const orderIds = orderRows.map((row) => String(row.id));
   if (orderIds.length > 0) {
-    await db.deleteFrom('payment_intents').where('transaction_id', 'in', orderIds).execute();
-    await db.deleteFrom('fulfilments').where('transaction_id', 'in', orderIds).execute();
+    const paymentIntentRows = await db.selectFrom('payment_intents')
+      .select(['id'])
+      .where('transaction_id', 'in', orderIds)
+      .execute();
+    const paymentIntentIds = paymentIntentRows.map((row) => String(row.id));
+    if (paymentIntentIds.length > 0) {
+      await db.deleteFrom('fulfilments').where('payment_intent_id', 'in', paymentIntentIds).execute();
+      await db.deleteFrom('payment_intents').where('id', 'in', paymentIntentIds).execute();
+    }
     await db.deleteFrom('transactions').where('id', 'in', orderIds).execute();
   }
   await db.deleteFrom('offers').where('buyer_id', '=', buyerId).execute();
