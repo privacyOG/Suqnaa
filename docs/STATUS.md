@@ -10,30 +10,32 @@
 - Seller identity/business verification with provider-neutral hosted-session creation/resume, dedicated signed replay-protected provider results, permission-gated final approval/rejection, explicit expiry/reverification, business-subject change invalidation, audit records, and protected web/mobile seller status.
 - Durable PostgreSQL-backed administration roles and permissions with per-request effective-permission evaluation, one-time trusted-shell bootstrap, least-privilege moderation/verification/audit roles, protected grant/revoke controls, immediate revocation, immutable assignment history, anti-self-change and anti-escalation rules, serialized role mutations, and role-change audit records.
 - Human-protection policy, provider-neutral challenge verification, configured challenge-provider support, and security audit logging.
-- Bounded in-memory rate limiting for authentication, password recovery and session-security burst protection, account verification burst protection, seller verification and operations review, administrative access/role changes, profile/export/closure operations, listings, listing editing, listing media, messages, conversations, offers, market actions, fulfilment transitions, signed payment events, and protected activity reads.
+- Bounded in-memory rate limiting for authentication, password recovery and session-security burst protection, account verification burst protection, seller verification and operations review, administrative access/role changes, profile/export/closure operations, listings, listing editing, listing renewal, listing media, messages, conversations, offers, market actions, fulfilment transitions, signed payment events, and protected activity reads.
 - Authenticated listing creation, version-checked seller editing for every seller-editable listing field, seller-owned listing and media management, conversations, messages, persisted buyer offers, atomic seller decisions, accepted-offer orders, reviews, reporting, and permission-separated operations moderation actions.
 - Listing edits use a PostgreSQL monotonic `edit_version` trigger that advances on every listing update, owner-bound version-checked writes, explicit `409` conflicts, no-op detection, and immutable seller detail editing for reserved/sold/removed states.
+- Listing lifecycle and inventory controls with active-listing expiry, bounded renewal/reactivation, finite-stock normalization, durable accepted-offer inventory reservations, one-unit decrement/restoration, sold-out enforcement, order-bound reservation consumption, abandoned-reservation expiry, database-enforced reservation deadlines, and a separately supervised lifecycle worker using PostgreSQL advisory locking and bounded `SKIP LOCKED` sweeps.
 - Same-origin web session cookies with automatic refresh rotation and one-retry authenticated proxy transport.
-- Live bilingual web email/phone registration, login, password recovery/reset, password/session security, profile/privacy/business/avatar/export/account-lifecycle controls, contact verification, seller verification, operations verification review, administrative role/permission management, account, public marketplace, listing detail, Sell, My Listings, optimistic-concurrency listing editing, seller photo galleries, marketplace activity, order history/detail, conversation inbox, message-history, Message seller, and Make offer interfaces.
+- Live bilingual web email/phone registration, login, password recovery/reset, password/session security, profile/privacy/business/avatar/export/account-lifecycle controls, contact verification, seller verification, operations verification review, administrative role/permission management, account, public marketplace, listing detail, Sell, My Listings, optimistic-concurrency listing editing, listing expiry/renewal/inventory management, seller photo galleries, marketplace activity, order history/detail, conversation inbox, message-history, Message seller, and Make offer interfaces.
 - Public active-listing image delivery through API-owned URLs plus owner-only draft-image previews streamed through the authenticated same-origin web proxy.
 - Dedicated challenge actions for password-reset requests, seller-verification starts, listing creation, listing editing, listing status changes, media upload, and media deletion; verified mutations do not reuse unrelated challenge tokens.
 - Complete bilingual catalogue filtering across API, web, and mobile: text, category, condition, availability, bounded price and currency, country, region, city, suburb, pickup/delivery mode, and newest or price sorting.
 - Filter-bound opaque catalogue cursors with deterministic price/date/identifier ordering, legacy newest-cursor compatibility, strict mobile response parsing, and active-listing search indexes.
 - Participant-only buyer and seller activity records with derived payment and fulfilment progress.
-- Buyer-owned pending-order cancellation across API, web, and mobile with atomic order, offer, listing, and payment-context synchronization.
+- Buyer-owned pending-order cancellation across API, web, and mobile with atomic order, offer, listing, payment-context, and inventory-reservation synchronization.
 - One-to-one order, provider-neutral payment-intent, and fulfilment linkage with participant-only status reads and disabled collection/release capabilities.
 - Disabled-by-default HMAC-authenticated payment-event ingestion with durable replay protection and a single controlled `payment.held` transition from pending/created states to paid/held.
 - Paid-order fulfilment transitions plus bilingual web and mobile controls for seller readiness/shipping and buyer receipt confirmation, with held-payment/provider-evidence requirements and no automatic fund release.
-- Mobile email/phone authentication, password recovery/reset, password/session security, native profile/business/privacy editing, password-confirmed account closure/deletion, secure profile handoff for avatar/export, account contact verification, native seller-verification status, bounded seller-verification initiation/handoff, listing creation, optimistic-concurrency listing editing, listing-photo galleries, conversation, order activity, checkout preparation, cancellation, and fulfilment controls with CI coverage.
+- Mobile email/phone authentication, password recovery/reset, password/session security, native profile/business/privacy editing, password-confirmed account closure/deletion, secure profile handoff for avatar/export, account contact verification, native seller-verification status, bounded seller-verification initiation/handoff, listing creation, optimistic-concurrency listing editing, native expiry/renewal/inventory management, listing-photo galleries, conversation, order activity, checkout preparation, cancellation, and fulfilment controls with CI coverage.
 - Mobile seller listing editing runs natively when browser challenge verification is disabled; challenge-enabled environments use an exact localized secure web edit route containing only the validated listing UUID and no credentials, account data, edit version, challenge value, or form state.
 - Mobile seller-photo previews through owner-only bearer-authenticated URLs, one-image native upload/deletion when challenge verification is disabled, and exact secure-web handoff when browser verification is required.
-- PostgreSQL/PostGIS schema, seeded marketplace categories, manifest-ordered checksum migration ledger, verified legacy adoption, canonical E.164 phone constraint/migration, private-profile backfill and insert trigger, seller-verification event ledger, durable administrative role/permission/assignment schema, listing edit-version trigger, local Docker infrastructure, pre-review validation, and a required pull-request/main quality gate.
+- PostgreSQL/PostGIS schema, seeded marketplace categories, manifest-ordered checksum migration ledger, verified legacy adoption, canonical E.164 phone constraint/migration, private-profile backfill and insert trigger, seller-verification event ledger, durable administrative role/permission/assignment schema, listing edit-version trigger, listing inventory-reservation ledger and lifecycle guards, local Docker infrastructure, pre-review validation, and a required pull-request/main quality gate.
 
 ## Explicitly deferred
 
 - Timed sales and bidding are not exposed through the API.
 - Buyer and seller dispute submission is not exposed through the API.
 - Descriptive business-profile fields alone do not indicate seller identity or business verification; only the reviewed verification lifecycle does.
+- Post-payment cancellation, refund, partial refund, chargeback, release, and compliance-hold inventory policy remains deferred to the payment-state implementation rather than being inferred from incomplete payment semantics.
 - Reserved schema objects for still-deferred capabilities do not indicate product availability.
 - Reintroduction requirements are defined in `DEFERRED_MARKETPLACE_FEATURES.md`.
 
@@ -60,35 +62,42 @@
 19. The first platform administrator is created once from a trusted deployment shell. Later role grants/revocations require `roles.manage`, reject self-role changes and privilege escalation, retain assignment history, and write protected audit records. Moderation-only staff cannot suspend an account that carries an active administrative role.
 20. Sellers create listing drafts through a challenge-bound form. In challenge-enabled deployments, images are added afterward so each upload receives its own media-specific verification.
 21. Draft, active, and expired listings can be opened in an owner-only edit form covering category, title, description, price/currency, condition, availability/quantity/unit, privacy-safe location fields, and pickup/delivery options. The form submits the version it loaded; an intervening listing update returns `409` and requires an explicit reload rather than overwriting newer state.
-22. The listing version is advanced by a database trigger on every listing update, so status, moderation, order, or later lifecycle changes also invalidate stale editor snapshots. Reserved, sold, and removed listings are not seller-editable.
+22. The listing version is advanced by a database trigger on every listing update, so status, moderation, order, inventory, or lifecycle changes also invalidate stale editor snapshots. Reserved, sold, and removed listings are not seller-editable.
 23. Mobile performs the same edit natively when browser verification is disabled. When verification is enabled, the app opens only `/{locale}/sell/manage/{listingId}/edit` and never puts access credentials, account data, edit versions, challenge values, or form fields into the URL.
-24. Sellers preview draft and published galleries through owner-only URLs, add images up to the eight-photo limit, and delete individual images unless the listing is sold or removed.
-25. Mobile sellers can preview those same owner-only galleries. Native upload and deletion run only when challenge verification is disabled; otherwise the app opens the exact localized secure photo manager without placing credentials, listing IDs, or challenge values in the URL.
-26. Mobile binary uploads inherit access-token refresh and one-retry session behavior while preserving the original bytes and protected content type.
-27. Buyers can start the listing conversation or submit one idempotent pending offer.
-28. Sellers review incoming offers and atomically accept or reject them.
-29. Accepting reserves the listing and rejects competing pending offers.
-30. Buyers may cancel only pending offers or create one order from an accepted offer.
-31. Order participants, amount, currency, payment method, and listing are derived from persisted records rather than client input.
-32. Order creation atomically establishes one payment intent and one fulfilment record without collecting funds.
-33. Buyers may irreversibly cancel eligible unpaid orders, which cancels the accepted offer, reactivates the listing, and synchronizes the payment context.
-34. When an approved provider integration is configured, a signed and time-bounded `payment.held` event may atomically move only a matching pending order and eligible payment intent to paid/held.
-35. Payment-event retries are accepted only when the provider event identifier and semantic payload match the durable replay ledger; conflicting replays are rejected.
-36. Buyers and sellers can open participant-only order history, detail, and payment-context views with lifecycle progress.
-37. Eligible sellers can mark readiness for pickup or submit bounded shipment evidence on web or mobile after verified held payment.
-38. Eligible buyers can confirm receipt on web or mobile, with an explicit notice that confirmation does not release funds.
-39. Mobile native fulfilment mutations run only when challenge verification is disabled; challenge-enabled environments open the exact secure web order for browser verification without placing mobile credentials in the URL.
-40. My Listings loads only that seller's records and supports the API's allowed state transitions.
-41. Messages lists only conversations where the account is a participant.
-42. Conversation threads load protected history, acknowledge reads, and send idempotent challenge-bound messages.
-43. Expired access sessions rotate automatically and retry the protected request once.
+24. Active listings have an explicit expiry date. The lifecycle worker expires due listings, expires their still-pending offers, writes audit records, and advances the same listing version used by optimistic seller editing.
+25. Sellers can review expiry and inventory on web or mobile. An active listing can renew only inside the configured renewal window, while an expired listing can reactivate when it still has publishable inventory; renew/reactivate uses the loaded listing version and rejects stale state with `409`.
+26. Finite goods have non-negative durable inventory. Legacy omitted finite quantities normalize to one unit, zero inventory maps to `out_of_stock`, and service listings remain quantity-unlimited with a `NULL` inventory count.
+27. Sellers preview draft and published galleries through owner-only URLs, add images up to the eight-photo limit, and delete individual images unless the listing is sold or removed.
+28. Mobile sellers can preview those same owner-only galleries. Native upload and deletion run only when challenge verification is disabled; otherwise the app opens the exact localized secure photo manager without placing credentials, listing IDs, or challenge values in the URL.
+29. Mobile binary uploads inherit access-token refresh and one-retry session behavior while preserving the original bytes and protected content type.
+30. Buyers can start the listing conversation or submit one idempotent pending offer.
+31. Sellers review incoming offers and atomically accept or reject them.
+32. Accepting an offer creates a durable inventory reservation. Finite goods reserve and decrement one unit; service listings create a zero-quantity reservation. The existing marketplace transaction model still reserves the listing and rejects competing pending offers.
+33. When the final finite unit is reserved, the listing becomes `out_of_stock`. The accepted-offer reservation has a bounded pre-order deadline; an order cannot bind it after that deadline even if the lifecycle worker has not yet swept it.
+34. Buyers may cancel only pending offers or create one order from an accepted offer.
+35. Order participants, amount, currency, payment method, and listing are derived from persisted records rather than client input.
+36. Order creation atomically binds the accepted offer's inventory reservation and establishes one payment intent plus one fulfilment record without collecting funds.
+37. Buyers may irreversibly cancel eligible unpaid orders. Cancellation releases the reservation, restores exactly the finite unit that was reserved, cancels the accepted offer, synchronizes the payment context, and returns the listing to active only when its expiry is still valid.
+38. Accepted offers that never become orders are released by the lifecycle worker after their reservation deadline; finite stock is restored and the abandoned accepted offer becomes expired.
+39. The lifecycle worker is a separate supervised process (`worker:listings`) and uses a PostgreSQL advisory lock plus bounded `FOR UPDATE SKIP LOCKED` work so duplicate workers do not apply the same sweep concurrently.
+40. When an approved provider integration is configured, a signed and time-bounded `payment.held` event may atomically move only a matching pending order and eligible payment intent to paid/held.
+41. Payment-event retries are accepted only when the provider event identifier and semantic payload match the durable replay ledger; conflicting replays are rejected.
+42. Buyers and sellers can open participant-only order history, detail, and payment-context views with lifecycle progress.
+43. Eligible sellers can mark readiness for pickup or submit bounded shipment evidence on web or mobile after verified held payment.
+44. Eligible buyers can confirm receipt on web or mobile, with an explicit notice that confirmation does not release funds.
+45. Mobile native fulfilment mutations run only when challenge verification is disabled; challenge-enabled environments open the exact secure web order for browser verification without placing mobile credentials in the URL.
+46. My Listings loads only that seller's records and exposes editing, status, media, and expiry/renewal/inventory lifecycle controls through owner-bound APIs.
+47. Messages lists only conversations where the account is a participant.
+48. Conversation threads load protected history, acknowledge reads, and send idempotent challenge-bound messages.
+49. Expired access sessions rotate automatically and retry the protected request once.
 
 ## Next implementation targets
 
-- Add listing expiry, renewal/reactivation, inventory lifecycle, and scheduled jobs.
+- Implement saved listings, watchlists, recently viewed items, and saved-search notifications.
+- Implement true PostGIS nearby/radius search while preserving privacy-safe location precision.
+- Add block/mute controls, message reporting, attachment policy, spam controls, and moderation visibility for conversations.
+- Add durable notification delivery for in-app events plus approved external delivery providers.
 - Real protected-checkout provider integration and payment collection that can produce the already-defined signed held-payment event.
 - Separately authorized controlled release, refund, dispute, and compliance-hold event policies.
 - Shared production rate-limit storage for multi-instance deployments.
-- Optional digital-currency provider selection with compliance review.
 - Generate native Android and iOS projects and complete release-signing pipelines.
-- Final production logo and app-icon exports.
