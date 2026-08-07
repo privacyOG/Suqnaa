@@ -135,6 +135,16 @@ Future<void> scrollToSave(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> scrollToHeader(WidgetTester tester) async {
+  for (var attempt = 0; attempt < 4 && find.textContaining('Version:').evaluate().isEmpty; attempt += 1) {
+    await tester.drag(
+      find.byType(Scrollable).first,
+      const Offset(0, 900),
+    );
+    await tester.pumpAndSettle();
+  }
+}
+
 void main() {
   testWidgets('native edit submits every field with the loaded version', (tester) async {
     final listingGateway = FakeListingGateway();
@@ -161,6 +171,8 @@ void main() {
     expect(listingGateway.lastInput?['allowPickup'], isTrue);
     expect(listingGateway.lastInput?['allowDelivery'], isFalse);
     expect(handoff.calls, 0);
+
+    await scrollToHeader(tester);
     expect(find.textContaining('Version: 6'), findsOneWidget);
   });
 
