@@ -4,7 +4,8 @@ import { closeDb, db } from '../db/index.js';
 import type { ListingMediaStorage } from '../media/listing-media-storage.js';
 import { hashPassword } from '../security/password.js';
 import { saveAccountProfile } from './mutation.js';
-import { buildAccountExport, closeAccount, readAccountProfile, readPublicProfile } from './service.js';
+import { readVisiblePublicProfile } from './public-profile.js';
+import { buildAccountExport, closeAccount, readAccountProfile } from './service.js';
 
 const closeUserId = randomUUID();
 const deleteUserId = randomUUID();
@@ -53,6 +54,13 @@ try {
     }
   ]).execute();
 
+  const automaticProfile = await db.selectFrom('user_profiles')
+    .select(['profile_visibility'])
+    .where('user_id', '=', closeUserId)
+    .executeTakeFirstOrThrow();
+  assert.equal(automaticProfile.profile_visibility, 'private');
+  assert.equal(await readVisiblePublicProfile(closeUserId), null);
+
   assert.equal(await saveAccountProfile(closeUserId, {
     displayName: 'Updated Close Profile',
     bio: 'Public marketplace bio',
@@ -74,7 +82,7 @@ try {
   assert.equal(ownerProfile?.profile.city, 'Sydney');
   assert.equal(ownerProfile?.profile.isBusiness, true);
 
-  const publicProfile = await readPublicProfile(closeUserId);
+  const publicProfile = await readVisiblePublicProfile(closeUserId);
   assert.equal(publicProfile?.displayName, 'Updated Close Profile');
   assert.equal(publicProfile?.city, null);
   assert.equal(publicProfile?.countryCode, 'AU');
@@ -115,10 +123,9 @@ try {
   assert.equal(closedUser.email, 'profile-close@example.test');
   assert.ok(closedUser.password_hash);
   assert.ok(closedUser.closed_at);
-  assert.equal(await readPublicProfile(closeUserId), null);
+  assert.equal(await readVisiblePublicProfile(closeUserId), null);
 
-  await db.insertInto('user_profiles').values({
-    user_id: deleteUserId,
+  await db.updateTable('user_profiles').set({
     avatar_object_key: `profile-avatars/${deleteUserId}/avatar.webp`,
     avatar_mime_type: 'image/webp',
     avatar_size_bytes: 128,
@@ -135,9 +142,8 @@ try {
     show_country: true,
     show_business_details: true,
     show_avatar: true,
-    created_at: now,
     updated_at: now
-  }).execute();
+  }).where('user_id', '=', deleteUserId).execute();
 
   const invalid = await closeAccount({
     userId: deleteUserId,
