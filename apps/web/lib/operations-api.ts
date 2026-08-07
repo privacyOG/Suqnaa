@@ -1,7 +1,7 @@
 import { getAuthed, postAuthed, type JsonBody } from './authed-api';
 
 export type OperationsQueueStatus = 'open' | 'closed' | 'all';
-export type OperationsQueueResult = 'no_change' | 'changed_listing' | 'changed_account' | 'other';
+export type OperationsQueueResult = 'no_change' | 'other';
 export type OperationsListingStatus = 'draft' | 'active' | 'reserved' | 'sold' | 'expired' | 'removed';
 export type OperationsAccountStatus = 'active' | 'suspended';
 
@@ -49,7 +49,7 @@ export interface CompleteOperationsQueueResponse {
     id: string;
     status: 'closed';
     resolvedAt: string;
-    reviewAction: OperationsQueueResult;
+    reviewAction: string;
   };
 }
 

@@ -37,6 +37,9 @@ export default function OperationsPage({
             <a className="button-secondary" href={`/${params.locale}/operations/verifications`}>
               {isArabic ? 'مراجعات تحقق البائع' : 'Seller verification reviews'}
             </a>
+            <a className="button-secondary" href={`/${params.locale}/operations/access`}>
+              {isArabic ? 'الأدوار والصلاحيات' : 'Roles and permissions'}
+            </a>
           </div>
         </div>
       </section>

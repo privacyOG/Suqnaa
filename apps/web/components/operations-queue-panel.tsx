@@ -20,8 +20,6 @@ export interface OperationsQueuePanelProps {
 
 const resultOptions: OperationsQueueResult[] = [
   'no_change',
-  'changed_listing',
-  'changed_account',
   'other'
 ];
 
@@ -223,38 +221,14 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
             </div>
 
             <dl className="listing-facts">
-              <div>
-                <dt>{isArabic ? 'الحالة' : 'Status'}</dt>
-                <dd>{item.status}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'الإعلان' : 'Listing'}</dt>
-                <dd>{item.listingTitle || shortId(item.listingId)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'حالة الإعلان' : 'Listing status'}</dt>
-                <dd>{statusLabel(item.listingStatus)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'الحساب' : 'Account'}</dt>
-                <dd>{displayName(item.subjectUserName, item.subjectUserId)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'حالة الحساب' : 'Account status'}</dt>
-                <dd>{statusLabel(item.subjectUserStatus)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'المبلّغ' : 'Reporter'}</dt>
-                <dd>{displayName(item.reporterName, item.reporterId)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'حالة المبلّغ' : 'Reporter status'}</dt>
-                <dd>{statusLabel(item.reporterStatus)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'التاريخ' : 'Created'}</dt>
-                <dd>{formatDate(item.createdAt, locale)}</dd>
-              </div>
+              <div><dt>{isArabic ? 'الحالة' : 'Status'}</dt><dd>{item.status}</dd></div>
+              <div><dt>{isArabic ? 'الإعلان' : 'Listing'}</dt><dd>{item.listingTitle || shortId(item.listingId)}</dd></div>
+              <div><dt>{isArabic ? 'حالة الإعلان' : 'Listing status'}</dt><dd>{statusLabel(item.listingStatus)}</dd></div>
+              <div><dt>{isArabic ? 'الحساب' : 'Account'}</dt><dd>{displayName(item.subjectUserName, item.subjectUserId)}</dd></div>
+              <div><dt>{isArabic ? 'حالة الحساب' : 'Account status'}</dt><dd>{statusLabel(item.subjectUserStatus)}</dd></div>
+              <div><dt>{isArabic ? 'المبلّغ' : 'Reporter'}</dt><dd>{displayName(item.reporterName, item.reporterId)}</dd></div>
+              <div><dt>{isArabic ? 'حالة المبلّغ' : 'Reporter status'}</dt><dd>{statusLabel(item.reporterStatus)}</dd></div>
+              <div><dt>{isArabic ? 'التاريخ' : 'Created'}</dt><dd>{formatDate(item.createdAt, locale)}</dd></div>
             </dl>
 
             {item.status === 'open' ? (
@@ -264,15 +238,10 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
                     <label>
                       {isArabic ? 'تغيير حالة الإعلان' : 'Set listing status'}
                       <select name="listingStatus" defaultValue={item.listingStatus ?? 'removed'}>
-                        {listingStatusOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
+                        {listingStatusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     </label>
-                    <label>
-                      {isArabic ? 'ملاحظة' : 'Note'}
-                      <textarea name="listingNote" rows={2} maxLength={1200} />
-                    </label>
+                    <label>{isArabic ? 'ملاحظة' : 'Note'}<textarea name="listingNote" rows={2} maxLength={1200} /></label>
                     <button className="button-primary" type="submit" disabled={busyItem === item.id}>
                       {isArabic ? 'حفظ حالة الإعلان' : 'Save listing status'}
                     </button>
@@ -284,15 +253,10 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
                     <label>
                       {isArabic ? 'تغيير حالة الحساب' : 'Set account status'}
                       <select name="accountStatus" defaultValue={item.subjectUserStatus === 'active' ? 'suspended' : 'active'}>
-                        {accountStatusOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
+                        {accountStatusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     </label>
-                    <label>
-                      {isArabic ? 'ملاحظة' : 'Note'}
-                      <textarea name="accountNote" rows={2} maxLength={1200} />
-                    </label>
+                    <label>{isArabic ? 'ملاحظة' : 'Note'}<textarea name="accountNote" rows={2} maxLength={1200} /></label>
                     <button className="button-primary" type="submit" disabled={busyItem === item.id}>
                       {isArabic ? 'حفظ حالة الحساب' : 'Save account status'}
                     </button>
@@ -303,15 +267,10 @@ export function OperationsQueuePanel({ locale }: OperationsQueuePanelProps) {
                   <label>
                     {isArabic ? 'إغلاق بدون تغيير' : 'Close without status change'}
                     <select name="result" defaultValue="no_change">
-                      {resultOptions.map((result) => (
-                        <option key={result} value={result}>{result}</option>
-                      ))}
+                      {resultOptions.map((result) => <option key={result} value={result}>{result}</option>)}
                     </select>
                   </label>
-                  <label>
-                    {isArabic ? 'ملاحظة' : 'Note'}
-                    <textarea name="note" rows={2} maxLength={1200} />
-                  </label>
+                  <label>{isArabic ? 'ملاحظة' : 'Note'}<textarea name="note" rows={2} maxLength={1200} /></label>
                   <button className="button-secondary" type="submit" disabled={busyItem === item.id}>
                     {busyItem === item.id
                       ? (isArabic ? 'جارٍ الحفظ…' : 'Saving…')
