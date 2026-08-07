@@ -18,9 +18,16 @@ export class ListingLifecycleError extends Error {
   }
 }
 
+function renewalAvailableAt(expiresAt: Date | string | null, renewalWindowDays: number): Date | null {
+  if (!expiresAt) return null;
+  const expiry = new Date(expiresAt);
+  return new Date(expiry.getTime() - renewalWindowDays * 24 * 60 * 60 * 1000);
+}
+
 function serializeLifecycleListing(row: Record<string, any>) {
   return {
     id: String(row.id),
+    title: row.title === undefined ? undefined : String(row.title),
     status: String(row.status),
     availabilityStatus: String(row.availability_status),
     availableQuantity: row.available_quantity === null ? null : Number(row.available_quantity),
@@ -28,6 +35,52 @@ function serializeLifecycleListing(row: Record<string, any>) {
     lastRenewedAt: row.last_renewed_at ?? null,
     version: Number(row.edit_version),
     updatedAt: row.updated_at
+  };
+}
+
+export async function readSellerListingLifecycle(input: {
+  userId: string;
+  listingId: string;
+  now?: Date;
+}) {
+  const configuration = resolveListingLifecycleConfiguration();
+  const now = input.now ?? new Date();
+  const listing = await db.selectFrom('listings')
+    .select([
+      'id',
+      'title',
+      'seller_id',
+      'status',
+      'availability_status',
+      'available_quantity',
+      'expires_at',
+      'last_renewed_at',
+      'edit_version',
+      'updated_at'
+    ])
+    .where('id', '=', input.listingId)
+    .where('seller_id', '=', input.userId)
+    .executeTakeFirst();
+
+  if (!listing) {
+    throw new ListingLifecycleError('listing_not_found', 404, 'Listing not found');
+  }
+
+  const status = String(listing.status);
+  const renewalAt = renewalAvailableAt(listing.expires_at ?? null, configuration.renewalWindowDays);
+  const stockReady = canPublishInventory({
+    availabilityStatus: String(listing.availability_status),
+    availableQuantity: listing.available_quantity === null ? null : Number(listing.available_quantity)
+  });
+  const renewable = status === 'expired'
+    ? stockReady
+    : status === 'active' && stockReady && (!renewalAt || now.getTime() >= renewalAt.getTime());
+
+  return {
+    listing: serializeLifecycleListing(listing),
+    renewable,
+    renewalAvailableAt: renewalAt?.toISOString() ?? null,
+    activeDays: configuration.activeDays
   };
 }
 
@@ -82,23 +135,18 @@ export async function renewOrReactivateListing(input: {
     }
 
     if (status === 'active') {
-      const currentExpiry = listing.expires_at ? new Date(listing.expires_at) : null;
-      if (currentExpiry) {
-        const renewalAvailableAt = new Date(
-          currentExpiry.getTime() - configuration.renewalWindowDays * 24 * 60 * 60 * 1000
+      const renewalAt = renewalAvailableAt(listing.expires_at ?? null, configuration.renewalWindowDays);
+      if (renewalAt && now.getTime() < renewalAt.getTime()) {
+        throw new ListingLifecycleError(
+          'renewal_too_early',
+          409,
+          'Listing is not yet within its renewal window',
+          {
+            currentVersion: Number(listing.edit_version),
+            currentStatus: status,
+            renewalAvailableAt: renewalAt.toISOString()
+          }
         );
-        if (now.getTime() < renewalAvailableAt.getTime()) {
-          throw new ListingLifecycleError(
-            'renewal_too_early',
-            409,
-            'Listing is not yet within its renewal window',
-            {
-              currentVersion: Number(listing.edit_version),
-              currentStatus: status,
-              renewalAvailableAt: renewalAvailableAt.toISOString()
-            }
-          );
-        }
       }
     }
 
