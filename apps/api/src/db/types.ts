@@ -35,6 +35,7 @@ export interface Database {
   account_contact_verifications: TableShape;
   password_reset_tokens: TableShape;
   verification_checks: TableShape;
+  verification_provider_events: TableShape;
   categories: TableShape;
   listings: TableShape;
   listing_media: TableShape;
