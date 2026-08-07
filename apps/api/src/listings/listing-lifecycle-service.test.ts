@@ -316,7 +316,16 @@ try {
 
   console.log('Listing lifecycle and inventory service tests passed.');
 } finally {
-  await db.deleteFrom('transactions').where('seller_id', '=', sellerId).execute();
+  const orderRows = await db.selectFrom('transactions')
+    .select(['id'])
+    .where('seller_id', '=', sellerId)
+    .execute();
+  const orderIds = orderRows.map((row) => String(row.id));
+  if (orderIds.length > 0) {
+    await db.deleteFrom('payment_intents').where('transaction_id', 'in', orderIds).execute();
+    await db.deleteFrom('fulfilments').where('transaction_id', 'in', orderIds).execute();
+    await db.deleteFrom('transactions').where('id', 'in', orderIds).execute();
+  }
   await db.deleteFrom('offers').where('buyer_id', '=', buyerId).execute();
   await db.deleteFrom('listings').where('seller_id', '=', sellerId).execute();
   await db.deleteFrom('users').where('id', 'in', [sellerId, buyerId]).execute();
