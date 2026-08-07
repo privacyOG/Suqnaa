@@ -9,10 +9,7 @@ export function generateVerificationCode(): string {
 
 export function normalizeVerificationCode(value: string): string {
   const normalized = value.trim().replace(/\s+/g, '');
-  if (!verificationCodePattern.test(normalized)) {
-    throw new Error('Verification code must contain exactly six digits');
-  }
-  return normalized;
+  return verificationCodePattern.test(normalized) ? normalized : '';
 }
 
 export function contactFingerprint(
