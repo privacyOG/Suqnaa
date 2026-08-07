@@ -37,22 +37,37 @@ export interface AdministrativeRoleMutationInput extends JsonBody {
   reason?: string;
 }
 
+export interface AdministrativeRoleMutationResponse {
+  assignment: {
+    assignmentId: string;
+    roleKey: string;
+    grantedAt?: string;
+    revokedAt?: string;
+  };
+}
+
 export function getAdministrativeAccess(): Promise<AdministrativeAccessResponse> {
-  return getAuthed('/v1/operations/access/me');
+  return getAuthed<AdministrativeAccessResponse>('/v1/operations/access/me');
 }
 
 export function getAdministrativeRoles(): Promise<{ roles: AdministrativeRole[] }> {
-  return getAuthed('/v1/operations/access/roles');
+  return getAuthed<{ roles: AdministrativeRole[] }>('/v1/operations/access/roles');
 }
 
 export function getAdministrativeAssignments(): Promise<{ assignments: AdministrativeAssignment[] }> {
-  return getAuthed('/v1/operations/access/assignments');
+  return getAuthed<{ assignments: AdministrativeAssignment[] }>('/v1/operations/access/assignments');
 }
 
-export function grantAdministrativeRole(userId: string, input: AdministrativeRoleMutationInput) {
-  return postAuthed(`/v1/operations/access/users/${userId}/grant`, input);
+export function grantAdministrativeRole(
+  userId: string,
+  input: AdministrativeRoleMutationInput
+): Promise<AdministrativeRoleMutationResponse> {
+  return postAuthed<AdministrativeRoleMutationResponse>(`/v1/operations/access/users/${userId}/grant`, input);
 }
 
-export function revokeAdministrativeRole(userId: string, input: AdministrativeRoleMutationInput) {
-  return postAuthed(`/v1/operations/access/users/${userId}/revoke`, input);
+export function revokeAdministrativeRole(
+  userId: string,
+  input: AdministrativeRoleMutationInput
+): Promise<AdministrativeRoleMutationResponse> {
+  return postAuthed<AdministrativeRoleMutationResponse>(`/v1/operations/access/users/${userId}/revoke`, input);
 }
