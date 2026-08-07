@@ -42,7 +42,7 @@ const provider = createVerificationDeliveryProvider(
     capturedUrl = input.toString();
     capturedAuthorization = new Headers(init?.headers).get('authorization') ?? '';
     capturedBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
-    return new Response('', { status: 204 });
+    return new Response(null, { status: 204 });
   }
 );
 
