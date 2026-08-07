@@ -124,7 +124,24 @@ CREATE OR REPLACE FUNCTION enforce_listing_lifecycle_state()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  previous_status text;
 BEGIN
+  previous_status := CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.status::text END;
+
+  IF NEW.availability_status = 'service_available' THEN
+    NEW.available_quantity := NULL;
+  ELSE
+    IF NEW.available_quantity IS NULL THEN
+      NEW.available_quantity := 1;
+    END IF;
+    IF NEW.available_quantity = 0 THEN
+      NEW.availability_status := 'out_of_stock';
+    ELSIF NEW.availability_status = 'out_of_stock' THEN
+      NEW.availability_status := 'in_stock';
+    END IF;
+  END IF;
+
   IF NEW.status = 'sold' AND NEW.availability_status <> 'service_available' THEN
     NEW.available_quantity := 0;
     NEW.availability_status := 'out_of_stock';
@@ -132,21 +149,24 @@ BEGIN
 
   IF NEW.status = 'active' THEN
     IF NEW.availability_status <> 'service_available' AND COALESCE(NEW.available_quantity, 0) <= 0 THEN
-      IF OLD.status = 'active' THEN
+      IF previous_status = 'active' THEN
         NEW.status := 'reserved';
       ELSE
         RAISE EXCEPTION 'Listing cannot be activated without available inventory';
       END IF;
     END IF;
 
-    IF NEW.status = 'active' AND OLD.status = 'draft' THEN
+    IF NEW.status = 'active' AND TG_OP = 'INSERT' THEN
       NEW.published_at := COALESCE(NEW.published_at, now());
       NEW.expires_at := COALESCE(NEW.expires_at, now() + interval '30 days');
-    ELSIF NEW.status = 'active' AND OLD.status = 'expired' THEN
+    ELSIF NEW.status = 'active' AND previous_status = 'draft' THEN
+      NEW.published_at := COALESCE(NEW.published_at, now());
+      NEW.expires_at := COALESCE(NEW.expires_at, now() + interval '30 days');
+    ELSIF NEW.status = 'active' AND previous_status = 'expired' THEN
       NEW.published_at := now();
       NEW.expires_at := now() + interval '30 days';
       NEW.last_renewed_at := now();
-    ELSIF NEW.status = 'active' AND OLD.status = 'reserved' AND OLD.expires_at IS NOT NULL AND OLD.expires_at <= now() THEN
+    ELSIF NEW.status = 'active' AND previous_status = 'reserved' AND OLD.expires_at IS NOT NULL AND OLD.expires_at <= now() THEN
       NEW.status := 'expired';
     END IF;
   END IF;
@@ -157,7 +177,7 @@ $$;
 
 DROP TRIGGER IF EXISTS listings_lifecycle_state_guard ON listings;
 CREATE TRIGGER listings_lifecycle_state_guard
-BEFORE UPDATE ON listings
+BEFORE INSERT OR UPDATE ON listings
 FOR EACH ROW
 EXECUTE FUNCTION enforce_listing_lifecycle_state();
 
