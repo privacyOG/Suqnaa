@@ -252,7 +252,7 @@ export async function revokeAdministrativeRole(input: {
 
     if (role.role_key === platformAdministratorRole) {
       const administrators = await trx.selectFrom('admin_role_assignments')
-        .select(({ fn }: any) => fn.countAll().as('count'))
+        .select(sql<string>`count(*)`.as('count'))
         .where('role_id', '=', role.id)
         .where('revoked_at', 'is', null)
         .executeTakeFirstOrThrow();
