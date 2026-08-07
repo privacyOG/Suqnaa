@@ -7,13 +7,17 @@ import {
 } from '../lib/challenge-api';
 import {
   PasswordRecoveryError,
-  requestPasswordReset
+  requestPasswordReset,
+  type PasswordRecoveryContact
 } from '../lib/password-security-api';
 import { ChallengeProviderScript } from './challenge-provider-script';
 import { ChallengeWidget } from './challenge-widget';
 
+type ContactMode = 'email' | 'phone';
+
 export function ForgotPasswordForm({ locale }: { locale: string }) {
   const isArabic = locale === 'ar';
+  const [contactMode, setContactMode] = useState<ContactMode>('email');
   const [configuration, setConfiguration] = useState<ChallengeConfiguration | null>(null);
   const [configurationError, setConfigurationError] = useState(false);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
@@ -47,12 +51,15 @@ export function ForgotPasswordForm({ locale }: { locale: string }) {
     if (!configurationReady || !challengeReady || busy) return;
 
     const form = new FormData(event.currentTarget);
-    const email = String(form.get('email') ?? '').trim().toLowerCase();
+    const rawContact = String(form.get('contact') ?? '').trim();
+    const contact: PasswordRecoveryContact = contactMode === 'email'
+      ? { email: rawContact.toLowerCase() }
+      : { phone: rawContact };
     setBusy(true);
     setError(null);
 
     try {
-      await requestPasswordReset(email, challengeToken ?? undefined);
+      await requestPasswordReset(contact, challengeToken ?? undefined);
       setAccepted(true);
     } catch (caught) {
       if (caught instanceof PasswordRecoveryError && caught.status === 429) {
@@ -63,6 +70,8 @@ export function ForgotPasswordForm({ locale }: { locale: string }) {
         );
       } else if (caught instanceof PasswordRecoveryError && caught.status === 403) {
         setError(isArabic ? 'تعذر التحقق من الفحص الأمني.' : 'The security check could not be verified.');
+      } else if (caught instanceof PasswordRecoveryError && caught.status === 400 && contactMode === 'phone') {
+        setError(isArabic ? 'أدخل رقم الهاتف بالصيغة الدولية، مثال: +61412345678.' : 'Enter the phone number in international format, for example +61412345678.');
       } else {
         setError(isArabic ? 'تعذر إرسال طلب الاستعادة حالياً.' : 'The recovery request could not be submitted right now.');
       }
@@ -85,8 +94,8 @@ export function ForgotPasswordForm({ locale }: { locale: string }) {
       <div className="form-grid">
         <p className="auth-status" role="status">
           {isArabic
-            ? 'إذا كان البريد الإلكتروني مرتبطاً بحساب، فسيتم إرسال تعليمات إعادة تعيين كلمة المرور. لا نؤكد ما إذا كان الحساب موجوداً.'
-            : 'If that email is linked to an account, password-reset instructions will be sent. We do not confirm whether an account exists.'}
+            ? 'إذا كانت وسيلة الاتصال مرتبطة بحساب، فسيتم إرسال تعليمات إعادة تعيين كلمة المرور. لا نؤكد ما إذا كان الحساب موجوداً.'
+            : 'If that contact detail is linked to an account, password-reset instructions will be sent. We do not confirm whether an account exists.'}
         </p>
         <a className="button-secondary" href={`/${locale}/account/reset-password`}>
           {isArabic ? 'لدي رمز إعادة التعيين' : 'I have a reset token'}
@@ -98,8 +107,27 @@ export function ForgotPasswordForm({ locale }: { locale: string }) {
   return (
     <form className="form-grid" onSubmit={submit}>
       <label>
-        {isArabic ? 'البريد الإلكتروني' : 'Email'}
-        <input name="email" type="email" autoComplete="email" required placeholder="you@example.com" />
+        {isArabic ? 'طريقة الاستعادة' : 'Recovery method'}
+        <select value={contactMode} onChange={(event) => setContactMode(event.target.value as ContactMode)}>
+          <option value="email">{isArabic ? 'البريد الإلكتروني' : 'Email'}</option>
+          <option value="phone">{isArabic ? 'رقم الهاتف' : 'Phone'}</option>
+        </select>
+      </label>
+
+      <label>
+        {contactMode === 'email' ? (isArabic ? 'البريد الإلكتروني' : 'Email') : (isArabic ? 'رقم الهاتف الدولي' : 'International phone number')}
+        <input
+          key={contactMode}
+          name="contact"
+          type={contactMode === 'email' ? 'email' : 'tel'}
+          autoComplete={contactMode === 'email' ? 'email' : 'tel'}
+          dir="ltr"
+          required
+          placeholder={contactMode === 'email' ? 'you@example.com' : '+61412345678'}
+        />
+        {contactMode === 'phone' ? (
+          <span className="field-help">{isArabic ? 'استخدم + ورمز الدولة.' : 'Use + and the country code.'}</span>
+        ) : null}
       </label>
 
       {enabled && siteKey && action ? (
