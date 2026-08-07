@@ -29,6 +29,7 @@ assert.equal(enabled.siteKey, 'public-site-key');
 assert.deepEqual(enabled.actions, {
   accountLogin: 'account_login',
   accountRegister: 'account_register',
+  accountPasswordResetRequest: 'account_password_reset_request',
   listingCreate: 'listing_create',
   listingStatusUpdate: 'listing_status_update',
   listingMediaUpload: 'listing_media_upload',
