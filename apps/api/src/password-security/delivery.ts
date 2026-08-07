@@ -1,6 +1,11 @@
-import { maskVerificationDestination, type VerificationDeliveryMode } from '../account-verification/provider.js';
+import {
+  maskVerificationDestination,
+  type VerificationChannel,
+  type VerificationDeliveryMode
+} from '../account-verification/provider.js';
 
 export interface PasswordResetDeliveryInput {
+  channel: VerificationChannel;
   destination: string;
   token: string;
   expiresAt: Date;
@@ -55,7 +60,7 @@ class DisabledPasswordResetDeliveryProvider implements PasswordResetDeliveryProv
 class ConsolePasswordResetDeliveryProvider implements PasswordResetDeliveryProvider {
   async deliver(input: PasswordResetDeliveryInput): Promise<void> {
     console.info(
-      `[password-reset] destination=${maskVerificationDestination('email', input.destination)} token=${input.token} expires=${input.expiresAt.toISOString()}`
+      `[password-reset] channel=${input.channel} destination=${maskVerificationDestination(input.channel, input.destination)} token=${input.token} expires=${input.expiresAt.toISOString()}`
     );
   }
 }
@@ -81,7 +86,7 @@ class HttpPasswordResetDeliveryProvider implements PasswordResetDeliveryProvider
         },
         body: JSON.stringify({
           purpose: 'account_password_reset',
-          channel: 'email',
+          channel: input.channel,
           destination: input.destination,
           token: input.token,
           expiresAt: input.expiresAt.toISOString()
