@@ -28,7 +28,7 @@ export interface AccountProfilePayload {
   };
 }
 
-export interface AccountProfileUpdate {
+export interface AccountProfileUpdate extends Record<string, unknown> {
   displayName: string;
   bio: string | null;
   city: string | null;
@@ -42,6 +42,12 @@ export interface AccountProfileUpdate {
   showCountry: boolean;
   showBusinessDetails: boolean;
   showAvatar: boolean;
+}
+
+export interface AccountClosureInput extends Record<string, unknown> {
+  currentPassword: string;
+  mode: 'close' | 'delete';
+  acknowledgement: string;
 }
 
 export const accountProfilePath = '/v1/account/profile';
@@ -68,10 +74,6 @@ export function loadAccountExport(): Promise<Record<string, unknown>> {
   return getAuthed<Record<string, unknown>>(accountExportPath);
 }
 
-export async function submitAccountClosure(input: {
-  currentPassword: string;
-  mode: 'close' | 'delete';
-  acknowledgement: string;
-}): Promise<void> {
+export async function submitAccountClosure(input: AccountClosureInput): Promise<void> {
   await postAuthed(accountClosurePath, input);
 }
