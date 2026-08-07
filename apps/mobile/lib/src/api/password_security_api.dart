@@ -20,11 +20,19 @@ class PasswordSecurityApi {
   final AuthedApi _authedApi;
   final http.Client _client;
 
-  Future<void> requestPasswordReset(String email) async {
+  Future<void> requestPasswordReset(String email) {
+    return _requestPasswordReset({'email': email.trim().toLowerCase()});
+  }
+
+  Future<void> requestPhonePasswordReset(String phone) {
+    return _requestPasswordReset({'phone': phone.trim()});
+  }
+
+  Future<void> _requestPasswordReset(Map<String, String> contact) async {
     final response = await _client.post(
       baseUrl.resolve('/v1/auth/password/forgot'),
       headers: {'content-type': 'application/json'},
-      body: jsonEncode({'email': email.trim().toLowerCase()}),
+      body: jsonEncode(contact),
     );
     if (response.statusCode != 202) {
       throw PasswordRecoveryException(
