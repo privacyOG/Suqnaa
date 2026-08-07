@@ -19,6 +19,7 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: /^\/v1\/account\/profile$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/account\/profile\/avatar$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/account\/export$/, queryKeys: new Set() },
+  { method: 'GET', pattern: /^\/v1\/account\/seller-verification$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/account\/security\/sessions$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/conversations$/, queryKeys: new Set(['limit', 'before']) },
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/messages$`), queryKeys: new Set(['limit', 'before']) },
@@ -27,11 +28,13 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: new RegExp(`^/v1/listings/${uuid}/media/${uuid}/mine$`), queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/operations\/queue$/, queryKeys: new Set(['status', 'limit', 'before']) },
   { method: 'GET', pattern: /^\/v1\/operations\/records$/, queryKeys: new Set(['limit', 'before', 'action', 'entityType']) },
+  { method: 'GET', pattern: /^\/v1\/operations\/verifications$/, queryKeys: new Set(['status', 'providerResult', 'limit', 'before']) },
   { method: 'GET', pattern: new RegExp(`^/v1/market/orders/${uuid}/payment-context$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/profile$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/profile\/avatar\/upload$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/profile\/avatar\/delete$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/closure$/, queryKeys: new Set() },
+  { method: 'POST', pattern: /^\/v1\/account\/seller-verification\/start$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/security\/password$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/security\/sessions\/revoke-all$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/account/security/sessions/${uuid}/revoke$`), queryKeys: new Set() },
@@ -49,14 +52,14 @@ const rules: readonly RouteRule[] = [
   { method: 'POST', pattern: new RegExp(`^/v1/operations/queue/${uuid}/complete$`), queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/operations/queue/${uuid}/listing-status$`), queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/operations/queue/${uuid}/account-status$`), queryKeys: new Set() },
+  { method: 'POST', pattern: new RegExp(`^/v1/operations/verifications/${uuid}/review$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/reports$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/timed-sale$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/offers$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/orders$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/market/orders/${uuid}/cancel$`), queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/market/orders/${uuid}/fulfilment$`), queryKeys: new Set() },
-  { method: 'POST', pattern: /^\/v1\/market\/reviews$/, queryKeys: new Set() },
-  { method: 'POST', pattern: /^\/v1\/market\/identity-checks$/, queryKeys: new Set() }
+  { method: 'POST', pattern: /^\/v1\/market\/reviews$/, queryKeys: new Set() }
 ];
 
 function safeSegment(segment: string): boolean {
