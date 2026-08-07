@@ -306,12 +306,14 @@ export async function bootstrapPlatformAdministrator(userId: string) {
       .where('role_key', '=', platformAdministratorRole)
       .executeTakeFirstOrThrow();
     const existingAdministrator = await trx.selectFrom('admin_role_assignments')
-      .select(['id'])
-      .where('role_id', '=', role.id)
-      .where('revoked_at', 'is', null)
+      .innerJoin('users as assigned_user', 'assigned_user.id', 'admin_role_assignments.user_id')
+      .select(['admin_role_assignments.id as id'])
+      .where('admin_role_assignments.role_id', '=', role.id)
+      .where('admin_role_assignments.revoked_at', 'is', null)
+      .where('assigned_user.status', '=', 'active')
       .executeTakeFirst();
     if (existingAdministrator) {
-      throw new AdministrativeRoleError('bootstrap_closed', 409, 'A platform administrator already exists');
+      throw new AdministrativeRoleError('bootstrap_closed', 409, 'An active platform administrator already exists');
     }
 
     const now = new Date();
