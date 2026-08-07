@@ -87,7 +87,7 @@ async function run() {
     assert.deepEqual(JSON.parse(String(capturedInit?.body)), edit);
     assert.equal(saved.listing.version, 8);
 
-    await assert.rejects(() => getSellerListingForEdit('not-a-listing'), /UUID/);
+    assert.throws(() => getSellerListingForEdit('not-a-listing'), /UUID/);
     assert.throws(
       () => updateSellerListingDetails('not-a-listing', edit),
       /UUID/
