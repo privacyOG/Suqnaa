@@ -16,7 +16,8 @@ const apiBaseUrl =
   'http://localhost:4000';
 const defaultMaximumRequestBodyBytes = 64 * 1024;
 const legacyMediaMaximumRequestBodyBytes = 6 * 1024 * 1024;
-const binaryMediaMaximumRequestBodyBytes = 4 * 1024 * 1024;
+const listingMediaMaximumRequestBodyBytes = 4 * 1024 * 1024;
+const profileAvatarMaximumRequestBodyBytes = 2 * 1024 * 1024;
 const maximumChallengeLength = 2048;
 const supportedBinaryMediaTypes = new Set([
   'image/jpeg',
@@ -49,15 +50,25 @@ function errorResponse(message: string, status: number, retryAfter?: string): Ne
 function isBinaryMediaUploadRoute(
   route: NonNullable<ReturnType<typeof resolveProtectedRoute>>
 ): boolean {
-  return /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/upload$/.test(route.path);
+  return /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/upload$/.test(route.path) ||
+    route.path === '/v1/account/profile/avatar/upload';
+}
+
+function binaryMediaMaximumRequestBodyBytes(
+  route: NonNullable<ReturnType<typeof resolveProtectedRoute>>
+): number {
+  return route.path === '/v1/account/profile/avatar/upload'
+    ? profileAvatarMaximumRequestBodyBytes
+    : listingMediaMaximumRequestBodyBytes;
 }
 
 function isOwnerMediaDeliveryRoute(
   route: NonNullable<ReturnType<typeof resolveProtectedRoute>>
 ): boolean {
-  return /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/[0-9a-fA-F-]+\/mine$/.test(
-    route.path
-  );
+  return route.path === '/v1/account/profile/avatar' ||
+    /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/[0-9a-fA-F-]+\/mine$/.test(
+      route.path
+    );
 }
 
 function maximumJsonBodyBytesForRoute(
@@ -108,7 +119,7 @@ async function prepareRequest(
     if (body.byteLength === 0) {
       return errorResponse('Image body is required', 400);
     }
-    if (body.byteLength > binaryMediaMaximumRequestBodyBytes) {
+    if (body.byteLength > binaryMediaMaximumRequestBodyBytes(route)) {
       return errorResponse('Request body is too large', 413);
     }
 
