@@ -46,6 +46,11 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS deletion_requested_at timestamptz,
   ADD COLUMN IF NOT EXISTS anonymized_at timestamptz;
 
+UPDATE users
+SET closed_at = COALESCE(closed_at, updated_at, created_at, now())
+WHERE status = 'closed'::user_status
+  AND closed_at IS NULL;
+
 ALTER TABLE users
   ADD CONSTRAINT users_closure_timestamps_check
   CHECK (
