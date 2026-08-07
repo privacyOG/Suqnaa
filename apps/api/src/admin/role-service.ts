@@ -118,6 +118,22 @@ async function actorPermissionKeys(executor: any, actorId: string): Promise<Set<
   return new Set(rows.map((row: any) => String(row.permission_key)));
 }
 
+async function requireRoleManager(executor: any, actorId: string): Promise<Set<string>> {
+  const actor = await executor.selectFrom('users')
+    .select(['status'])
+    .where('id', '=', actorId)
+    .executeTakeFirst();
+  if (!actor || actor.status !== 'active') {
+    throw new AdministrativeRoleError('actor_unavailable', 403, 'Active administrative actor required');
+  }
+
+  const permissions = await actorPermissionKeys(executor, actorId);
+  if (!permissions.has('roles.manage')) {
+    throw new AdministrativeRoleError('role_management_required', 403, 'Role management permission required');
+  }
+  return permissions;
+}
+
 export async function grantAdministrativeRole(input: {
   actorId: string;
   targetUserId: string;
@@ -129,6 +145,7 @@ export async function grantAdministrativeRole(input: {
   }
 
   return db.transaction().execute(async (trx) => {
+    const actorPermissions = await requireRoleManager(trx, input.actorId);
     const target = await trx.selectFrom('users')
       .select(['id', 'status'])
       .where('id', '=', input.targetUserId)
@@ -146,7 +163,6 @@ export async function grantAdministrativeRole(input: {
       throw new AdministrativeRoleError('role_not_found', 404, 'Administrative role not found');
     }
 
-    const actorPermissions = await actorPermissionKeys(trx, input.actorId);
     const rolePermissions = await rolePermissionKeys(trx, role.id);
     for (const permission of rolePermissions) {
       if (!actorPermissions.has(permission)) {
@@ -201,6 +217,7 @@ export async function revokeAdministrativeRole(input: {
   }
 
   return db.transaction().execute(async (trx) => {
+    const actorPermissions = await requireRoleManager(trx, input.actorId);
     const role = await trx.selectFrom('admin_roles')
       .select(['id', 'role_key'])
       .where('role_key', '=', input.roleKey)
@@ -209,7 +226,6 @@ export async function revokeAdministrativeRole(input: {
       throw new AdministrativeRoleError('role_not_found', 404, 'Administrative role not found');
     }
 
-    const actorPermissions = await actorPermissionKeys(trx, input.actorId);
     const rolePermissions = await rolePermissionKeys(trx, role.id);
     for (const permission of rolePermissions) {
       if (!actorPermissions.has(permission)) {
