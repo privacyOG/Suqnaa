@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AuthedRequestError } from '../lib/authed-api';
 import {
   confirmContactVerification,
@@ -49,7 +50,20 @@ function errorMessage(caught: unknown, isArabic: boolean): string {
   return isArabic ? 'تعذر إكمال التحقق حالياً.' : 'Verification could not be completed right now.';
 }
 
+async function refreshWebSessionClaims(): Promise<void> {
+  const response = await fetch('/api/session/refresh', {
+    method: 'POST',
+    credentials: 'same-origin',
+    cache: 'no-store'
+  });
+
+  if (!response.ok) {
+    throw new Error('Unable to refresh verified account session');
+  }
+}
+
 export function AccountVerificationPanel({ locale }: { locale: string }) {
+  const router = useRouter();
   const isArabic = locale === 'ar';
   const [state, setState] = useState<ContactVerificationState | null>(null);
   const [selected, setSelected] = useState<ContactVerificationChannel>('email');
@@ -120,6 +134,7 @@ export function AccountVerificationPanel({ locale }: { locale: string }) {
     setSuccess(null);
     try {
       await confirmContactVerification(selected, code);
+      await refreshWebSessionClaims();
       setSuccess(
         isArabic
           ? `تم التحقق من ${channelLabel(selected, true)} بنجاح.`
@@ -128,6 +143,7 @@ export function AccountVerificationPanel({ locale }: { locale: string }) {
       setCode('');
       setExpiresAt(null);
       await reload();
+      router.refresh();
     } catch (caught) {
       setError(errorMessage(caught, isArabic));
     } finally {
