@@ -3,17 +3,15 @@ import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { env } from '../config/env.js';
 import { resolveSellerVerificationConfiguration } from '../config/seller-verification-config.js';
-import { db } from '../db/index.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { applySellerVerificationProviderEvent } from '../seller-verification/provider-event-service.js';
 import {
-  sellerVerificationEventFingerprint,
   sellerVerificationProviderEventSchema,
   sellerVerificationProviderHeaderSchema,
   verifySellerVerificationEventSignature,
-  type SellerVerificationProviderEvent,
   type SellerVerificationProviderHeaders
 } from '../seller-verification/provider-event.js';
 import { createSellerVerificationProvider } from '../seller-verification/provider.js';
@@ -94,19 +92,6 @@ function enforceProviderEventLimit(request: FastifyRequest, reply: FastifyReply)
   return false;
 }
 
-function eventMatches(
-  existing: Record<string, any>,
-  headers: SellerVerificationProviderHeaders,
-  event: SellerVerificationProviderEvent,
-  fingerprint: string
-): boolean {
-  return existing.provider === headers.provider &&
-    existing.provider_event_id === headers.eventId &&
-    existing.event_type === event.type &&
-    existing.provider_reference === event.providerReference &&
-    existing.payload_fingerprint === fingerprint;
-}
-
 export async function sellerVerificationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/account/seller-verification', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
@@ -182,83 +167,9 @@ export async function sellerVerificationRoutes(app: FastifyInstance): Promise<vo
     if (occurredAt.getTime() > Date.now() + 60_000) {
       return reply.code(400).send({ error: 'Seller verification event time is invalid' });
     }
-    const fingerprint = sellerVerificationEventFingerprint(headers.provider, event);
 
     try {
-      const result = await db.transaction().execute(async (transaction) => {
-        const existing = await transaction.selectFrom('verification_provider_events')
-          .select([
-            'provider', 'provider_event_id', 'event_type',
-            'provider_reference', 'payload_fingerprint', 'verification_check_id'
-          ])
-          .where('provider', '=', headers.provider)
-          .where('provider_event_id', '=', headers.eventId)
-          .executeTakeFirst();
-        if (existing) {
-          if (!eventMatches(existing, headers, event, fingerprint)) {
-            throw new SellerVerificationError(409, 'event_replay_conflict', 'Seller verification event conflicts with an earlier event');
-          }
-          return { checkId: String(existing.verification_check_id), duplicate: true, unchanged: true };
-        }
-
-        const check = await transaction.selectFrom('verification_checks')
-          .select(['id', 'user_id', 'status', 'provider_result', 'provider', 'reference', 'last_provider_event_at'])
-          .where('provider', '=', headers.provider)
-          .where('reference', '=', event.providerReference)
-          .forUpdate()
-          .executeTakeFirst();
-        if (!check) {
-          throw new SellerVerificationError(404, 'verification_not_found', 'Seller verification event context was not found');
-        }
-        if (check.last_provider_event_at && occurredAt.getTime() < new Date(check.last_provider_event_at).getTime()) {
-          throw new SellerVerificationError(409, 'stale_provider_event', 'Seller verification event is older than the latest event');
-        }
-
-        await transaction.insertInto('verification_provider_events').values({
-          provider: headers.provider,
-          provider_event_id: headers.eventId,
-          verification_check_id: check.id,
-          event_type: event.type,
-          provider_reference: event.providerReference,
-          payload_fingerprint: fingerprint,
-          occurred_at: occurredAt,
-          received_at: new Date()
-        }).execute();
-
-        let unchanged = check.status !== 'pending';
-        if (!unchanged) {
-          const nextStatus = event.result === 'expired' ? 'expired' : 'pending';
-          const nextProviderResult = event.result;
-          await transaction.updateTable('verification_checks')
-            .set({
-              status: nextStatus,
-              provider_result: nextProviderResult,
-              reason_code: event.reasonCode ?? (event.result === 'expired' ? 'provider_session_expired' : null),
-              provider_completed_at: event.result === 'expired' ? null : occurredAt,
-              last_provider_event_at: occurredAt,
-              updated_at: new Date()
-            })
-            .where('id', '=', check.id)
-            .where('status', '=', 'pending')
-            .execute();
-          await transaction.insertInto('audit_logs').values({
-            actor_user_id: check.user_id,
-            action: 'seller_verification.provider_result',
-            entity_type: 'verification_check',
-            entity_id: check.id,
-            metadata: {
-              provider: headers.provider,
-              result: event.result,
-              reasonCode: event.reasonCode ?? null,
-              eventId: headers.eventId
-            },
-            created_at: new Date()
-          }).execute();
-        }
-
-        return { checkId: String(check.id), duplicate: false, unchanged };
-      });
-
+      const result = await applySellerVerificationProviderEvent({ headers, event });
       return reply.send({ accepted: true, event: { id: headers.eventId, ...result } });
     } catch (error) {
       if (error instanceof SellerVerificationError) {
