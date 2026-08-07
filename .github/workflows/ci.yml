@@ -57,6 +57,8 @@ jobs:
       JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
       JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
       PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
+      VERIFICATION_CODE_PEPPER: ci-verification-pepper-change-in-production-32chars
+      VERIFICATION_DELIVERY_PROVIDER: console
       CHALLENGE_PROVIDER: none
       MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
       MIGRATION_ADMIN_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/postgres

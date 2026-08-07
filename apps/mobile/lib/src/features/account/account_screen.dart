@@ -10,6 +10,7 @@ import '../orders/payment_preparation_screen.dart';
 import '../sell/listing_media_manager_screen.dart';
 import '../sell/my_listings_screen.dart';
 import 'account_login_screen.dart';
+import 'account_verification_screen.dart';
 import 'register_screen.dart';
 import 'secure_web_handoff_tile.dart';
 
@@ -21,6 +22,7 @@ class AccountScreen extends StatelessWidget {
     final session = SessionScope.of(context);
     final signedIn = session.isSignedIn;
     final text = AppLocalizations.of(context);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Scaffold(
       appBar: AppBar(
@@ -70,6 +72,20 @@ class AccountScreen extends StatelessWidget {
             title: 'Profile',
             subtitle: 'Manage your public marketplace profile',
           ),
+          if (signedIn)
+            _AccountTile(
+              key: const Key('account-contact-verification-tile'),
+              icon: Icons.verified_user_outlined,
+              title: isArabic ? 'التحقق من الحساب' : 'Account verification',
+              subtitle: isArabic
+                  ? 'تحقق من البريد الإلكتروني أو رقم الهاتف المسجل'
+                  : 'Verify your registered email or phone',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AccountVerificationScreen(),
+                ),
+              ),
+            ),
           _AccountTile(
             icon: Icons.forum_outlined,
             title: 'Messages',
@@ -141,11 +157,6 @@ class AccountScreen extends StatelessWidget {
             ),
           ),
           if (signedIn) const SecureWebHandoffTile(),
-          const _AccountTile(
-            icon: Icons.verified_user_outlined,
-            title: 'Trust',
-            subtitle: 'Verification and account confidence tools',
-          ),
           _AccountTile(
             icon: Icons.storefront_outlined,
             title: 'Selling',

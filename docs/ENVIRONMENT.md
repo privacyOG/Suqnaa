@@ -8,6 +8,45 @@ Set `WEB_ORIGIN` to the exact browser origin allowed to call the API, for exampl
 
 The web application uses `NEXT_PUBLIC_API_BASE_URL` for browser API requests and may use `API_BASE_URL` for server-side account requests. Local development defaults to `http://localhost:4000`.
 
+## Account contact verification
+
+Email and phone verification use six-digit single-use codes backed by a PostgreSQL challenge ledger. Plaintext codes and plaintext duplicate contact values are never written to the verification table.
+
+Configure these values through the deployment secret manager:
+
+- `VERIFICATION_CODE_PEPPER`: separate secret of at least 32 characters used to HMAC verification codes and contact fingerprints. Do not reuse the password pepper in production.
+- `VERIFICATION_DELIVERY_PROVIDER`: `console`, `http`, or `disabled`. `console` is local-development only. Production startup requires `http`.
+- `VERIFICATION_DELIVERY_URL`: HTTPS endpoint for the provider-neutral delivery relay when `http` is selected.
+- `VERIFICATION_DELIVERY_TOKEN`: bearer credential for the delivery relay.
+- `VERIFICATION_DELIVERY_TIMEOUT_MS`: relay timeout from 500 to 15000 milliseconds; defaults to 5000.
+
+The relay receives a JSON POST containing:
+
+```json
+{
+  "purpose": "account_contact_verification",
+  "channel": "email",
+  "destination": "person@example.com",
+  "code": "123456",
+  "expiresAt": "2026-08-07T10:00:00.000Z"
+}
+```
+
+`channel` is either `email` or `phone`. The relay is responsible for rendering and delivering the message through the approved downstream email or SMS service. A non-success relay response invalidates the issued challenge and the API returns a temporary-delivery failure.
+
+Verification controls include:
+
+- 10-minute code expiry;
+- one-minute resend cooldown;
+- at most five issuance requests per hour and ten per day for each account/channel pair;
+- five confirmation attempts per issued code;
+- older outstanding codes invalidated when a new code is issued;
+- contact fingerprint binding so changing the account contact invalidates an older challenge;
+- transactionally single-use consumption; and
+- audit records for issuance and successful verification.
+
+A pending account becomes active after its first configured contact method is successfully verified. Email and phone verification timestamps remain independent so both contacts can be verified when both are present.
+
 ## Human challenge provider
 
 The API supports a provider-neutral challenge verifier with Cloudflare Turnstile as the first real provider.
@@ -58,4 +97,4 @@ Refresh and logout requests use separate per-session and per-IP limits. Rotation
 
 Signing out calls the API logout endpoint before removing the local cookies. Cookie removal still completes if the API is temporarily unavailable.
 
-Planned feature flags should cover protected checkout, auctions, and optional digital currency support. These features should stay disabled until payment providers, verification rules, and country-specific compliance requirements are reviewed.
+Planned feature flags should cover protected checkout, timed sales, and optional digital currency support. These features should stay disabled until payment providers, verification rules, and country-specific compliance requirements are reviewed.

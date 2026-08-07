@@ -4,6 +4,7 @@ import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/access_state.dart';
 import '../../session/session_scope.dart';
+import 'account_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -71,7 +72,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      Navigator.of(context).pop(true);
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const AccountVerificationScreen()),
+      );
     } catch (_) {
       if (mounted) {
         setState(() {

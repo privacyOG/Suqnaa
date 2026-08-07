@@ -4,6 +4,7 @@ import { resolveApiErrorResponse } from './config/http-error.js';
 import { resolveApiRequestSizeBytes } from './config/request-size.js';
 import { resolveWebOrigin } from './config/web-origin.js';
 import { accountRoutes } from './routes/account.js';
+import { accountVerificationRoutes } from './routes/account-verification.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
 import { categoryRoutes } from './routes/categories.js';
@@ -82,6 +83,7 @@ app.setErrorHandler((error, _request, reply) => {
 
 await app.register(healthRoutes, { prefix: '/v1' });
 await app.register(accountRoutes, { prefix: '/v1' });
+await app.register(accountVerificationRoutes, { prefix: '/v1' });
 await app.register(authRoutes, { prefix: '/v1' });
 await app.register(categoryRoutes, { prefix: '/v1' });
 await app.register(challengeRoutes, { prefix: '/v1' });
