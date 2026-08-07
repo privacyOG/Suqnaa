@@ -18,7 +18,7 @@ const channelSchema = z.enum(['email', 'phone']);
 const requestBodySchema = z.object({ channel: channelSchema });
 const confirmBodySchema = z.object({
   channel: channelSchema,
-  code: z.string().trim().min(6).max(12)
+  code: z.string().max(32)
 });
 
 const deliveryProvider = createVerificationDeliveryProvider({
