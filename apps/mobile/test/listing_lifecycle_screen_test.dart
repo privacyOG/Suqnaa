@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:suqnaa/src/api/seller_listing_api.dart';
@@ -50,14 +51,15 @@ class FakeLifecycleGateway implements SellerListingLifecycleGateway {
     required String listingId,
     required int version,
   }) async {
+    final wasExpired = status == 'expired';
     renewCalls += 1;
     submittedVersion = version;
     this.version += 1;
-    if (status == 'expired') status = 'active';
+    if (wasExpired) status = 'active';
     renewable = false;
     return {
       'listing': snapshot()['listing'],
-      'reactivated': status == 'expired',
+      'reactivated': wasExpired,
     };
   }
 }
@@ -109,10 +111,11 @@ void main() {
   });
 
   test('my listings exposes lifecycle navigation', () {
-    final source = String.fromCharCodes(
-      // Source inspection stays platform-neutral in this test suite.
-      <int>[],
-    );
-    expect(source, isEmpty);
+    final source = File(
+      'lib/src/features/sell/my_listings_screen.dart',
+    ).readAsStringSync();
+    expect(source, contains("import 'listing_lifecycle_screen.dart';"));
+    expect(source, contains('ListingLifecycleScreen(listingId: listingId)'));
+    expect(source, contains("Key('lifecycle-listing-\${data['id']}')"));
   });
 }
