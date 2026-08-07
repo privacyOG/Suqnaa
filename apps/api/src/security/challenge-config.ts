@@ -3,6 +3,7 @@ import { toTurnstileAction } from './challenge-verifier.js';
 export const challengeActions = {
   accountLogin: toTurnstileAction('account.login'),
   accountRegister: toTurnstileAction('account.register'),
+  accountPasswordResetRequest: toTurnstileAction('account.password_reset_request'),
   listingCreate: toTurnstileAction('listing.create'),
   listingStatusUpdate: toTurnstileAction('listing.status_update'),
   listingMediaUpload: toTurnstileAction('listing.media_upload'),
