@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
-import { verifyPassword } from '../security/password.js';
 import type { ListingMediaStorage } from '../media/listing-media-storage.js';
+import { verifyPassword } from '../security/password.js';
 
 export type ProfileVisibility = 'public' | 'private';
 export type AccountClosureMode = 'close' | 'delete';
@@ -31,29 +31,6 @@ export type CloseAccountResult =
     }
   | { outcome: 'invalid_password' }
   | { outcome: 'not_available' };
-
-function profileDefaults() {
-  return {
-    bio: null,
-    city: null,
-    country_code: null,
-    is_business: false,
-    business_name: null,
-    business_description: null,
-    business_website: null,
-    profile_visibility: 'public' as ProfileVisibility,
-    show_city: false,
-    show_country: true,
-    show_business_details: true,
-    show_avatar: true,
-    avatar_object_key: null,
-    avatar_mime_type: null,
-    avatar_size_bytes: null,
-    avatar_sha256: null,
-    created_at: null,
-    updated_at: null
-  };
-}
 
 export async function readAccountProfile(userId: string) {
   const user = await db.selectFrom('users')
@@ -95,14 +72,12 @@ export async function readAccountProfile(userId: string) {
       'avatar_object_key',
       'avatar_mime_type',
       'avatar_size_bytes',
-      'avatar_sha256',
       'created_at',
       'updated_at'
     ])
     .where('user_id', '=', userId)
     .executeTakeFirst();
 
-  const resolved = profile ?? profileDefaults();
   return {
     user: {
       id: user.id,
@@ -119,148 +94,25 @@ export async function readAccountProfile(userId: string) {
       anonymizedAt: user.anonymized_at ?? null
     },
     profile: {
-      bio: resolved.bio ?? null,
-      city: resolved.city ?? null,
-      countryCode: resolved.country_code ?? null,
-      isBusiness: Boolean(resolved.is_business),
-      businessName: resolved.business_name ?? null,
-      businessDescription: resolved.business_description ?? null,
-      businessWebsite: resolved.business_website ?? null,
-      profileVisibility: resolved.profile_visibility ?? 'public',
-      showCity: Boolean(resolved.show_city),
-      showCountry: resolved.show_country !== false,
-      showBusinessDetails: resolved.show_business_details !== false,
-      showAvatar: resolved.show_avatar !== false,
-      hasAvatar: Boolean(resolved.avatar_object_key),
-      avatarUrl: resolved.avatar_object_key ? '/v1/account/profile/avatar' : null,
-      avatarMimeType: resolved.avatar_mime_type ?? null,
-      avatarSizeBytes: resolved.avatar_size_bytes ?? null,
-      createdAt: resolved.created_at ?? null,
-      updatedAt: resolved.updated_at ?? null
+      bio: profile?.bio ?? null,
+      city: profile?.city ?? null,
+      countryCode: profile?.country_code ?? null,
+      isBusiness: Boolean(profile?.is_business),
+      businessName: profile?.business_name ?? null,
+      businessDescription: profile?.business_description ?? null,
+      businessWebsite: profile?.business_website ?? null,
+      profileVisibility: profile?.profile_visibility ?? 'private',
+      showCity: Boolean(profile?.show_city),
+      showCountry: profile?.show_country !== false,
+      showBusinessDetails: profile?.show_business_details !== false,
+      showAvatar: profile?.show_avatar !== false,
+      hasAvatar: Boolean(profile?.avatar_object_key),
+      avatarUrl: profile?.avatar_object_key ? '/v1/account/profile/avatar' : null,
+      avatarMimeType: profile?.avatar_mime_type ?? null,
+      avatarSizeBytes: profile?.avatar_size_bytes ?? null,
+      createdAt: profile?.created_at ?? null,
+      updatedAt: profile?.updated_at ?? null
     }
-  };
-}
-
-export async function updateAccountProfile(userId: string, input: AccountProfileInput) {
-  const now = new Date();
-  return db.transaction().execute(async (transaction) => {
-    const user = await transaction.selectFrom('users')
-      .select(['id', 'status'])
-      .where('id', '=', userId)
-      .forUpdate()
-      .executeTakeFirst();
-
-    if (!user || user.status === 'closed') {
-      return null;
-    }
-
-    await transaction.updateTable('users')
-      .set({
-        display_name: input.displayName,
-        updated_at: now
-      })
-      .where('id', '=', userId)
-      .execute();
-
-    const values = {
-      bio: input.bio,
-      city: input.city,
-      country_code: input.countryCode,
-      is_business: input.isBusiness,
-      business_name: input.isBusiness ? input.businessName : null,
-      business_description: input.isBusiness ? input.businessDescription : null,
-      business_website: input.isBusiness ? input.businessWebsite : null,
-      profile_visibility: input.profileVisibility,
-      show_city: input.showCity,
-      show_country: input.showCountry,
-      show_business_details: input.showBusinessDetails,
-      show_avatar: input.showAvatar,
-      updated_at: now
-    };
-
-    await transaction.insertInto('user_profiles')
-      .values({
-        user_id: userId,
-        ...values,
-        created_at: now
-      })
-      .onConflict((conflict) => conflict.column('user_id').doUpdateSet(values))
-      .execute();
-
-    await transaction.insertInto('audit_logs')
-      .values({
-        actor_user_id: userId,
-        action: 'account.profile.updated',
-        entity_type: 'user',
-        entity_id: userId,
-        metadata: {
-          profileVisibility: input.profileVisibility,
-          isBusiness: input.isBusiness,
-          showCity: input.showCity,
-          showCountry: input.showCountry,
-          showBusinessDetails: input.showBusinessDetails,
-          showAvatar: input.showAvatar
-        },
-        created_at: now
-      })
-      .execute();
-
-    return readAccountProfile(userId);
-  });
-}
-
-export async function readPublicProfile(userId: string) {
-  const user = await db.selectFrom('users')
-    .select(['id', 'display_name', 'status', 'created_at'])
-    .where('id', '=', userId)
-    .executeTakeFirst();
-
-  if (!user || user.status !== 'active') {
-    return null;
-  }
-
-  const profile = await db.selectFrom('user_profiles')
-    .select([
-      'bio',
-      'city',
-      'country_code',
-      'is_business',
-      'business_name',
-      'business_description',
-      'business_website',
-      'profile_visibility',
-      'show_city',
-      'show_country',
-      'show_business_details',
-      'show_avatar',
-      'avatar_object_key'
-    ])
-    .where('user_id', '=', userId)
-    .executeTakeFirst();
-
-  if (profile?.profile_visibility === 'private') {
-    return null;
-  }
-
-  const showBusiness = profile?.show_business_details !== false && Boolean(profile?.is_business);
-  return {
-    id: user.id,
-    displayName: user.display_name,
-    bio: profile?.bio ?? null,
-    city: profile?.show_city ? profile.city ?? null : null,
-    countryCode: profile?.show_country !== false ? profile?.country_code ?? null : null,
-    avatarUrl:
-      profile?.avatar_object_key && profile.show_avatar !== false
-        ? `/v1/profiles/${user.id}/avatar`
-        : null,
-    business: showBusiness
-      ? {
-          name: profile?.business_name ?? null,
-          description: profile?.business_description ?? null,
-          website: profile?.business_website ?? null
-        }
-      : null,
-    memberSince: user.created_at
   };
 }
 
@@ -437,7 +289,7 @@ export async function closeAccount(input: {
       .where('invalidated_at', 'is', null)
       .execute();
 
-    const privacyValues = input.mode === 'delete'
+    const profileValues = input.mode === 'delete'
       ? {
           avatar_object_key: null,
           avatar_mime_type: null,
@@ -466,15 +318,9 @@ export async function closeAccount(input: {
           updated_at: now
         };
 
-    await transaction.insertInto('user_profiles')
-      .values({
-        user_id: input.userId,
-        ...profileDefaults(),
-        ...privacyValues,
-        created_at: now,
-        updated_at: now
-      })
-      .onConflict((conflict) => conflict.column('user_id').doUpdateSet(privacyValues))
+    await transaction.updateTable('user_profiles')
+      .set(profileValues)
+      .where('user_id', '=', input.userId)
       .execute();
 
     const userValues = input.mode === 'delete'
