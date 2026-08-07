@@ -25,6 +25,16 @@ void main() {
     );
   });
 
+  test('builds password recovery URL without account secrets', () {
+    expect(
+      buildSecurePasswordRecoveryUri(
+        Uri.parse('https://suqnaa.example'),
+        'ar',
+      ).toString(),
+      'https://suqnaa.example/ar/account/forgot-password',
+    );
+  });
+
   test('uses the injected external launcher', () async {
     Uri? launched;
     final gateway = BrowserSecureWebHandoff(
@@ -35,12 +45,12 @@ void main() {
       },
     );
 
-    final opened = await gateway.openOrders(locale: 'en');
+    final opened = await gateway.openPasswordRecovery(locale: 'en');
 
     expect(opened, isTrue);
     expect(
       launched.toString(),
-      'https://suqnaa.example/en/activity/orders',
+      'https://suqnaa.example/en/account/forgot-password',
     );
   });
 
