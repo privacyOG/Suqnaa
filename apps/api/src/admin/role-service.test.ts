@@ -44,7 +44,7 @@ try {
 
   await assert.rejects(
     () => grantAdministrativeRole({ actorId: reviewerId, targetUserId: secondAdminId, roleKey: 'audit_reviewer' }),
-    (error: unknown) => error instanceof AdministrativeRoleError && error.code === 'privilege_escalation'
+    (error: unknown) => error instanceof AdministrativeRoleError && error.code === 'role_management_required'
   );
 
   await assert.rejects(
