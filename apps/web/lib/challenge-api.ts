@@ -2,6 +2,7 @@ export interface ChallengeActions {
   accountLogin: string;
   accountRegister: string;
   accountPasswordResetRequest: string;
+  accountSellerVerificationStart: string;
   listingCreate: string;
   listingStatusUpdate: string;
   listingMediaUpload: string;
