@@ -24,6 +24,31 @@ class SellerListingApi {
     return _authedApi.get(path, accessToken);
   }
 
+  Future<Map<String, dynamic>> getForEdit(
+    String accessToken, {
+    required String listingId,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.get('/v1/listings/$encodedId/manage', accessToken);
+  }
+
+  Future<Map<String, dynamic>> getCategories(String accessToken) {
+    return _authedApi.get('/v1/categories', accessToken);
+  }
+
+  Future<Map<String, dynamic>> updateDetails(
+    String accessToken, {
+    required String listingId,
+    required Map<String, dynamic> input,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.post(
+      '/v1/listings/$encodedId/edit',
+      accessToken,
+      input,
+    );
+  }
+
   Future<Map<String, dynamic>> updateStatus(
     String accessToken, {
     required String listingId,
