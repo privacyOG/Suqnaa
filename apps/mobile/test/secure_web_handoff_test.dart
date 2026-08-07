@@ -35,6 +35,17 @@ void main() {
     );
   });
 
+  test('builds account profile URL without account data or credentials', () {
+    final uri = buildSecureAccountProfileUri(
+      Uri.parse('https://suqnaa.example/app/'),
+      'AR',
+    );
+    expect(uri.toString(), 'https://suqnaa.example/app/ar/account/profile');
+    expect(uri.hasQuery, isFalse);
+    expect(uri.hasFragment, isFalse);
+    expect(uri.userInfo, isEmpty);
+  });
+
   test('uses the injected external launcher', () async {
     Uri? launched;
     final gateway = BrowserSecureWebHandoff(
@@ -45,12 +56,12 @@ void main() {
       },
     );
 
-    final opened = await gateway.openPasswordRecovery(locale: 'en');
+    final opened = await gateway.openAccountProfile(locale: 'en');
 
     expect(opened, isTrue);
     expect(
       launched.toString(),
-      'https://suqnaa.example/en/account/forgot-password',
+      'https://suqnaa.example/en/account/profile',
     );
   });
 
