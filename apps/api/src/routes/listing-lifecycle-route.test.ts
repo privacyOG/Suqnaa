@@ -4,8 +4,10 @@ import { readFile } from 'node:fs/promises';
 const routeSource = await readFile(new URL('./listing-lifecycle.ts', import.meta.url), 'utf8');
 const serverSource = await readFile(new URL('../server.ts', import.meta.url), 'utf8');
 
-assert.match(routeSource, /\/listings\/:listingId\/renew/);
+assert.match(routeSource, /app\.get\('\/listings\/:listingId\/lifecycle'/);
+assert.match(routeSource, /app\.post\('\/listings\/:listingId\/renew'/);
 assert.match(routeSource, /preHandler: requireUser/);
+assert.match(routeSource, /readSellerListingLifecycle/);
 assert.match(routeSource, /version: z\.number\(\)\.int\(\)\.positive\(\)/);
 assert.match(routeSource, /renewOrReactivateListing/);
 assert.match(routeSource, /listing\.renew/);
