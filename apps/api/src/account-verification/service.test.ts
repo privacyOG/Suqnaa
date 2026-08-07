@@ -73,14 +73,17 @@ try {
   assert.equal(emailProvider.deliveries.length, 1);
   assert.match(emailProvider.deliveries[0]!.code, /^\d{6}$/);
 
-  const plaintextCodeRows = await db.selectFrom('account_contact_verifications')
-    .select(['code_hash', 'contact_fingerprint'])
+  const firstRows = await db.selectFrom('account_contact_verifications')
+    .select(['id', 'code_hash', 'contact_fingerprint', 'invalidated_at'])
     .where('user_id', '=', emailUserId)
+    .orderBy('created_at', 'asc')
     .execute();
-  assert.equal(plaintextCodeRows.length, 1);
-  assert.equal(plaintextCodeRows[0]!.code_hash.length, 64);
-  assert.equal(plaintextCodeRows[0]!.contact_fingerprint.length, 64);
-  assert.notEqual(plaintextCodeRows[0]!.code_hash, emailProvider.deliveries[0]!.code);
+  assert.equal(firstRows.length, 1);
+  assert.equal(firstRows[0]!.code_hash.length, 64);
+  assert.equal(firstRows[0]!.contact_fingerprint.length, 64);
+  assert.notEqual(firstRows[0]!.code_hash, emailProvider.deliveries[0]!.code);
+  assert.equal(firstRows[0]!.invalidated_at, null);
+  const firstVerificationId = firstRows[0]!.id;
 
   const cooldown = await requestContactVerification({
     userId: emailUserId,
@@ -100,7 +103,6 @@ try {
   });
   assert.deepEqual(malformed, { outcome: 'invalid_code', attemptsRemaining: 4 });
 
-  const firstCode = emailProvider.deliveries[0]!.code;
   const secondRequestTime = new Date(baseTime.getTime() + 61 * 1000);
   const secondRequest = await requestContactVerification({
     userId: emailUserId,
@@ -112,14 +114,21 @@ try {
   assert.equal(secondRequest.outcome, 'sent');
   assert.equal(emailProvider.deliveries.length, 2);
 
-  const oldCodeResult = await confirmContactVerification({
-    userId: emailUserId,
-    channel: 'email',
-    code: firstCode,
-    pepper,
-    now: new Date(secondRequestTime.getTime() + 1000)
-  });
-  assert.deepEqual(oldCodeResult, { outcome: 'invalid_code', attemptsRemaining: 4 });
+  const invalidatedFirst = await db.selectFrom('account_contact_verifications')
+    .select(['invalidated_at'])
+    .where('id', '=', firstVerificationId)
+    .executeTakeFirstOrThrow();
+  assert.ok(invalidatedFirst.invalidated_at);
+
+  const activeChallenges = await db.selectFrom('account_contact_verifications')
+    .select(['id'])
+    .where('user_id', '=', emailUserId)
+    .where('channel', '=', 'email')
+    .where('consumed_at', 'is', null)
+    .where('invalidated_at', 'is', null)
+    .execute();
+  assert.equal(activeChallenges.length, 1);
+  assert.notEqual(activeChallenges[0]!.id, firstVerificationId);
 
   const latestCode = emailProvider.deliveries[1]!.code;
   const verified = await confirmContactVerification({
@@ -225,11 +234,13 @@ try {
     provider: exhaustedProvider,
     now: baseTime
   });
+  const actualCode = exhaustedProvider.deliveries[0]!.code;
+  const guaranteedWrongCode = actualCode === '000000' ? '000001' : '000000';
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     const result = await confirmContactVerification({
       userId: exhaustedUserId,
       channel: 'email',
-      code: '999999',
+      code: guaranteedWrongCode,
       pepper,
       now: new Date(baseTime.getTime() + attempt * 1000)
     });
