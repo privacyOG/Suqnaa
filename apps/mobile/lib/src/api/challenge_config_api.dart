@@ -74,6 +74,7 @@ class MobileChallengeConfiguration {
     this.orderCancelAction = 'order_cancel',
     this.fulfilmentManageAction = 'fulfilment_manage',
     this.fulfilmentConfirmAction = 'fulfilment_confirm',
+    this.listingEditAction = 'listing_edit',
     this.listingMediaUploadAction = 'listing_media_upload',
     this.listingMediaDeleteAction = 'listing_media_delete',
     this.sellerVerificationStartAction = 'account_seller_verification_star',
@@ -86,6 +87,7 @@ class MobileChallengeConfiguration {
   final String orderCancelAction;
   final String fulfilmentManageAction;
   final String fulfilmentConfirmAction;
+  final String listingEditAction;
   final String listingMediaUploadAction;
   final String listingMediaDeleteAction;
   final String sellerVerificationStartAction;
@@ -118,6 +120,7 @@ class MobileChallengeConfiguration {
       'fulfilmentConfirm',
       'fulfilment confirmation',
     );
+    final listingEdit = requiredAction('listingEdit', 'listing edit');
     final listingMediaUpload = requiredAction(
       'listingMediaUpload',
       'listing media upload',
@@ -150,6 +153,7 @@ class MobileChallengeConfiguration {
       orderCancelAction: orderCancel,
       fulfilmentManageAction: fulfilmentManage,
       fulfilmentConfirmAction: fulfilmentConfirm,
+      listingEditAction: listingEdit,
       listingMediaUploadAction: listingMediaUpload,
       listingMediaDeleteAction: listingMediaDelete,
       sellerVerificationStartAction: sellerVerificationStart,
