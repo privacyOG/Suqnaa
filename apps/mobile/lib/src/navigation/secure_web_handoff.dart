@@ -17,6 +17,10 @@ abstract interface class SecureListingMediaWebHandoffGateway {
   Future<bool> openListingMediaManager({required String locale});
 }
 
+abstract interface class SecureAccountRecoveryWebHandoffGateway {
+  Future<bool> openPasswordRecovery({required String locale});
+}
+
 extension SecureListingMediaHandoff on SecureWebHandoffGateway {
   Future<bool> openListingMediaManager({required String locale}) {
     if (this is SecureListingMediaWebHandoffGateway) {
@@ -27,10 +31,23 @@ extension SecureListingMediaHandoff on SecureWebHandoffGateway {
   }
 }
 
+extension SecureAccountRecoveryHandoff on SecureWebHandoffGateway {
+  Future<bool> openPasswordRecovery({required String locale}) {
+    if (this is SecureAccountRecoveryWebHandoffGateway) {
+      return (this as SecureAccountRecoveryWebHandoffGateway)
+          .openPasswordRecovery(locale: locale);
+    }
+    return Future<bool>.value(false);
+  }
+}
+
 typedef ExternalUrlLauncher = Future<bool> Function(Uri uri);
 
 class BrowserSecureWebHandoff
-    implements SecureWebHandoffGateway, SecureListingMediaWebHandoffGateway {
+    implements
+        SecureWebHandoffGateway,
+        SecureListingMediaWebHandoffGateway,
+        SecureAccountRecoveryWebHandoffGateway {
   BrowserSecureWebHandoff({
     required Uri webBaseUrl,
     ExternalUrlLauncher? launcher,
@@ -56,6 +73,11 @@ class BrowserSecureWebHandoff
   @override
   Future<bool> openListingMediaManager({required String locale}) {
     return _launcher(buildSecureListingMediaManagerUri(_webBaseUrl, locale));
+  }
+
+  @override
+  Future<bool> openPasswordRecovery({required String locale}) {
+    return _launcher(buildSecurePasswordRecoveryUri(_webBaseUrl, locale));
   }
 }
 
@@ -97,6 +119,21 @@ Uri buildSecureListingMediaManagerUri(Uri webBaseUrl, String locale) {
       normalizedLocale,
       'sell',
       'media',
+    ],
+    query: null,
+    fragment: null,
+  );
+}
+
+Uri buildSecurePasswordRecoveryUri(Uri webBaseUrl, String locale) {
+  final base = _validateBaseUrl(webBaseUrl);
+  final normalizedLocale = _validateLocale(locale);
+  return base.replace(
+    pathSegments: [
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      normalizedLocale,
+      'account',
+      'forgot-password',
     ],
     query: null,
     fragment: null,
