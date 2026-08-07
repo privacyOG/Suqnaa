@@ -32,6 +32,7 @@ export interface Database {
   users: TableShape;
   user_profiles: TableShape;
   refresh_sessions: TableShape;
+  account_contact_verifications: TableShape;
   verification_checks: TableShape;
   categories: TableShape;
   listings: TableShape;
