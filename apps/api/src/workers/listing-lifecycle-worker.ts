@@ -27,8 +27,7 @@ try {
 
     if (stopping) break;
     await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, configuration.workerIntervalSeconds * 1000);
-      timer.unref?.();
+      setTimeout(resolve, configuration.workerIntervalSeconds * 1000);
     });
   }
 } finally {
