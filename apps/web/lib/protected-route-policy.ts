@@ -16,6 +16,9 @@ const uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA
 
 const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: /^\/v1\/account\/me$/, queryKeys: new Set() },
+  { method: 'GET', pattern: /^\/v1\/account\/profile$/, queryKeys: new Set() },
+  { method: 'GET', pattern: /^\/v1\/account\/profile\/avatar$/, queryKeys: new Set() },
+  { method: 'GET', pattern: /^\/v1\/account\/export$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/account\/security\/sessions$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/conversations$/, queryKeys: new Set(['limit', 'before']) },
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/messages$`), queryKeys: new Set(['limit', 'before']) },
@@ -25,6 +28,10 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: /^\/v1\/operations\/queue$/, queryKeys: new Set(['status', 'limit', 'before']) },
   { method: 'GET', pattern: /^\/v1\/operations\/records$/, queryKeys: new Set(['limit', 'before', 'action', 'entityType']) },
   { method: 'GET', pattern: new RegExp(`^/v1/market/orders/${uuid}/payment-context$`), queryKeys: new Set() },
+  { method: 'POST', pattern: /^\/v1\/account\/profile$/, queryKeys: new Set() },
+  { method: 'POST', pattern: /^\/v1\/account\/profile\/avatar\/upload$/, queryKeys: new Set() },
+  { method: 'POST', pattern: /^\/v1\/account\/profile\/avatar\/delete$/, queryKeys: new Set() },
+  { method: 'POST', pattern: /^\/v1\/account\/closure$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/security\/password$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/account\/security\/sessions\/revoke-all$/, queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/account/security/sessions/${uuid}/revoke$`), queryKeys: new Set() },
