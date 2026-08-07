@@ -7,6 +7,7 @@ import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
 import 'create_listing_screen.dart';
 import 'edit_listing_screen.dart';
+import 'listing_lifecycle_screen.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -31,9 +32,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final session = SessionScope.of(context);
-    if (identical(session, _session)) {
-      return;
-    }
+    if (identical(session, _session)) return;
 
     _session = session;
     _api = SellerListingApi(
@@ -48,9 +47,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   Future<void> _reload() async {
     final api = _api;
     final token = _session?.access.value ?? '';
-    if (api == null || token.isEmpty || _loading) {
-      return;
-    }
+    if (api == null || token.isEmpty || _loading) return;
 
     setState(() {
       _loading = true;
@@ -58,15 +55,8 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     });
 
     try {
-      final response = await api.getMine(
-        token,
-        status: _status,
-        limit: 20,
-      );
-      if (!mounted) {
-        return;
-      }
-
+      final response = await api.getMine(token, status: _status, limit: 20);
+      if (!mounted) return;
       final page = _parse(response);
       setState(() {
         _items
@@ -76,25 +66,18 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         _cursor = page.cursor;
       });
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Unable to load your listings.');
-      }
+      if (mounted) setState(() => _error = 'Unable to load your listings.');
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _loadMore() async {
     final api = _api;
     final token = _session?.access.value ?? '';
-    if (api == null || token.isEmpty || !_hasMore || _cursor == null || _loadingMore) {
-      return;
-    }
+    if (api == null || token.isEmpty || !_hasMore || _cursor == null || _loadingMore) return;
 
     setState(() => _loadingMore = true);
-
     try {
       final response = await api.getMine(
         token,
@@ -102,43 +85,30 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         limit: 20,
         before: _cursor,
       );
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       final page = _parse(response);
       final ids = _items.map((item) => item['id']?.toString()).toSet();
       setState(() {
-        _items.addAll(
-          page.items.where((item) => !ids.contains(item['id']?.toString())),
-        );
+        _items.addAll(page.items.where((item) => !ids.contains(item['id']?.toString())));
         _hasMore = page.hasMore;
         _cursor = page.cursor;
       });
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Unable to load more listings.');
-      }
+      if (mounted) setState(() => _error = 'Unable to load more listings.');
     } finally {
-      if (mounted) {
-        setState(() => _loadingMore = false);
-      }
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
   _ListingPage _parse(Map<String, dynamic> response) {
     final rawItems = response['listings'];
     final items = rawItems is List
-        ? rawItems
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
+        ? rawItems.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
         : <Map<String, dynamic>>[];
     final rawPagination = response['pagination'];
     final pagination = rawPagination is Map
         ? Map<String, dynamic>.from(rawPagination)
         : const <String, dynamic>{};
-
     return _ListingPage(
       items: items,
       hasMore: pagination['hasMore'] == true,
@@ -150,47 +120,38 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CreateListingScreen()),
     );
-
-    if (mounted && result != null) {
-      await _reload();
-    }
+    if (mounted && result != null) await _reload();
   }
 
   Future<void> _editListing(Map<String, dynamic> listing) async {
     final listingId = listing['id']?.toString();
-    if (listingId == null || listingId.isEmpty) {
-      return;
-    }
-
+    if (listingId == null || listingId.isEmpty) return;
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EditListingScreen(listingId: listingId),
-      ),
+      MaterialPageRoute(builder: (_) => EditListingScreen(listingId: listingId)),
     );
+    if (mounted) await _reload();
+  }
 
-    if (mounted) {
-      await _reload();
-    }
+  Future<void> _manageLifecycle(Map<String, dynamic> listing) async {
+    final listingId = listing['id']?.toString();
+    if (listingId == null || listingId.isEmpty) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ListingLifecycleScreen(listingId: listingId)),
+    );
+    if (mounted) await _reload();
   }
 
   void _setStatus(String? status) {
-    if (_status == status) {
-      return;
-    }
+    if (_status == status) return;
     setState(() => _status = status);
     _reload();
   }
 
-  Future<void> _changeStatus(
-    Map<String, dynamic> listing,
-    String nextStatus,
-  ) async {
+  Future<void> _changeStatus(Map<String, dynamic> listing, String nextStatus) async {
     final api = _api;
     final token = _session?.access.value ?? '';
     final listingId = listing['id']?.toString();
-    if (api == null || token.isEmpty || listingId == null || _updatingIds.contains(listingId)) {
-      return;
-    }
+    if (api == null || token.isEmpty || listingId == null || _updatingIds.contains(listingId)) return;
 
     final destructive = nextStatus == 'sold' || nextStatus == 'removed';
     if (destructive) {
@@ -215,39 +176,24 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
           ],
         ),
       );
-
-      if (confirmed != true || !mounted) {
-        return;
-      }
+      if (confirmed != true || !mounted) return;
     }
 
     setState(() {
       _updatingIds.add(listingId);
       _error = null;
     });
-
     try {
-      await api.updateStatus(
-        token,
-        listingId: listingId,
-        status: nextStatus,
-      );
-      if (!mounted) {
-        return;
-      }
-
+      await api.updateStatus(token, listingId: listingId, status: nextStatus);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_statusSuccessMessage(nextStatus))),
       );
       await _reload();
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Unable to update the listing status.');
-      }
+      if (mounted) setState(() => _error = 'Unable to update the listing status.');
     } finally {
-      if (mounted) {
-        setState(() => _updatingIds.remove(listingId));
-      }
+      if (mounted) setState(() => _updatingIds.remove(listingId));
     }
   }
 
@@ -269,7 +215,6 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   @override
   Widget build(BuildContext context) {
     final signedIn = _session?.isSignedIn == true;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('My listings'),
@@ -286,16 +231,11 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
           ? const Center(child: Text('Sign in to manage your listings.'))
           : Column(
               children: [
-                _StatusFilter(
-                  selected: _status,
-                  onSelected: _setStatus,
-                ),
+                _StatusFilter(selected: _status, onSelected: _setStatus),
                 if (_error != null)
                   MaterialBanner(
                     content: Text(_error!),
-                    actions: [
-                      TextButton(onPressed: _reload, child: const Text('Retry')),
-                    ],
+                    actions: [TextButton(onPressed: _reload, child: const Text('Retry'))],
                   ),
                 Expanded(
                   child: _loading && _items.isEmpty
@@ -322,24 +262,21 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                                                 : const Icon(Icons.expand_more),
                                             label: const Text('Load more'),
                                           )
-                                        : Text(
-                                            _items.isEmpty
-                                                ? 'No listings found.'
-                                                : 'You are all caught up.',
-                                          ),
+                                        : Text(_items.isEmpty ? 'No listings found.' : 'You are all caught up.'),
                                   ),
                                 );
                               }
 
                               final listing = _items[index];
                               final listingId = listing['id']?.toString() ?? '';
-                              final listingStatus = listing['status']?.toString() ?? 'draft';
-                              final editable = const {'draft', 'active', 'expired'}.contains(listingStatus);
+                              final status = listing['status']?.toString() ?? 'draft';
+                              final editable = const {'draft', 'active', 'expired'}.contains(status);
                               return _ListingCard(
                                 data: listing,
                                 busy: _updatingIds.contains(listingId),
                                 onEdit: editable ? () => _editListing(listing) : null,
-                                onStatusSelected: (status) => _changeStatus(listing, status),
+                                onLifecycle: () => _manageLifecycle(listing),
+                                onStatusSelected: (next) => _changeStatus(listing, next),
                               );
                             },
                           ),
@@ -368,22 +305,19 @@ class _StatusFilter extends StatelessWidget {
       'expired': 'Expired',
       'removed': 'Removed',
     };
-
     return SizedBox(
       height: 58,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        children: values.entries.map((entry) {
-          return Padding(
-            padding: const EdgeInsetsDirectional.only(end: 8),
-            child: ChoiceChip(
-              label: Text(entry.value),
-              selected: selected == entry.key,
-              onSelected: (_) => onSelected(entry.key),
-            ),
-          );
-        }).toList(),
+        children: values.entries.map((entry) => Padding(
+          padding: const EdgeInsetsDirectional.only(end: 8),
+          child: ChoiceChip(
+            label: Text(entry.value),
+            selected: selected == entry.key,
+            onSelected: (_) => onSelected(entry.key),
+          ),
+        )).toList(),
       ),
     );
   }
@@ -393,12 +327,14 @@ class _ListingCard extends StatelessWidget {
   const _ListingCard({
     required this.data,
     required this.busy,
+    required this.onLifecycle,
     required this.onStatusSelected,
     this.onEdit,
   });
 
   final Map<String, dynamic> data;
   final bool busy;
+  final VoidCallback onLifecycle;
   final VoidCallback? onEdit;
   final ValueChanged<String> onStatusSelected;
 
@@ -426,22 +362,21 @@ class _ListingCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                  ),
+                  child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 ),
                 _StatusBadge(status: status),
                 if (busy)
                   const Padding(
                     padding: EdgeInsetsDirectional.only(start: 8),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                   )
                 else ...[
+                  IconButton(
+                    key: Key('lifecycle-listing-${data['id']}'),
+                    tooltip: 'Expiry, renewal and inventory',
+                    onPressed: onLifecycle,
+                    icon: const Icon(Icons.event_repeat_outlined),
+                  ),
                   if (onEdit != null)
                     IconButton(
                       key: Key('edit-listing-${data['id']}'),
@@ -453,51 +388,34 @@ class _ListingCard extends StatelessWidget {
                     PopupMenuButton<String>(
                       tooltip: 'Listing actions',
                       onSelected: onStatusSelected,
-                      itemBuilder: (context) => actions
-                          .map(
-                            (action) => PopupMenuItem<String>(
-                              value: action.status,
-                              child: Row(
-                                children: [
-                                  Icon(action.icon, size: 20),
-                                  const SizedBox(width: 10),
-                                  Text(action.label),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(),
+                      itemBuilder: (context) => actions.map((action) => PopupMenuItem<String>(
+                        value: action.status,
+                        child: Row(
+                          children: [
+                            Icon(action.icon, size: 20),
+                            const SizedBox(width: 10),
+                            Text(action.label),
+                          ],
+                        ),
+                      )).toList(),
                     ),
                 ],
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              description,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
+            Text(description, maxLines: 3, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 14),
             Row(
               children: [
                 Text(
                   '$currency $amount',
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: SuqnaaBrand.blue,
-                  ),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: SuqnaaBrand.blue),
                 ),
                 const Spacer(),
                 if (location.isNotEmpty) ...[
                   const Icon(Icons.location_on_outlined, size: 16),
                   const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      location,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  Flexible(child: Text(location, overflow: TextOverflow.ellipsis)),
                 ],
               ],
             ),
@@ -539,7 +457,6 @@ class _ListingCard extends StatelessWidget {
 
 class _ListingAction {
   const _ListingAction(this.status, this.label, this.icon);
-
   final String status;
   final String label;
   final IconData icon;
@@ -547,7 +464,6 @@ class _ListingAction {
 
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
-
   final String status;
 
   @override
@@ -572,7 +488,6 @@ class _StatusBadge extends StatelessWidget {
 
 class _ListingPage {
   const _ListingPage({required this.items, required this.hasMore, this.cursor});
-
   final List<Map<String, dynamic>> items;
   final bool hasMore;
   final String? cursor;
