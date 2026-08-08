@@ -55,6 +55,9 @@ export default async function AccountPage({ params }: { params: { locale: string
                 <a className="button-secondary" href={`/${params.locale}/account/seller-verification`}>
                   {isArabic ? 'تحقق البائع' : 'Seller verification'}
                 </a>
+                <a className="button-secondary" href={`/${params.locale}/account/payouts`}>
+                  {isArabic ? 'تسويات ودفعات البائع' : 'Seller settlements and payouts'}
+                </a>
                 <a className="button-secondary" href={`/${params.locale}/account/verify`}>
                   {isArabic ? 'تحقق من وسيلة الاتصال' : 'Verify contact details'}
                 </a>
