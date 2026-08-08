@@ -11,7 +11,9 @@ const operationsPage = readFileSync(new URL('../app/[locale]/operations/disputes
 assert.match(api, /postAuthedBinary/);
 assert.match(api, /protectedEvidenceHref/);
 assert.match(api, /\/api\/authed/);
-assert.match(api, /participant_statement/);
+assert.match(api, /evidenceType: input\.evidenceType\.trim\(\)/);
+assert.match(panel, /participant_statement/);
+assert.match(panel, /participant_file/);
 assert.match(panel, /active dispute blocks seller settlement/i);
 assert.match(panel, /separate payment authorization/i);
 assert.match(panel, /image\/jpeg,image\/png,image\/webp,application\/pdf/);
