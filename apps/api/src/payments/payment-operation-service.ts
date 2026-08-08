@@ -170,26 +170,26 @@ async function applyInternalOperation(trx: any, operation: any, now: Date): Prom
 
   if (operation.kind === 'release') {
     assertRequestState('release', intent.status as PaymentStatus, order.status as TransactionStatus);
-    await trx.updateTable('payment_intents')
-      .set({ status: 'released', updated_at: now })
-      .where('id', '=', intent.id)
-      .execute();
     await trx.updateTable('transactions')
       .set({ status: 'released', updated_at: now })
       .where('id', '=', order.id)
       .execute();
-  } else if (operation.kind === 'compliance_hold') {
-    assertRequestState('compliance_hold', intent.status as PaymentStatus, order.status as TransactionStatus);
     await trx.updateTable('payment_intents')
-      .set({ status: 'compliance_hold', updated_at: now })
+      .set({ status: 'released', updated_at: now })
       .where('id', '=', intent.id)
       .execute();
+  } else if (operation.kind === 'compliance_hold') {
+    assertRequestState('compliance_hold', intent.status as PaymentStatus, order.status as TransactionStatus);
     if (order.status === 'released') {
       await trx.updateTable('transactions')
         .set({ status: 'paid', updated_at: now })
         .where('id', '=', order.id)
         .execute();
     }
+    await trx.updateTable('payment_intents')
+      .set({ status: 'compliance_hold', updated_at: now })
+      .where('id', '=', intent.id)
+      .execute();
   } else {
     throw new PaymentOperationError('internal_operation_invalid');
   }
@@ -449,13 +449,13 @@ export async function finalizeSuccessfulRefund(input: {
       nextOrderStatus = 'refunded';
     }
 
-    await trx.updateTable('payment_intents')
-      .set({ status: nextPaymentStatus, updated_at: now })
-      .where('id', '=', intent.id)
-      .execute();
     await trx.updateTable('transactions')
       .set({ status: nextOrderStatus, updated_at: now })
       .where('id', '=', order.id)
+      .execute();
+    await trx.updateTable('payment_intents')
+      .set({ status: nextPaymentStatus, updated_at: now })
+      .where('id', '=', intent.id)
       .execute();
     await trx.updateTable('payment_operations').set({
       status: 'succeeded',
@@ -525,13 +525,13 @@ export async function recordProviderChargeback(input: {
       updated_at: now
     }).returning(['id']).executeTakeFirstOrThrow();
 
-    await trx.updateTable('payment_intents')
-      .set({ status: 'disputed', updated_at: now })
-      .where('id', '=', intent.id)
-      .execute();
     await trx.updateTable('transactions')
       .set({ status: 'disputed', updated_at: now })
       .where('id', '=', order.id)
+      .execute();
+    await trx.updateTable('payment_intents')
+      .set({ status: 'disputed', updated_at: now })
+      .where('id', '=', intent.id)
       .execute();
     await trx.insertInto('audit_logs').values({
       actor_user_id: null,
