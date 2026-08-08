@@ -1,6 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
 import { db } from '../db/index.js';
+import {
+  coarseDistanceKm,
+  listingLocationPoint
+} from '../listings/listing-location.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 import {
   decodeListingSearchCursor,
@@ -93,7 +97,14 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const query = publicListingSearchQuery.parse(request.query);
-    let listingsQuery = db.selectFrom('listings')
+    const searchPoint = query.nearLat !== undefined && query.nearLon !== undefined
+      ? listingLocationPoint(query.nearLat, query.nearLon)
+      : null;
+    const distanceExpression = searchPoint
+      ? sql<number>`ST_Distance(listings.location, ${searchPoint})`
+      : sql<number | null>`NULL`;
+
+    let listingsQuery: any = db.selectFrom('listings')
       .innerJoin('users', 'users.id', 'listings.seller_id')
       .leftJoin('categories', 'categories.id', 'listings.category_id')
       .select([
@@ -122,8 +133,15 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
         'categories.name_en as category_name_en',
         'categories.name_ar as category_name_ar'
       ])
+      .select(distanceExpression.as('distance_meters'))
       .where('listings.status', '=', 'active')
       .where('users.status', 'not in', ['suspended', 'closed']);
+
+    if (searchPoint && query.radiusKm !== undefined) {
+      listingsQuery = listingsQuery.where(sql<boolean>`
+        ST_DWithin(listings.location, ${searchPoint}, ${query.radiusKm * 1000})
+      `);
+    }
 
     if (query.before) {
       let cursor;
@@ -161,11 +179,26 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
             )
           )
         `);
-      } else {
+      } else if (query.sort === 'price_desc') {
         listingsQuery = listingsQuery.where(sql<boolean>`
           listings.price_amount < ${cursor.price}::numeric
           OR (
             listings.price_amount = ${cursor.price}::numeric
+            AND (
+              listings.created_at < ${cursor.createdAt}
+              OR (
+                listings.created_at = ${cursor.createdAt}
+                AND listings.id < ${cursor.id}::uuid
+              )
+            )
+          )
+        `);
+      } else if (searchPoint && cursor.distanceMeters !== undefined) {
+        const distance = sql<number>`ST_Distance(listings.location, ${searchPoint})`;
+        listingsQuery = listingsQuery.where(sql<boolean>`
+          ${distance} > ${cursor.distanceMeters}
+          OR (
+            ${distance} = ${cursor.distanceMeters}
             AND (
               listings.created_at < ${cursor.createdAt}
               OR (
@@ -242,6 +275,8 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
       listingsQuery = listingsQuery.orderBy('listings.price_amount', 'asc');
     } else if (query.sort === 'price_desc') {
       listingsQuery = listingsQuery.orderBy('listings.price_amount', 'desc');
+    } else if (query.sort === 'distance') {
+      listingsQuery = listingsQuery.orderBy(distanceExpression, 'asc');
     }
 
     const rows = await listingsQuery
@@ -251,7 +286,7 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
       .execute();
     const hasMore = rows.length > query.limit;
     const page = rows.slice(0, query.limit);
-    const listings = await Promise.all(page.map(async (listing) => {
+    const listings = await Promise.all(page.map(async (listing: Record<string, any>) => {
       const [media, mediaCount] = await Promise.all([
         getListingMedia(listing.id),
         countListingMedia(listing.id)
@@ -275,6 +310,7 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
         allowDelivery: listing.allow_delivery,
         publishedAt: listing.published_at,
         createdAt: listing.created_at,
+        distanceKm: searchPoint ? coarseDistanceKm(listing.distance_meters) : null,
         media,
         mediaCount,
         category: listing.category_id
@@ -292,7 +328,7 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
         }
       };
     }));
-    const last = page.at(-1);
+    const last = page.at(-1) as Record<string, any> | undefined;
 
     return reply.send({
       listings,
@@ -302,7 +338,8 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
           ? encodeListingSearchCursor(query, {
               createdAt: last.created_at,
               id: last.id,
-              price: last.price_amount
+              price: last.price_amount,
+              distanceMeters: last.distance_meters
             })
           : null
       }
