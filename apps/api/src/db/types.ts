@@ -49,6 +49,10 @@ export interface Database {
   recently_viewed_listings: TableShape;
   saved_searches: TableShape;
   saved_search_notifications: TableShape;
+  notifications: TableShape;
+  notification_preferences: TableShape;
+  notification_push_targets: TableShape;
+  notification_deliveries: TableShape;
   conversations: TableShape;
   conversation_mutes: TableShape;
   user_blocks: TableShape;
