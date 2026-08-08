@@ -6,7 +6,7 @@ const operationsRoutes = readFileSync(new URL('../routes/operations-settlements.
 const connectRoutes = readFileSync(new URL('../routes/stripe-connect-events.ts', import.meta.url), 'utf8');
 const server = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
 const permissions = readFileSync(new URL('../auth/require-operations-user.ts', import.meta.url), 'utf8');
-const migration = readFileSync(new URL('../../../infra/db/migrations/029_seller_settlement.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../../../../infra/db/migrations/029_seller_settlement.sql', import.meta.url), 'utf8');
 
 assert.match(sellerRoutes, /\/account\/payouts/);
 assert.match(sellerRoutes, /\/account\/payouts\/onboarding/);
