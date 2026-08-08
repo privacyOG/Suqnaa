@@ -28,6 +28,7 @@ const routePermissions: readonly {
   { method: 'POST', pattern: /^\/v1\/operations\/settlements\/run(?:\?.*)?$/, permission: 'settlements.run' },
   { method: 'GET', pattern: /^\/v1\/operations\/disputes(?:\?.*)?$/, permission: 'disputes.read' },
   { method: 'GET', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+(?:\?.*)?$/, permission: 'disputes.read' },
+  { method: 'POST', pattern: /^\/v1\/operations\/disputes\/reconcile-deadlines(?:\?.*)?$/, permission: 'disputes.review' },
   { method: 'POST', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+\/review(?:\?.*)?$/, permission: 'disputes.review' },
   { method: 'POST', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+\/resolve(?:\?.*)?$/, permission: 'disputes.resolve' },
   { method: 'POST', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+\/appeal-decision(?:\?.*)?$/, permission: 'disputes.resolve' }
