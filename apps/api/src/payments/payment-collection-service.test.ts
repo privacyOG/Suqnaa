@@ -14,6 +14,7 @@ const sellerId = randomUUID();
 const listingId = randomUUID();
 const orderId = randomUUID();
 const now = new Date('2026-08-08T10:00:00.000Z');
+let paymentIntentId: string | null = null;
 
 const configuration: PaymentCollectionConfiguration = {
   enabled: true,
@@ -86,6 +87,7 @@ try {
     .select(['id', 'status'])
     .where('transaction_id', '=', orderId)
     .executeTakeFirstOrThrow();
+  paymentIntentId = String(intent.id);
   assert.equal(intent.status, 'created');
 
   const provider = new StripeCheckoutProvider(configuration, (async () => new Response(JSON.stringify({
@@ -189,6 +191,13 @@ try {
   assert.equal(replay.duplicate, true);
   assert.equal(replay.unchanged, true);
 } finally {
+  if (paymentIntentId) {
+    await db.deleteFrom('payment_provider_events').where('payment_intent_id', '=', paymentIntentId).execute();
+    await db.deleteFrom('payment_receipts').where('payment_intent_id', '=', paymentIntentId).execute();
+    await db.deleteFrom('payment_collection_sessions').where('payment_intent_id', '=', paymentIntentId).execute();
+    await db.deleteFrom('fulfilments').where('payment_intent_id', '=', paymentIntentId).execute();
+    await db.deleteFrom('payment_intents').where('id', '=', paymentIntentId).execute();
+  }
   await db.deleteFrom('transactions').where('id', '=', orderId).execute();
   await db.deleteFrom('listings').where('id', '=', listingId).execute();
   await db.deleteFrom('users').where('id', 'in', [buyerId, sellerId]).execute();
