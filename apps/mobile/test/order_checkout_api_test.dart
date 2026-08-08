@@ -52,7 +52,7 @@ String hostedCheckoutResponse({String url = 'https://checkout.stripe.com/c/pay/c
 }
 
 void main() {
-  test('sends only order identity, locale and protected challenge header', () async {
+  test('sends only order identity, bounded locale and protected challenge header', () async {
     http.Request? captured;
     final client = MockClient((request) async {
       captured = request;
@@ -72,7 +72,6 @@ void main() {
     final result = await api.prepare(
       'access-token',
       orderId: orderId,
-      locale: 'ar',
       challengeResponse: '  verified-human-check  ',
     );
 
@@ -87,7 +86,7 @@ void main() {
       captured?.headers['x-suqnaa-human-check'],
       'verified-human-check',
     );
-    expect(jsonDecode(captured?.body ?? ''), {'orderId': orderId, 'locale': 'ar'});
+    expect(jsonDecode(captured?.body ?? ''), {'orderId': orderId, 'locale': 'en'});
 
     expect(result.order.id, orderId);
     expect(result.order.listingId, listingId);
