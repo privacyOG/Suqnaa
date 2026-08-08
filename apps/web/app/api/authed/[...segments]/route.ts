@@ -47,6 +47,10 @@ function isDisputeEvidenceUploadRoute(route: NonNullable<ReturnType<typeof resol
   return /^\/v1\/market\/disputes\/[0-9a-fA-F-]+\/evidence\/upload$/.test(route.path);
 }
 
+function isDisputeEvidenceDeliveryRoute(route: NonNullable<ReturnType<typeof resolveProtectedRoute>>): boolean {
+  return /^\/v1\/market\/disputes\/[0-9a-fA-F-]+\/evidence\/[0-9a-fA-F-]+$/.test(route.path);
+}
+
 function isBinaryMediaUploadRoute(route: NonNullable<ReturnType<typeof resolveProtectedRoute>>): boolean {
   return /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/upload$/.test(route.path) ||
     route.path === '/v1/account/profile/avatar/upload' ||
@@ -63,7 +67,7 @@ function binaryMediaMaximumRequestBodyBytes(route: NonNullable<ReturnType<typeof
 function isProtectedBinaryDeliveryRoute(route: NonNullable<ReturnType<typeof resolveProtectedRoute>>): boolean {
   return route.path === '/v1/account/profile/avatar' ||
     /^\/v1\/listings\/[0-9a-fA-F-]+\/media\/[0-9a-fA-F-]+\/mine$/.test(route.path) ||
-    /^\/v1\/market\/disputes\/[0-9a-fA-F-]+\/evidence\/[0-9a-fA-F-]+$/.test(route.path);
+    isDisputeEvidenceDeliveryRoute(route);
 }
 
 function maximumJsonBodyBytesForRoute(route: NonNullable<ReturnType<typeof resolveProtectedRoute>>): number {
@@ -127,15 +131,22 @@ function rotationFailureResponse(rotation: Exclude<SessionRotationResult, { ok: 
   return errorResponse(rotation.error, rotation.status, rotation.retryAfter);
 }
 
-async function upstreamResponse(apiResponse: Response, credentials?: WebSessionCredentials): Promise<NextResponse> {
+async function upstreamResponse(
+  apiResponse: Response,
+  route: NonNullable<ReturnType<typeof resolveProtectedRoute>>,
+  credentials?: WebSessionCredentials
+): Promise<NextResponse> {
   const contentType = apiResponse.headers.get('content-type');
   const normalizedType = normalizedContentType(contentType);
   const isJson = normalizedType === 'application/json';
   const retryAfter = apiResponse.headers.get('retry-after');
   const upstreamCacheControl = apiResponse.headers.get('cache-control');
   const contentDisposition = apiResponse.headers.get('content-disposition');
+  const binaryFallbackCacheControl = isDisputeEvidenceDeliveryRoute(route)
+    ? 'private, no-store'
+    : 'private, max-age=60';
   const headers = new Headers({
-    'Cache-Control': isJson ? 'no-store' : upstreamCacheControl ?? 'private, no-store',
+    'Cache-Control': isJson ? 'no-store' : upstreamCacheControl ?? binaryFallbackCacheControl,
     'X-Content-Type-Options': 'nosniff'
   });
   if (contentType) headers.set('Content-Type', contentType);
@@ -194,7 +205,7 @@ async function handleProtectedRequest(request: NextRequest, context: RouteContex
     }
   }
 
-  return upstreamResponse(apiResponse, rotatedCredentials);
+  return upstreamResponse(apiResponse, prepared.route, rotatedCredentials);
 }
 
 export function GET(request: NextRequest, context: RouteContext) { return handleProtectedRequest(request, context); }
