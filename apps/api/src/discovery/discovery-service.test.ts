@@ -24,7 +24,7 @@ import {
 const sellerId = randomUUID();
 const viewerId = randomUUID();
 const otherSellerId = randomUUID();
-const baseTime = new Date();
+const baseTime = new Date(Date.now() - 10 * 60 * 1000);
 
 async function insertListing(input: {
   sellerId?: string;
