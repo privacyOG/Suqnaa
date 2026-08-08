@@ -6,6 +6,7 @@ import {
   checkoutPaymentMethods,
   prepareOrderCheckout
 } from '../payments/checkout-preparation.js';
+import { evaluateInitialLaunchPayment } from '../payments/launch-policy.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import {
   checkHumanProtectionWithChallenge,
@@ -100,7 +101,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
           .where('id', '=', order.seller_id)
           .executeTakeFirst(),
         db.selectFrom('listings')
-          .select(['id', 'seller_id', 'status'])
+          .select(['id', 'seller_id', 'status', 'country_code'])
           .where('id', '=', order.listing_id)
           .executeTakeFirst()
       ]);
@@ -138,6 +139,32 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
       if (!parsedPaymentMethod.success) {
         return reply.code(409).send({
           error: 'Order payment method is unavailable'
+        });
+      }
+
+      const launchEligibility = evaluateInitialLaunchPayment({
+        countryCode: String(listing.country_code),
+        currencyCode: String(order.currency_code),
+        paymentMethod: parsedPaymentMethod.data
+      });
+      if (!launchEligibility.eligible) {
+        writeSecurityAudit(app.log, {
+          action: 'payment.checkout_prepare',
+          decision: 'reject',
+          actorId: buyerId,
+          targetId: order.id,
+          ip: request.ip,
+          reasonCodes: [launchEligibility.reason],
+          metadata: {
+            listingId: order.listing_id,
+            countryCode: listing.country_code,
+            currencyCode: order.currency_code,
+            paymentMethod: parsedPaymentMethod.data
+          }
+        });
+        return reply.code(409).send({
+          error: 'Order is outside the initial marketplace payment launch policy',
+          reason: launchEligibility.reason
         });
       }
 
@@ -186,6 +213,8 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
         reasonCodes: protection.reasonCodes,
         metadata: {
           listingId: order.listing_id,
+          countryCode: listing.country_code,
+          currencyCode: order.currency_code,
           paymentMethod: parsedPaymentMethod.data
         }
       });
