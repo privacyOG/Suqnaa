@@ -5,6 +5,11 @@ export interface CursorPageOptions {
   before?: string;
 }
 
+export interface ConversationSyncOptions {
+  limit?: number;
+  cursor?: string;
+}
+
 export interface ConversationSafetyState {
   muted: boolean;
   blockedByMe: boolean;
@@ -81,6 +86,20 @@ export interface ConversationHistoryResponse {
   };
 }
 
+export interface ConversationSyncResponse {
+  conversationId: string;
+  changes: ConversationMessage[];
+  reconciliation: {
+    deliveredMessages: number;
+    serverTime: string;
+  };
+  pagination: {
+    cursor: string | null;
+    hasMore: boolean;
+    pollAfterMs: number;
+  };
+}
+
 export interface ConversationSafetyResponse {
   safety: ConversationSafetyState & {
     conversationId: string;
@@ -121,6 +140,18 @@ export function getConversationHistory(
       options
     )
   );
+}
+
+export function getConversationSync(
+  conversationId: string,
+  options: ConversationSyncOptions = {}
+): Promise<ConversationSyncResponse> {
+  const query = new URLSearchParams();
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.cursor) query.set('cursor', options.cursor);
+  const encoded = query.toString();
+  const path = `/v1/conversations/${encodeURIComponent(conversationId)}/sync`;
+  return getAuthed<ConversationSyncResponse>(encoded ? `${path}?${encoded}` : path);
 }
 
 export function getConversationSafety(
