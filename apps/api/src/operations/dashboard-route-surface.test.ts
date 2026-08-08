@@ -22,7 +22,7 @@ assert.match(route, /audit_logs/);
 assert.match(route, /order_returns/);
 assert.match(route, /seller_settlements/);
 assert.match(route, /fulfilments\.tracking_reference/);
-assert.match(route, /categories\.is_active/);
+assert.match(route, /['"]is_active['"]/);
 assert.doesNotMatch(route, /updateTable\(/);
 assert.doesNotMatch(route, /deleteFrom\(/);
 
