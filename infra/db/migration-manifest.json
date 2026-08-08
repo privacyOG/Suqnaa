@@ -36,6 +36,7 @@
     { "id": "0033_delivery_pickup", "file": "030_delivery_pickup.sql" },
     { "id": "0034_delivery_timeline_guards", "file": "031_delivery_timeline_guards.sql" },
     { "id": "0035_dispute_workflows", "file": "032_dispute_workflows.sql" },
-    { "id": "0036_buyer_seller_protection", "file": "033_buyer_seller_protection.sql" }
+    { "id": "0036_buyer_seller_protection", "file": "033_buyer_seller_protection.sql" },
+    { "id": "0037_protection_eta_snapshot", "file": "034_protection_eta_snapshot.sql" }
   ]
 }
