@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { DisputeDetail, DisputeOutcome, DisputeSummary } from '../lib/dispute-api';
+import { protectedEvidenceHref, type DisputeDetail, type DisputeOutcome, type DisputeSummary } from '../lib/dispute-api';
 import {
   decideOperationsAppeal,
   listOperationsDisputes,
@@ -26,9 +26,7 @@ export function OperationsDisputePanel({ locale }: { locale: string }) {
   const reload = useCallback(async () => {
     const result = await listOperationsDisputes();
     setItems(result.disputes);
-    if (detail) {
-      setDetail(await readOperationsDispute(detail.dispute.id));
-    }
+    if (detail) setDetail(await readOperationsDispute(detail.dispute.id));
   }, [detail?.dispute.id]);
 
   useEffect(() => { void listOperationsDisputes().then((result) => setItems(result.disputes)).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause))); }, []);
@@ -89,7 +87,10 @@ export function OperationsDisputePanel({ locale }: { locale: string }) {
             <button className="button-secondary" disabled={busy || ['resolved','closed'].includes(detail.dispute.status)} onClick={() => void run(() => startDisputeReview(detail.dispute.id, 'seller', 'Additional seller information requested by dispute review.'))}>{ar ? 'طلب معلومات من البائع' : 'Request seller info'}</button>
           </div>
           {detail.responses.length ? <div><h4>{ar ? 'الردود' : 'Responses'}</h4>{detail.responses.map((entry) => <p key={entry.id}>{entry.responseText}</p>)}</div> : null}
-          {detail.evidence.length ? <div><h4>{ar ? 'الأدلة' : 'Evidence'}</h4><ul>{detail.evidence.map((entry) => <li key={entry.id}>{entry.textValue ?? entry.filename ?? entry.type}</li>)}</ul></div> : null}
+          {detail.evidence.length ? <div><h4>{ar ? 'الأدلة' : 'Evidence'}</h4><ul>{detail.evidence.map((entry) => <li key={entry.id}>
+            {entry.textValue ?? entry.filename ?? entry.type}
+            {entry.downloadPath ? <> · <a href={protectedEvidenceHref(entry.downloadPath)}>{ar ? 'تنزيل الدليل الخاص' : 'Download private evidence'}</a></> : null}
+          </li>)}</ul></div> : null}
           {!['resolved','closed'].includes(detail.dispute.status) ? <form onSubmit={resolve}>
             <label>{ar ? 'النتيجة' : 'Outcome'}<select value={outcome} onChange={(event) => setOutcome(event.target.value as Exclude<DisputeOutcome,'none'>)}>{outcomes.map((value) => <option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label>
             {outcome === 'partial_refund' ? <label>{ar ? 'مبلغ الاسترداد الجزئي' : 'Partial refund amount'}<input inputMode="decimal" value={partialAmount} onChange={(event) => setPartialAmount(event.target.value)} required /></label> : null}
