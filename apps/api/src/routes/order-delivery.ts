@@ -742,6 +742,7 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
       });
 
       if (result.invalid) {
+        const attemptCount = result.attemptCount ?? 10;
         writeSecurityAudit(app.log, {
           action: 'order.pickup.proof.verify',
           decision: 'reject',
@@ -749,14 +750,14 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           targetId: params.orderId,
           ip: request.ip,
           reasonCodes: [
-            result.attemptCount >= 10
+            attemptCount >= 10
               ? 'pickup_proof_locked'
               : 'pickup_proof_invalid'
           ],
-          metadata: { attemptCount: result.attemptCount }
+          metadata: { attemptCount }
         });
         return reply.code(403).send({
-          error: result.attemptCount >= 10
+          error: attemptCount >= 10
             ? 'pickup_proof_locked'
             : 'pickup_proof_invalid'
         });
