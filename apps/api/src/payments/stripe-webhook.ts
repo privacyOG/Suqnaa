@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 const uuid = z.string().uuid();
@@ -92,8 +92,9 @@ export function verifyAndParseStripeWebhook(input: {
 
 export function stripePaymentFingerprint(event: StripePaymentSucceededEvent): string {
   const payment = event.data.object;
-  return createHmac('sha256', 'suqnaa-stripe-event-fingerprint-v1')
+  return createHash('sha256')
     .update([
+      'suqnaa-stripe-event-fingerprint-v1',
       event.id,
       payment.id,
       payment.metadata.suqnaa_payment_intent_id,
