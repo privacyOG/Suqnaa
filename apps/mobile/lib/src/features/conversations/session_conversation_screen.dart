@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../api/conversation_api.dart';
@@ -32,6 +33,9 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
   final _messages = <Map<String, dynamic>>[];
   ConversationApi? _api;
   AppSession? _session;
+  Timer? _pollTimer;
+  String? _syncCursor;
+  bool _syncing = false;
   bool _loading = false;
   bool _sending = false;
   bool _safetyBusy = false;
@@ -48,6 +52,8 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
     super.didChangeDependencies();
     final session = SessionScope.of(context);
     if (!identical(session, _session)) {
+      _pollTimer?.cancel();
+      _syncCursor = null;
       _session = session;
       _api = ConversationApi(
         authedApi: SessionAuthedApi(
@@ -55,14 +61,26 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
           sessionProvider: () => session,
         ),
       );
-      _load();
+      unawaited(_load().then((_) {
+        if (mounted) _startPolling();
+      }));
     }
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _composer.dispose();
     super.dispose();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    unawaited(_sync());
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => unawaited(_sync()),
+    );
   }
 
   void _applySafety(Map<dynamic, dynamic>? safety) {
@@ -132,6 +150,73 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
     }
   }
 
+  Future<void> _sync() async {
+    final api = _api;
+    final session = _session;
+    final token = session?.access.value ?? '';
+    if (api == null || session == null || token.isEmpty || _syncing || !mounted) return;
+
+    _syncing = true;
+    try {
+      final response = await api.getConversationSync(
+        token,
+        widget.conversationId,
+        limit: 100,
+        cursor: _syncCursor,
+      );
+      if (!mounted) return;
+
+      final rawChanges = response['changes'];
+      final changes = rawChanges is List
+          ? rawChanges.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
+          : <Map<String, dynamic>>[];
+      final pagination = response['pagination'];
+      final nextCursor = pagination is Map ? pagination['cursor']?.toString() : null;
+      final currentUserId = session.userId;
+      final hasUnreadIncoming = changes.any((message) =>
+          message['senderId']?.toString() != currentUserId &&
+          message['status']?.toString() != 'read');
+
+      if (changes.isNotEmpty || nextCursor != _syncCursor) {
+        setState(() {
+          for (final change in changes) {
+            final id = change['id']?.toString();
+            final index = _messages.indexWhere((item) => item['id']?.toString() == id);
+            if (index >= 0) {
+              _messages[index] = change;
+            } else {
+              _messages.add(change);
+            }
+          }
+          _messages.sort((a, b) =>
+              (a['createdAt']?.toString() ?? '').compareTo(b['createdAt']?.toString() ?? ''));
+          _syncCursor = nextCursor ?? _syncCursor;
+        });
+      }
+
+      if (hasUnreadIncoming) {
+        final acknowledgement = await api.acknowledge(token, widget.conversationId);
+        final readAt = acknowledgement['readAt']?.toString();
+        if (mounted && readAt != null) {
+          setState(() {
+            for (final message in _messages) {
+              if (message['senderId']?.toString() != currentUserId &&
+                  message['status']?.toString() != 'read') {
+                message['status'] = 'read';
+                message['readAt'] = readAt;
+                message['updatedAt'] = readAt;
+              }
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // Poll failures are intentionally silent; the next bounded poll retries.
+    } finally {
+      _syncing = false;
+    }
+  }
+
   Future<void> _send() async {
     final api = _api;
     final token = _session?.access.value ?? '';
@@ -169,6 +254,7 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
         }
       }
       _composer.clear();
+      unawaited(_sync());
     } catch (_) {
       if (mounted) {
         setState(() => _error = 'Message could not be sent. Refresh the conversation before retrying.');
