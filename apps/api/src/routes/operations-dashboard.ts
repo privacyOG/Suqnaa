@@ -74,39 +74,18 @@ export async function operationsDashboardRoutes(app: FastifyInstance): Promise<v
       generatedAt: new Date().toISOString(),
       permissions: [...permissions].sort(),
       sections: {
-        reports: {
-          available: can('moderation.queue.read'),
-          open: can('moderation.queue.read') ? asCount(openReports) : null
-        },
-        accounts: {
-          available: can('moderation.account.manage'),
-          suspended: can('moderation.account.manage') ? asCount(suspendedAccounts) : null
-        },
-        listings: {
-          available: can('moderation.listing.manage'),
-          removed: can('moderation.listing.manage') ? asCount(removedListings) : null
-        },
-        categories: {
-          available: true,
-          total: asCount(categories)
-        },
-        identityChecks: {
-          available: can('verification.read'),
-          pending: can('verification.read') ? asCount(pendingVerifications) : null
-        },
-        disputes: {
-          available: can('disputes.read'),
-          active: can('disputes.read') ? asCount(activeDisputes) : null
-        },
+        reports: { available: can('moderation.queue.read'), open: can('moderation.queue.read') ? asCount(openReports) : null },
+        accounts: { available: can('moderation.account.manage'), suspended: can('moderation.account.manage') ? asCount(suspendedAccounts) : null },
+        listings: { available: can('moderation.listing.manage'), removed: can('moderation.listing.manage') ? asCount(removedListings) : null },
+        categories: { available: true, total: asCount(categories) },
+        identityChecks: { available: can('verification.read'), pending: can('verification.read') ? asCount(pendingVerifications) : null },
+        disputes: { available: can('disputes.read'), active: can('disputes.read') ? asCount(activeDisputes) : null },
         payments: {
           available: can('payments.read'),
           awaitingDecision: can('payments.read') ? asCount(pendingPaymentOperations) : null,
           failed: can('payments.read') ? asCount(failedPaymentOperations) : null
         },
-        settlements: {
-          available: can('settlements.read'),
-          blocked: can('settlements.read') ? asCount(blockedSettlements) : null
-        },
+        settlements: { available: can('settlements.read'), blocked: can('settlements.read') ? asCount(blockedSettlements) : null },
         fulfilment: {
           available: can('disputes.read'),
           failed: can('disputes.read') ? asCount(failedFulfilments) : null,
@@ -118,11 +97,155 @@ export async function operationsDashboardRoutes(app: FastifyInstance): Promise<v
           openChargebacks: can('payments.read') ? asCount(chargebacks) : null,
           source: 'existing_reports_and_chargebacks'
         },
-        audit: {
-          available: can('audit.read'),
-          last24Hours: can('audit.read') ? asCount(auditLast24Hours) : null
-        }
+        audit: { available: can('audit.read'), last24Hours: can('audit.read') ? asCount(auditLast24Hours) : null }
       }
+    });
+  });
+
+  app.get('/operations/dashboard/categories', { preHandler: requireOperationsUser }, async (_request, reply) => {
+    const rows = await db.selectFrom('categories')
+      .select(['id', 'parent_id', 'slug', 'name_en', 'name_ar', 'sort_order', 'is_active'])
+      .orderBy('sort_order', 'asc')
+      .orderBy('name_en', 'asc')
+      .execute();
+    return reply.send({
+      categories: rows.map((row) => ({
+        id: row.id,
+        parentId: row.parent_id,
+        slug: row.slug,
+        nameEn: row.name_en,
+        nameAr: row.name_ar,
+        sortOrder: row.sort_order,
+        active: Boolean(row.is_active)
+      }))
+    });
+  });
+
+  app.get('/operations/dashboard/fulfilment', { preHandler: requireOperationsUser }, async (_request, reply) => {
+    const [fulfilments, returns] = await Promise.all([
+      db.selectFrom('fulfilments')
+        .innerJoin('payment_intents', 'payment_intents.id', 'fulfilments.payment_intent_id')
+        .leftJoin('transactions', 'transactions.id', 'payment_intents.transaction_id')
+        .leftJoin('listings', 'listings.id', 'payment_intents.listing_id')
+        .select([
+          'fulfilments.id as id',
+          'fulfilments.status as status',
+          'fulfilments.carrier as carrier',
+          'fulfilments.tracking_reference as tracking_reference',
+          'fulfilments.shipped_at as shipped_at',
+          'fulfilments.delivered_at as delivered_at',
+          'fulfilments.buyer_confirmed_at as buyer_confirmed_at',
+          'fulfilments.updated_at as updated_at',
+          'payment_intents.transaction_id as order_id',
+          'payment_intents.status as payment_status',
+          'transactions.status as order_status',
+          'listings.title as listing_title'
+        ])
+        .orderBy('fulfilments.updated_at', 'desc')
+        .limit(100)
+        .execute(),
+      db.selectFrom('order_returns')
+        .leftJoin('transactions', 'transactions.id', 'order_returns.order_id')
+        .leftJoin('listings', 'listings.id', 'transactions.listing_id')
+        .select([
+          'order_returns.id as id',
+          'order_returns.order_id as order_id',
+          'order_returns.dispute_id as dispute_id',
+          'order_returns.status as status',
+          'order_returns.reason as reason',
+          'order_returns.return_due_at as return_due_at',
+          'order_returns.carrier as carrier',
+          'order_returns.tracking_reference as tracking_reference',
+          'order_returns.shipped_at as shipped_at',
+          'order_returns.delivered_at as delivered_at',
+          'order_returns.received_at as received_at',
+          'order_returns.seller_condition as seller_condition',
+          'order_returns.updated_at as updated_at',
+          'listings.title as listing_title'
+        ])
+        .orderBy('order_returns.updated_at', 'desc')
+        .limit(100)
+        .execute()
+    ]);
+
+    return reply.send({
+      fulfilments: fulfilments.map((row) => ({
+        id: row.id,
+        orderId: row.order_id,
+        status: row.status,
+        paymentStatus: row.payment_status,
+        orderStatus: row.order_status,
+        listingTitle: row.listing_title,
+        carrier: row.carrier,
+        trackingReference: row.tracking_reference,
+        shippedAt: row.shipped_at,
+        deliveredAt: row.delivered_at,
+        buyerConfirmedAt: row.buyer_confirmed_at,
+        updatedAt: row.updated_at
+      })),
+      returns: returns.map((row) => ({
+        id: row.id,
+        orderId: row.order_id,
+        disputeId: row.dispute_id,
+        status: row.status,
+        listingTitle: row.listing_title,
+        reason: row.reason,
+        returnDueAt: row.return_due_at,
+        carrier: row.carrier,
+        trackingReference: row.tracking_reference,
+        shippedAt: row.shipped_at,
+        deliveredAt: row.delivered_at,
+        receivedAt: row.received_at,
+        sellerCondition: row.seller_condition,
+        updatedAt: row.updated_at
+      }))
+    });
+  });
+
+  app.get('/operations/dashboard/fraud', { preHandler: requireOperationsUser }, async (request, reply) => {
+    const auth = request as OperationsRequest;
+    const canReports = auth.administrativePermissions.has('moderation.queue.read');
+    const canPayments = auth.administrativePermissions.has('payments.read');
+    const [reports, chargebacks] = await Promise.all([
+      canReports
+        ? db.selectFrom('reports')
+            .select(['id', 'listing_id', 'reported_user_id', 'reason', 'details', 'created_at'])
+            .where('resolved_at', 'is', null)
+            .where('reason', 'ilike', '%fraud%')
+            .orderBy('created_at', 'desc')
+            .limit(100)
+            .execute()
+        : [],
+      canPayments
+        ? db.selectFrom('payment_operations')
+            .select(['id', 'order_id', 'status', 'amount', 'currency_code', 'reason', 'requested_at'])
+            .where('kind', '=', 'chargeback')
+            .orderBy('requested_at', 'desc')
+            .limit(100)
+            .execute()
+        : []
+    ]);
+
+    return reply.send({
+      source: 'existing_reports_and_chargebacks',
+      automatedRiskRules: false,
+      reports: reports.map((row) => ({
+        id: row.id,
+        listingId: row.listing_id,
+        subjectUserId: row.reported_user_id,
+        reason: row.reason,
+        details: row.details,
+        createdAt: row.created_at
+      })),
+      chargebacks: chargebacks.map((row) => ({
+        id: row.id,
+        orderId: row.order_id,
+        status: row.status,
+        amount: row.amount,
+        currencyCode: row.currency_code,
+        reason: row.reason,
+        requestedAt: row.requested_at
+      }))
     });
   });
 }
