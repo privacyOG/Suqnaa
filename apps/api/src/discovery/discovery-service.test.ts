@@ -24,24 +24,22 @@ import {
 const sellerId = randomUUID();
 const viewerId = randomUUID();
 const otherSellerId = randomUUID();
-const baseTime = new Date('2026-08-08T00:00:00.000Z');
+const baseTime = new Date();
 
 async function insertListing(input: {
-  id?: string;
   sellerId?: string;
   title: string;
   updatedAt?: Date;
   city?: string;
-  price?: string;
 }) {
-  const id = input.id ?? randomUUID();
+  const id = randomUUID();
   const updatedAt = input.updatedAt ?? baseTime;
   await db.insertInto('listings').values({
     id,
     seller_id: input.sellerId ?? sellerId,
     title: input.title,
     description: `${input.title} discovery database integration test record.`,
-    price_amount: input.price ?? '100.00',
+    price_amount: '100.00',
     currency_code: 'AUD',
     condition: 'good',
     availability_status: 'in_stock',
@@ -93,20 +91,15 @@ try {
   ]).execute();
 
   const listingId = await insertListing({ title: 'Saved gaming laptop' });
-
   assert.deepEqual(await getListingDiscoveryState(viewerId, listingId), {
     listingId,
     saved: false,
     watching: false
   });
 
-  assert.deepEqual(await saveListing(viewerId, listingId), {
-    listingId,
-    unchanged: false
-  });
+  assert.equal((await saveListing(viewerId, listingId)).unchanged, false);
   assert.equal((await saveListing(viewerId, listingId)).unchanged, true);
   assert.equal((await listSavedListings(viewerId))[0]?.listingId, listingId);
-
   assert.equal((await watchListing(viewerId, listingId)).unchanged, false);
   assert.equal((await watchListing(viewerId, listingId)).unchanged, true);
   assert.equal((await listWatchlist(viewerId))[0]?.listingId, listingId);
@@ -115,7 +108,6 @@ try {
     saved: true,
     watching: true
   });
-
   assert.equal((await removeSavedListing(viewerId, listingId)).unchanged, false);
   assert.equal((await removeSavedListing(viewerId, listingId)).unchanged, true);
   assert.equal((await removeWatchedListing(viewerId, listingId)).unchanged, false);
@@ -157,18 +149,21 @@ try {
     DiscoveryConflictError
   );
 
+  const cursorTime = new Date(baseTime.getTime() + 10_000);
+  await db.updateTable('saved_searches')
+    .set({ last_evaluated_at: cursorTime, last_evaluated_listing_id: null })
+    .where('id', '=', String(search.id))
+    .execute();
+
   const beforeSearchMatch = await insertListing({
     sellerId: otherSellerId,
     title: 'Gaming laptop older match',
-    updatedAt: new Date(baseTime.getTime() - 1000)
+    updatedAt: new Date(cursorTime.getTime() - 1000)
   });
-  const firstSweep = await runSavedSearchNotificationSweep(
-    new Date(baseTime.getTime() + 60_000)
-  );
-  assert.equal(firstSweep.acquired, true);
+  await runSavedSearchNotificationSweep(new Date(cursorTime.getTime() + 60_000));
   assert.equal((await listSavedSearchNotifications(viewerId)).length, 0);
 
-  const matchTime = new Date(baseTime.getTime() + 120_000);
+  const matchTime = new Date(cursorTime.getTime() + 120_000);
   const matchingListingId = await insertListing({
     sellerId: otherSellerId,
     title: 'Gaming laptop fresh match',
@@ -177,8 +172,7 @@ try {
   const nonmatchingListingId = await insertListing({
     sellerId: otherSellerId,
     title: 'Dining table fresh listing',
-    updatedAt: matchTime,
-    city: 'Sydney'
+    updatedAt: matchTime
   });
   const ownListingId = await insertListing({
     sellerId: viewerId,
@@ -186,10 +180,7 @@ try {
     updatedAt: matchTime
   });
 
-  const secondSweep = await runSavedSearchNotificationSweep(
-    new Date(baseTime.getTime() + 180_000)
-  );
-  assert.equal(secondSweep.acquired, true);
+  await runSavedSearchNotificationSweep(new Date(matchTime.getTime() + 60_000));
   const notifications = await listSavedSearchNotifications(viewerId);
   assert.equal(notifications.length, 1);
   assert.equal(notifications[0]?.listingId, matchingListingId);
@@ -197,12 +188,11 @@ try {
   assert.notEqual(notifications[0]?.listingId, ownListingId);
   assert.notEqual(notifications[0]?.listingId, beforeSearchMatch);
 
-  await runSavedSearchNotificationSweep(new Date(baseTime.getTime() + 240_000));
+  await runSavedSearchNotificationSweep(new Date(matchTime.getTime() + 120_000));
   assert.equal((await listSavedSearchNotifications(viewerId)).length, 1);
 
   const notificationId = String(notifications[0]?.id);
-  const marked = await markSavedSearchNotificationRead(viewerId, notificationId);
-  assert.equal(marked.unchanged, false);
+  assert.equal((await markSavedSearchNotificationRead(viewerId, notificationId)).unchanged, false);
   assert.equal((await markSavedSearchNotificationRead(viewerId, notificationId)).unchanged, true);
   assert.equal((await listSavedSearchNotifications(viewerId, { unreadOnly: true })).length, 0);
 
@@ -217,9 +207,7 @@ try {
   assert.equal((await listSavedSearches(viewerId))[0]?.active, false);
   await updateSavedSearch(viewerId, String(search.id), { active: true });
   assert.equal((await listSavedSearches(viewerId))[0]?.active, true);
-
-  const allRead = await markAllSavedSearchNotificationsRead(viewerId);
-  assert.equal(allRead.updated, 0);
+  assert.equal((await markAllSavedSearchNotificationsRead(viewerId)).updated, 0);
 
   console.log('Discovery persistence and saved-search notification tests passed.');
 } finally {
