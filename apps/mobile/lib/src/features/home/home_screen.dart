@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
 import '../../api/catalog_api.dart';
+import '../../api/discovery_api.dart';
+import '../../api/session_authed_api.dart';
 import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
+import '../../session/session_scope.dart';
 import '../account/account_screen.dart';
 import '../catalog/catalog_filter_sheet.dart';
 import '../catalog/catalog_labels.dart';
@@ -185,10 +188,72 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _saveCurrentSearch() async {
+    final session = SessionScope.maybeOf(context);
+    if (session?.isSignedIn != true || !_options.hasFilters) return;
+    final ar = Localizations.localeOf(context).languageCode == 'ar';
+    final controller = TextEditingController(
+      text: _options.query?.trim().isNotEmpty == true
+          ? _options.query!.trim()
+          : (ar ? 'بحث محفوظ' : 'Saved search'),
+    );
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(ar ? 'حفظ البحث' : 'Save search'),
+        content: TextField(
+          key: const Key('saved-search-name-field'),
+          controller: controller,
+          maxLength: 120,
+          decoration: InputDecoration(labelText: ar ? 'اسم البحث' : 'Search name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(ar ? 'إلغاء' : 'Cancel')),
+          FilledButton(
+            key: const Key('save-current-search-confirm'),
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.pop(context, value);
+            },
+            child: Text(ar ? 'حفظ' : 'Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || !mounted) return;
+
+    try {
+      final gateway = DiscoveryApi(
+        authedApi: SessionAuthedApi(
+          baseUrl: Uri.parse(MobileEnvironment.apiBaseUrl),
+          sessionProvider: () => session!,
+        ),
+      );
+      await gateway.createSavedSearch(
+        session!.access.value,
+        name: name,
+        filters: _options,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ar ? 'تم حفظ البحث.' : 'Search saved.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ar ? 'تعذر حفظ البحث.' : 'Unable to save search.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppLocalizations.of(context);
     final languageCode = Localizations.localeOf(context).languageCode;
+    final session = SessionScope.maybeOf(context);
 
     return Scaffold(
       backgroundColor: SuqnaaBrand.ivory,
@@ -197,6 +262,13 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         title: Text(text.appName),
         actions: [
+          if (session?.isSignedIn == true && _options.hasFilters)
+            IconButton(
+              key: const Key('save-current-search'),
+              tooltip: languageCode == 'ar' ? 'حفظ البحث' : 'Save search',
+              icon: const Icon(Icons.notifications_active_outlined),
+              onPressed: _saveCurrentSearch,
+            ),
           IconButton(
             tooltip: text.account,
             icon: const Icon(Icons.person_outline),
@@ -243,19 +315,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: Text(
                     text.trendingNearYou,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                 ),
                 if (!_loading && !_failed)
                   Text(
                     '${_listings.length} ${text.results}',
-                    style: const TextStyle(
-                      color: SuqnaaBrand.muted,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: const TextStyle(color: SuqnaaBrand.muted, fontWeight: FontWeight.w700),
                   ),
               ],
             ),
@@ -283,15 +349,9 @@ class _HomeScreenState extends State<HomeScreen> {
             if (_nextCursor != null && !_loading && !_failed) ...[
               const SizedBox(height: 18),
               OutlinedButton.icon(
-                onPressed: _loadingMore
-                    ? null
-                    : () => _loadListings(reset: false),
+                onPressed: _loadingMore ? null : () => _loadListings(reset: false),
                 icon: _loadingMore
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.expand_more),
                 label: Text(_loadingMore ? text.loadingMore : text.loadMore),
               ),
@@ -304,14 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _SearchBox extends StatelessWidget {
-  const _SearchBox({
-    required this.controller,
-    required this.hint,
-    required this.activeFilterCount,
-    required this.onSubmitted,
-    required this.onFilters,
-  });
-
+  const _SearchBox({required this.controller, required this.hint, required this.activeFilterCount, required this.onSubmitted, required this.onFilters});
   final TextEditingController controller;
   final String hint;
   final int activeFilterCount;
@@ -319,62 +372,40 @@ class _SearchBox extends StatelessWidget {
   final VoidCallback onFilters;
 
   @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      textInputAction: TextInputAction.search,
-      onSubmitted: onSubmitted,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: const Icon(Icons.search),
-        suffixIcon: Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(onPressed: onFilters, icon: const Icon(Icons.tune)),
-            if (activeFilterCount > 0)
-              PositionedDirectional(
-                top: 7,
-                end: 7,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: const BoxDecoration(
-                    color: SuqnaaBrand.blue,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$activeFilterCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    textInputAction: TextInputAction.search,
+    onSubmitted: onSubmitted,
+    decoration: InputDecoration(
+      hintText: hint,
+      prefixIcon: const Icon(Icons.search),
+      suffixIcon: Stack(
+        alignment: Alignment.center,
+        children: [
+          IconButton(onPressed: onFilters, icon: const Icon(Icons.tune)),
+          if (activeFilterCount > 0)
+            PositionedDirectional(
+              top: 7,
+              end: 7,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: const BoxDecoration(color: SuqnaaBrand.blue, shape: BoxShape.circle),
+                alignment: Alignment.center,
+                child: Text('$activeFilterCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
               ),
-          ],
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
+            ),
+        ],
       ),
-    );
-  }
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+    ),
+  );
 }
 
 class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({
-    required this.categories,
-    required this.languageCode,
-    required this.selectedId,
-    required this.allLabel,
-    required this.onSelected,
-  });
-
+  const _CategoryRow({required this.categories, required this.languageCode, required this.selectedId, required this.allLabel, required this.onSelected});
   final List<CatalogCategoryDto> categories;
   final String languageCode;
   final String? selectedId;
@@ -382,85 +413,45 @@ class _CategoryRow extends StatelessWidget {
   final ValueChanged<String?> onSelected;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 45,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return ChoiceChip(
-              label: Text(allLabel),
-              selected: selectedId == null,
-              onSelected: (_) => onSelected(null),
-            );
-          }
-          final category = categories[index - 1];
-          return ChoiceChip(
-            label: Text(category.labelFor(languageCode)),
-            selected: selectedId == category.id,
-            onSelected: (_) => onSelected(category.id),
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SizedBox(
+    height: 45,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: categories.length + 1,
+      separatorBuilder: (_, __) => const SizedBox(width: 8),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return ChoiceChip(label: Text(allLabel), selected: selectedId == null, onSelected: (_) => onSelected(null));
+        }
+        final category = categories[index - 1];
+        return ChoiceChip(label: Text(category.labelFor(languageCode)), selected: selectedId == category.id, onSelected: (_) => onSelected(category.id));
+      },
+    ),
+  );
 }
 
 class _HeroCard extends StatelessWidget {
   const _HeroCard({required this.title, required this.action});
-
   final String title;
   final String action;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [SuqnaaBrand.blue, SuqnaaBrand.teal],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            action,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors: [SuqnaaBrand.blue, SuqnaaBrand.teal])),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 16),
+        Text(action, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+      ],
+    ),
+  );
 }
 
 class _CatalogBody extends StatelessWidget {
-  const _CatalogBody({
-    required this.loading,
-    required this.failed,
-    required this.hasFilters,
-    required this.listings,
-    required this.text,
-    required this.onRetry,
-    required this.onListing,
-  });
-
+  const _CatalogBody({required this.loading, required this.failed, required this.hasFilters, required this.listings, required this.text, required this.onRetry, required this.onListing});
   final bool loading;
   final bool failed;
   final bool hasFilters;
@@ -471,73 +462,32 @@ class _CatalogBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return _StatusCard(
-        icon: Icons.storefront_outlined,
-        message: text.loadingListings,
-        loading: true,
-      );
-    }
-    if (failed) {
-      return _StatusCard(
-        icon: Icons.cloud_off_outlined,
-        message: text.unableToLoadListings,
-        actionLabel: text.retry,
-        onAction: onRetry,
-      );
-    }
-    if (listings.isEmpty) {
-      return _StatusCard(
-        icon: Icons.search_off_outlined,
-        message: hasFilters ? text.noSearchResults : text.noListings,
-      );
-    }
+    if (loading) return _StatusCard(icon: Icons.storefront_outlined, message: text.loadingListings, loading: true);
+    if (failed) return _StatusCard(icon: Icons.cloud_off_outlined, message: text.unableToLoadListings, actionLabel: text.retry, onAction: onRetry);
+    if (listings.isEmpty) return _StatusCard(icon: Icons.search_off_outlined, message: hasFilters ? text.noSearchResults : text.noListings);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900
-            ? 4
-            : constraints.maxWidth >= 620
-                ? 3
-                : 2;
-        return GridView.builder(
-          itemCount: listings.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.66,
-          ),
-          itemBuilder: (context, index) => _ListingCard(
-            listing: listings[index],
-            text: text,
-            onTap: () => onListing(listings[index]),
-          ),
-        );
-      },
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 900 ? 4 : constraints.maxWidth >= 620 ? 3 : 2;
+      return GridView.builder(
+        itemCount: listings.length,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.66),
+        itemBuilder: (context, index) => _ListingCard(listing: listings[index], text: text, onTap: () => onListing(listings[index])),
+      );
+    });
   }
 }
 
 class _ListingCard extends StatelessWidget {
-  const _ListingCard({
-    required this.listing,
-    required this.text,
-    required this.onTap,
-  });
-
+  const _ListingCard({required this.listing, required this.text, required this.onTap});
   final CatalogListingDto listing;
   final AppLocalizations text;
   final VoidCallback onTap;
 
   String _price(BuildContext context) {
     try {
-      return NumberFormat.simpleCurrency(
-        name: listing.currencyCode,
-        locale: Localizations.localeOf(context).toLanguageTag(),
-      ).format(listing.priceAmount);
+      return NumberFormat.simpleCurrency(name: listing.currencyCode, locale: Localizations.localeOf(context).toLanguageTag()).format(listing.priceAmount);
     } catch (_) {
       return '${listing.priceAmount.toStringAsFixed(2)} ${listing.currencyCode}';
     }
@@ -548,7 +498,6 @@ class _ListingCard extends StatelessWidget {
     final cover = listing.coverMedia;
     final languageCode = Localizations.localeOf(context).languageCode;
     final category = listing.category?.labelFor(languageCode);
-
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -566,26 +515,13 @@ class _ListingCard extends StatelessWidget {
                     ? Container(
                         color: SuqnaaBrand.blue,
                         alignment: Alignment.center,
-                        child: Text(
-                          listing.title.isEmpty
-                              ? 'S'
-                              : listing.title.characters.first,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 48,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
+                        child: Text(listing.title.isEmpty ? 'S' : listing.title.characters.first, style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900)),
                       )
                     : Image.network(
                         cover.url,
                         fit: BoxFit.cover,
                         semanticLabel: cover.altText ?? listing.title,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFF1F5FF),
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.broken_image_outlined),
-                        ),
+                        errorBuilder: (_, __, ___) => Container(color: const Color(0xFFF1F5FF), alignment: Alignment.center, child: const Icon(Icons.broken_image_outlined)),
                       ),
               ),
             ),
@@ -596,46 +532,13 @@ class _ListingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      category ??
-                          catalogConditionLabel(text, listing.condition),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: SuqnaaBrand.teal,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                    Text(category ?? catalogConditionLabel(text, listing.condition), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SuqnaaBrand.teal, fontSize: 11, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 5),
-                    Text(
-                      listing.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
+                    Text(listing.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
                     const Spacer(),
-                    Text(
-                      _price(context),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: SuqnaaBrand.blue,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                    Text(_price(context), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SuqnaaBrand.blue, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 4),
-                    Text(
-                      listing.location.isEmpty
-                          ? text.notSpecified
-                          : listing.location,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: SuqnaaBrand.muted,
-                        fontSize: 11,
-                      ),
-                    ),
+                    Text(listing.location.isEmpty ? text.notSpecified : listing.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SuqnaaBrand.muted, fontSize: 11)),
                   ],
                 ),
               ),
@@ -648,14 +551,7 @@ class _ListingCard extends StatelessWidget {
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard({
-    required this.icon,
-    required this.message,
-    this.loading = false,
-    this.actionLabel,
-    this.onAction,
-  });
-
+  const _StatusCard({required this.icon, required this.message, this.loading = false, this.actionLabel, this.onAction});
   final IconData icon;
   final String message;
   final bool loading;
@@ -663,32 +559,17 @@ class _StatusCard extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 44, color: SuqnaaBrand.blue),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          if (loading) ...[
-            const SizedBox(height: 16),
-            const CircularProgressIndicator(),
-          ],
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 12),
-            TextButton(onPressed: onAction, child: Text(actionLabel!)),
-          ],
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(28),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+    child: Column(
+      children: [
+        Icon(icon, size: 44, color: SuqnaaBrand.blue),
+        const SizedBox(height: 12),
+        Text(message, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800)),
+        if (loading) ...[const SizedBox(height: 16), const CircularProgressIndicator()],
+        if (actionLabel != null && onAction != null) ...[const SizedBox(height: 12), TextButton(onPressed: onAction, child: Text(actionLabel!))],
+      ],
+    ),
+  );
 }
