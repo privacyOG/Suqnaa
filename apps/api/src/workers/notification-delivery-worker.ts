@@ -1,10 +1,11 @@
 import { resolveNotificationDeliveryConfiguration } from '../config/notification-delivery-config.js';
 import { closeDb } from '../db/index.js';
+import { claimEnabledNotificationDeliveries } from '../notifications/outbox-claim.js';
 import {
-  claimNotificationDeliveries,
-  deliverClaimedNotification
-} from '../notifications/service.js';
-import { createNotificationDeliveryProvider } from '../notifications/provider.js';
+  createNotificationDeliveryProvider,
+  type NotificationChannel
+} from '../notifications/provider.js';
+import { deliverClaimedNotification } from '../notifications/service.js';
 
 const configuration = resolveNotificationDeliveryConfiguration();
 const providers = {
@@ -12,6 +13,9 @@ const providers = {
   sms: createNotificationDeliveryProvider(configuration.providers.sms),
   push: createNotificationDeliveryProvider(configuration.providers.push)
 };
+const enabledChannels = (['email', 'sms', 'push'] as NotificationChannel[]).filter(
+  (channel) => configuration.providers[channel].mode !== 'disabled'
+);
 
 let stopping = false;
 function requestStop() {
@@ -22,7 +26,8 @@ process.once('SIGTERM', requestStop);
 
 try {
   while (!stopping) {
-    const claimed = await claimNotificationDeliveries({
+    const claimed = await claimEnabledNotificationDeliveries({
+      channels: enabledChannels,
       batchSize: configuration.batchSize,
       lockTimeoutMs: configuration.lockTimeoutMs
     });
