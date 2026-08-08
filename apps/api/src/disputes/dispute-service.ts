@@ -299,10 +299,10 @@ export async function submitTextEvidence(input: {
     const dispute = await participantCase(trx, input.disputeId, input.submittedBy);
     if (dispute.status === 'closed') throw new DisputeWorkflowError('dispute_closed');
     const count = await trx.selectFrom('dispute_evidence')
-      .select((eb: any) => eb.fn.countAll<number>().as('count'))
+      .select((eb: any) => eb.fn.countAll().as('count'))
       .where('dispute_id', '=', dispute.id).where('removed_at', 'is', null)
       .executeTakeFirstOrThrow();
-    if (Number(count.count) >= 12) throw new DisputeWorkflowError('evidence_limit_reached');
+    if (Number((count as any).count) >= 12) throw new DisputeWorkflowError('evidence_limit_reached');
     const evidence = await trx.insertInto('dispute_evidence').values({
       dispute_id: dispute.id,
       submitted_by_user_id: input.submittedBy,
