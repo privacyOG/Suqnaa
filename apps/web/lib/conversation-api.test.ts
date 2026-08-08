@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {
   getConversationHistory,
-  getConversationPage
+  getConversationPage,
+  getConversationSync
 } from './conversation-api';
 import {
   acknowledgeConversation,
@@ -62,6 +63,34 @@ async function run() {
     assert.equal(
       capturedUrl,
       `/api/authed/v1/conversations/${conversationId}/messages?limit=50`
+    );
+    assert.equal(capturedInit?.method, 'GET');
+
+    globalThis.fetch = (async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(JSON.stringify({
+        conversationId,
+        changes: [],
+        reconciliation: {
+          deliveredMessages: 0,
+          serverTime: '2026-06-22T00:00:00.000Z'
+        },
+        pagination: {
+          cursor: 'sync-cursor',
+          hasMore: false,
+          pollAfterMs: 3000
+        }
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }) as typeof fetch;
+
+    await getConversationSync(conversationId, { limit: 100, cursor: 'sync-cursor' });
+    assert.equal(
+      capturedUrl,
+      `/api/authed/v1/conversations/${conversationId}/sync?limit=100&cursor=sync-cursor`
     );
     assert.equal(capturedInit?.method, 'GET');
 
