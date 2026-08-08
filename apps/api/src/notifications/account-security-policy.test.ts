@@ -16,7 +16,7 @@ try {
     updated_at: now
   }).execute();
 
-  const audit = await db.insertInto('audit_logs').values({
+  const passwordAudit = await db.insertInto('audit_logs').values({
     actor_user_id: userId,
     action: 'account.password.changed',
     entity_type: 'user',
@@ -25,23 +25,42 @@ try {
     created_at: now
   }).returning(['id']).executeTakeFirstOrThrow();
 
-  const notification = await db.selectFrom('notifications')
+  const passwordNotification = await db.selectFrom('notifications')
     .select(['id', 'event_type', 'event_family', 'entity_id', 'metadata'])
     .where('user_id', '=', userId)
-    .where('dedupe_key', '=', `account-security:${audit.id}`)
+    .where('dedupe_key', '=', `account-security:${passwordAudit.id}`)
     .executeTakeFirstOrThrow();
 
-  assert.equal(notification.event_type, 'account.security');
-  assert.equal(notification.event_family, 'account_security');
-  assert.equal(notification.entity_id, audit.id);
-  assert.equal((notification.metadata as Record<string, unknown>).action, 'account.password.changed');
+  assert.equal(passwordNotification.event_type, 'account.security');
+  assert.equal(passwordNotification.event_family, 'account_security');
+  assert.equal(passwordNotification.entity_id, passwordAudit.id);
+  assert.equal((passwordNotification.metadata as Record<string, unknown>).action, 'account.password.changed');
 
   const deliveries = await db.selectFrom('notification_deliveries')
     .select(['channel', 'status'])
-    .where('notification_id', '=', notification.id)
+    .where('notification_id', '=', passwordNotification.id)
     .execute();
   assert.deepEqual(deliveries.map((row) => row.channel), ['email']);
   assert.equal(deliveries[0]?.status, 'pending');
+
+  const resetAudit = await db.insertInto('audit_logs').values({
+    actor_user_id: userId,
+    action: 'account.password_reset.completed',
+    entity_type: 'user',
+    entity_id: userId,
+    metadata: {},
+    created_at: new Date(now.getTime() + 1)
+  }).returning(['id']).executeTakeFirstOrThrow();
+
+  const resetNotification = await db.selectFrom('notifications')
+    .select(['id', 'metadata'])
+    .where('user_id', '=', userId)
+    .where('dedupe_key', '=', `account-security:${resetAudit.id}`)
+    .executeTakeFirstOrThrow();
+  assert.equal(
+    (resetNotification.metadata as Record<string, unknown>).action,
+    'account.password_reset.completed'
+  );
 
   await db.insertInto('audit_logs').values({
     actor_user_id: userId,
@@ -49,7 +68,7 @@ try {
     entity_type: 'user',
     entity_id: userId,
     metadata: {},
-    created_at: new Date(now.getTime() + 1)
+    created_at: new Date(now.getTime() + 2)
   }).execute();
 
   const securityNotifications = await db.selectFrom('notifications')
@@ -57,7 +76,7 @@ try {
     .where('user_id', '=', userId)
     .where('event_family', '=', 'account_security')
     .execute();
-  assert.equal(securityNotifications.length, 1);
+  assert.equal(securityNotifications.length, 2);
 } finally {
   await db.deleteFrom('users').where('id', '=', userId).execute();
   await closeDb();
