@@ -18,6 +18,7 @@ import 'account_verification_screen.dart';
 import 'password_recovery_screen.dart';
 import 'register_screen.dart';
 import 'secure_web_handoff_tile.dart';
+import 'seller_payout_screen.dart';
 import 'seller_verification_screen.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -122,6 +123,17 @@ class AccountScreen extends StatelessWidget {
                   : 'Verify seller or business identity and track status',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SellerVerificationScreen()),
+              ),
+            ),
+            _AccountTile(
+              key: const Key('seller-payout-account-tile'),
+              icon: Icons.account_balance_outlined,
+              title: isArabic ? 'تسويات ودفعات البائع' : 'Seller settlements and payouts',
+              subtitle: isArabic
+                  ? 'أكمل إعداد الدفعات وتابع حالة التحويل'
+                  : 'Complete payout setup and review transfer readiness',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SellerPayoutScreen()),
               ),
             ),
             _AccountTile(
