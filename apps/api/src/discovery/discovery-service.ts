@@ -36,6 +36,7 @@ export class DiscoveryConflictError extends Error {}
 
 const configuration = resolveDiscoveryNotificationConfiguration();
 const discoveryWorkerLockKey = 742016;
+const likeEscapeCharacter = '\\';
 
 function databaseCode(error: unknown): string | undefined {
   if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
@@ -116,17 +117,17 @@ function applySavedSearchFilters(query: any, filters: SavedSearchFilters): any {
   }
   if (filters.region) {
     output = output.where(sql<boolean>`
-      listings.region ILIKE ${containsPattern(filters.region)} ESCAPE E'\\'
+      listings.region ILIKE ${containsPattern(filters.region)} ESCAPE ${likeEscapeCharacter}
     `);
   }
   if (filters.city) {
     output = output.where(sql<boolean>`
-      listings.city ILIKE ${containsPattern(filters.city)} ESCAPE E'\\'
+      listings.city ILIKE ${containsPattern(filters.city)} ESCAPE ${likeEscapeCharacter}
     `);
   }
   if (filters.suburb) {
     output = output.where(sql<boolean>`
-      listings.suburb ILIKE ${containsPattern(filters.suburb)} ESCAPE E'\\'
+      listings.suburb ILIKE ${containsPattern(filters.suburb)} ESCAPE ${likeEscapeCharacter}
     `);
   }
   if (filters.fulfilment === 'pickup') {
