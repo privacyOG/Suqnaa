@@ -29,7 +29,7 @@ assert.throws(
 assert.equal(coarseDistanceKm(499), 0);
 assert.equal(coarseDistanceKm(1499), 1);
 assert.equal(coarseDistanceKm(1501), 2);
-assert.equal(coarseDistanceKm(null), 0);
+assert.equal(coarseDistanceKm(null), null);
 assert.equal(coarseDistanceKm('invalid'), null);
 
 console.log('Listing location privacy policy tests passed.');
