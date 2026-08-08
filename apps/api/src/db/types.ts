@@ -64,6 +64,11 @@ export interface Database {
   payment_collection_sessions: TableShape;
   payment_receipts: TableShape;
   payment_operations: TableShape;
+  seller_payout_accounts: TableShape;
+  seller_settlements: TableShape;
+  settlement_reversals: TableShape;
+  settlement_ledger_entries: TableShape;
+  seller_payout_events: TableShape;
   fulfilments: TableShape;
   reports: TableShape;
   audit_logs: TableShape;
