@@ -35,9 +35,7 @@ export default async function AccountPage({ params }: { params: { locale: string
                   ? `جلستك آمنة وحالة الحساب: ${user.status}.`
                   : `Your secure session is active. Account status: ${user.status}.`)
               : needsRotation
-                ? (isArabic
-                    ? 'يتم الآن تجديد جلسة الحساب.'
-                    : 'Your account session is being renewed now.')
+                ? (isArabic ? 'يتم الآن تجديد جلسة الحساب.' : 'Your account session is being renewed now.')
                 : (isArabic
                     ? 'سجّل الدخول أو أنشئ حساباً للوصول إلى الطلبات المحمية.'
                     : 'Sign in or create an account to access protected marketplace requests.')}
@@ -47,6 +45,9 @@ export default async function AccountPage({ params }: { params: { locale: string
               <>
                 <a className="button-primary" href={`/${params.locale}/account/profile`}>
                   {isArabic ? 'الملف والخصوصية' : 'Profile and privacy'}
+                </a>
+                <a className="button-secondary" href={`/${params.locale}/account/discovery`}>
+                  {isArabic ? 'المحفوظات والمراقبة والتنبيهات' : 'Saved items, watchlist and alerts'}
                 </a>
                 <a className="button-secondary" href={`/${params.locale}/account/seller-verification`}>
                   {isArabic ? 'تحقق البائع' : 'Seller verification'}
