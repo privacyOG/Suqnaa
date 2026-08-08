@@ -25,6 +25,7 @@ export type FulfilmentStatus =
   | 'delivered'
   | 'received_confirmed'
   | 'failed';
+export type FulfilmentMode = 'shipping' | 'pickup';
 
 type TableShape = Record<string, any>;
 
@@ -44,6 +45,7 @@ export interface Database {
   listings: TableShape;
   listing_media: TableShape;
   listing_inventory_reservations: TableShape;
+  listing_shipping_options: TableShape;
   saved_listings: TableShape;
   listing_watchlist: TableShape;
   recently_viewed_listings: TableShape;
@@ -70,6 +72,10 @@ export interface Database {
   settlement_ledger_entries: TableShape;
   seller_payout_events: TableShape;
   fulfilments: TableShape;
+  order_fulfilment_details: TableShape;
+  pickup_proofs: TableShape;
+  order_fulfilment_evidence: TableShape;
+  order_timeline_events: TableShape;
   reports: TableShape;
   audit_logs: TableShape;
 }

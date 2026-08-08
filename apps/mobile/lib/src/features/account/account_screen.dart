@@ -5,6 +5,7 @@ import '../../session/session_scope.dart';
 import '../conversations/session_conversation_inbox.dart';
 import '../discovery/discovery_screen.dart';
 import '../notifications/notification_screen.dart';
+import '../orders/delivery_pickup_screen.dart';
 import '../orders/order_activity_screen.dart';
 import '../orders/order_cancellation_screen.dart';
 import '../orders/order_fulfilment_screen.dart';
@@ -191,6 +192,21 @@ class AccountScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => signedIn ? const OrderActivityScreen() : const AccountLoginScreen(),
+              ),
+            ),
+          ),
+          _AccountTile(
+            key: const Key('delivery-pickup-account-tile'),
+            icon: Icons.route_outlined,
+            title: isArabic ? 'التسليم والاستلام' : 'Delivery and pickup',
+            subtitle: signedIn
+                ? (isArabic
+                    ? 'اختر الشحن أو الاستلام وتابع العناوين والتتبع وإثبات الاستلام'
+                    : 'Choose shipping or pickup and manage protected addresses, tracking and pickup proof')
+                : (isArabic ? 'سجّل الدخول لإدارة التسليم' : 'Sign in to manage delivery'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => signedIn ? const DeliveryPickupScreen() : const AccountLoginScreen(),
               ),
             ),
           ),

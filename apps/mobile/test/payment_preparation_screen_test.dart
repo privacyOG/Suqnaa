@@ -87,7 +87,7 @@ class FakeOrderGateway implements OrderActivityGateway {
     String accessToken, {
     required String orderId,
   }) async {
-    throw UnimplementedError();
+    return orders.firstWhere((order) => order.id == orderId);
   }
 }
 
@@ -192,7 +192,8 @@ void main() {
     expect(checkout.calls, 0);
 
     await tester.tap(find.text('Prepare payment'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Confirm payment preparation'), findsOneWidget);
     expect(

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { EditListingForm } from '../../../../../../components/edit-listing-form';
 import { ListingLocationForm } from '../../../../../../components/listing-location-form';
+import { ListingShippingOptionsForm } from '../../../../../../components/listing-shipping-options-form';
 import { SessionRefresh } from '../../../../../../components/session-refresh';
 import { isLocale } from '../../../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../../../lib/account-session-state';
@@ -47,6 +48,7 @@ export default async function EditListingPage({
         <>
           <EditListingForm locale={params.locale} listingId={params.listingId} />
           <ListingLocationForm locale={params.locale} listingId={params.listingId} />
+          <ListingShippingOptionsForm locale={params.locale} listingId={params.listingId} />
         </>
       ) : needsRotation ? (
         <div className="seller-session-panel">

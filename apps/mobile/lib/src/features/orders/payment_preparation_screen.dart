@@ -196,10 +196,12 @@ class _PaymentPreparationScreenState extends State<PaymentPreparationScreen> {
 
   Future<void> _prepare(OrderActivity order) async {
     final text = AppLocalizations.of(context);
+    final orderGateway = _orderGateway;
     final checkoutGateway = _checkoutGateway;
     final configuration = _configuration;
     final token = _accessToken;
-    if (checkoutGateway == null ||
+    if (orderGateway == null ||
+        checkoutGateway == null ||
         configuration == null ||
         configuration.enabled ||
         token.isEmpty ||
@@ -207,48 +209,73 @@ class _PaymentPreparationScreenState extends State<PaymentPreparationScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(text.confirmPaymentPreparation),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              order.listing?.title ?? text.listingUnavailable,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 8),
-            Text(_formatAmount(context, order.amount, order.currencyCode)),
-            const SizedBox(height: 12),
-            Text(text.noPaymentSent),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(text.close),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(text.preparePayment),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
     setState(() => _preparing.add(order.id));
     try {
-      final preparation = await checkoutGateway.prepare(
+      final refreshedOrder = await orderGateway.fetchDetail(
         token,
         orderId: order.id,
       );
-      _validatePreparation(order, preparation);
+      if (refreshedOrder.role != OrderRole.buyer ||
+          refreshedOrder.status != OrderActivityStatus.pending ||
+          refreshedOrder.listingId != order.listingId ||
+          refreshedOrder.currencyCode != order.currencyCode) {
+        throw const FormatException('Order changed before checkout');
+      }
+
+      if (!mounted) {
+        return;
+      }
+      final index = _orders.indexWhere((item) => item.id == order.id);
+      if (index >= 0) {
+        setState(() => _orders[index] = refreshedOrder);
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(text.confirmPaymentPreparation),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                refreshedOrder.listing?.title ?? text.listingUnavailable,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _formatAmount(
+                  context,
+                  refreshedOrder.amount,
+                  refreshedOrder.currencyCode,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(text.noPaymentSent),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(text.close),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(text.preparePayment),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) {
+        return;
+      }
+
+      final preparation = await checkoutGateway.prepare(
+        token,
+        orderId: refreshedOrder.id,
+      );
+      _validatePreparation(refreshedOrder, preparation);
 
       final checkoutUrl = preparation.checkoutUrl;
       if (checkoutUrl != null) {
@@ -263,7 +290,7 @@ class _PaymentPreparationScreenState extends State<PaymentPreparationScreen> {
       }
 
       if (mounted) {
-        setState(() => _preparations[order.id] = preparation);
+        setState(() => _preparations[refreshedOrder.id] = preparation);
       }
     } catch (_) {
       if (mounted) {

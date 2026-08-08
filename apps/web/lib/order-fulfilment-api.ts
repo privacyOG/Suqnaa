@@ -49,7 +49,7 @@ export interface OrderPaymentContextResponse {
 
 export type FulfilmentMutationInput =
   | { action: 'ready_for_pickup' }
-  | { action: 'shipped'; carrier: string; trackingReference: string }
+  | { action: 'shipped'; carrier: string; trackingReference: string; trackingUrl?: string }
   | { action: 'confirm_received' };
 
 export interface FulfilmentMutationResponse {
@@ -60,6 +60,7 @@ export interface FulfilmentMutationResponse {
     status: FulfilmentStatus;
     carrier: string | null;
     trackingReference: string | null;
+    trackingUrl: string | null;
     shippedAt: string | null;
     deliveredAt: string | null;
     buyerConfirmedAt: string | null;
@@ -73,16 +74,22 @@ export interface FulfilmentMutationResponse {
 
 function normalizedOrderId(orderId: string): string {
   const value = orderId.trim();
-  if (!uuidPattern.test(value)) {
-    throw new Error('Order identifier must be a UUID');
-  }
+  if (!uuidPattern.test(value)) throw new Error('Order identifier must be a UUID');
   return value;
 }
 
-function normalizedInput(input: FulfilmentMutationInput): FulfilmentMutationInput {
-  if (input.action !== 'shipped') {
-    return input;
+function normalizedTrackingUrl(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const parsed = new URL(trimmed);
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !parsed.hostname) {
+    throw new Error('Tracking URL must be a public HTTPS URL');
   }
+  return parsed.toString();
+}
+
+function normalizedInput(input: FulfilmentMutationInput): FulfilmentMutationInput {
+  if (input.action !== 'shipped') return input;
 
   const carrier = input.carrier.trim();
   const trackingReference = input.trackingReference.trim();
@@ -92,16 +99,17 @@ function normalizedInput(input: FulfilmentMutationInput): FulfilmentMutationInpu
   if (trackingReference.length < 3 || trackingReference.length > 160) {
     throw new Error('Tracking reference must be between 3 and 160 characters');
   }
-
-  return { action: 'shipped', carrier, trackingReference };
+  return {
+    action: 'shipped',
+    carrier,
+    trackingReference,
+    trackingUrl: normalizedTrackingUrl(input.trackingUrl)
+  };
 }
 
-export function getOrderPaymentContext(
-  orderId: string
-): Promise<OrderPaymentContextResponse> {
-  const id = normalizedOrderId(orderId);
+export function getOrderPaymentContext(orderId: string): Promise<OrderPaymentContextResponse> {
   return getAuthed<OrderPaymentContextResponse>(
-    `/v1/market/orders/${id}/payment-context`
+    `/v1/market/orders/${normalizedOrderId(orderId)}/payment-context`
   );
 }
 
@@ -110,9 +118,8 @@ export function updateOrderFulfilment(
   input: FulfilmentMutationInput,
   challengeResponse?: string
 ): Promise<FulfilmentMutationResponse> {
-  const id = normalizedOrderId(orderId);
   return postAuthed<FulfilmentMutationResponse>(
-    `/v1/market/orders/${id}/fulfilment`,
+    `/v1/market/orders/${normalizedOrderId(orderId)}/fulfilment`,
     normalizedInput(input),
     challengeResponse
   );
