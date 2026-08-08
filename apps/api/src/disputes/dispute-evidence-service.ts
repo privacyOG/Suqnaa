@@ -34,7 +34,7 @@ export async function storeBinaryDisputeEvidence(input: {
   if (dispute.status === 'closed') throw new DisputeWorkflowError('dispute_closed');
 
   const countRow = await db.selectFrom('dispute_evidence')
-    .select((eb: any) => eb.fn.countAll<number>().as('count'))
+    .select((eb) => eb.fn.countAll().as('count'))
     .where('dispute_id', '=', dispute.id)
     .where('removed_at', 'is', null)
     .executeTakeFirstOrThrow();
