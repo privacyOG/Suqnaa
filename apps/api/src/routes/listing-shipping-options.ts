@@ -49,6 +49,16 @@ function responseOption(row: Record<string, any>) {
   };
 }
 
+async function activeOptions(listingId: string) {
+  return db.selectFrom('listing_shipping_options')
+    .selectAll()
+    .where('listing_id', '=', listingId)
+    .where('is_active', '=', true)
+    .orderBy('amount', 'asc')
+    .orderBy('label', 'asc')
+    .execute();
+}
+
 export async function listingShippingOptionRoutes(app: FastifyInstance): Promise<void> {
   app.get('/listings/:listingId/shipping-options', async (request, reply) => {
     const params = listingParams.parse(request.params);
@@ -59,14 +69,30 @@ export async function listingShippingOptionRoutes(app: FastifyInstance): Promise
     if (!listing || listing.status !== 'active' || !listing.allow_delivery) {
       return reply.code(404).send({ error: 'Shipping options are unavailable' });
     }
-    const options = await db.selectFrom('listing_shipping_options')
-      .selectAll()
-      .where('listing_id', '=', listing.id)
-      .where('is_active', '=', true)
-      .orderBy('amount', 'asc')
-      .orderBy('label', 'asc')
-      .execute();
+    const options = await activeOptions(listing.id);
     return reply.send({ listingId: listing.id, options: options.map(responseOption) });
+  });
+
+  app.get('/market/listings/:listingId/shipping-options', { preHandler: requireUser }, async (request, reply) => {
+    const authRequest = request as AuthenticatedRequest;
+    const sellerId = authRequest.user.sub;
+    const params = listingParams.parse(request.params);
+    const listing = await db.selectFrom('listings')
+      .select(['id', 'seller_id', 'status', 'allow_delivery', 'currency_code'])
+      .where('id', '=', params.listingId)
+      .executeTakeFirst();
+    if (!listing || listing.seller_id !== sellerId) {
+      return reply.code(404).send({ error: 'Listing not found' });
+    }
+    const options = await activeOptions(listing.id);
+    return reply.send({
+      listingId: listing.id,
+      listingStatus: listing.status,
+      allowDelivery: listing.allow_delivery,
+      currencyCode: listing.currency_code,
+      editable: ['draft', 'active'].includes(String(listing.status)),
+      options: options.map(responseOption)
+    });
   });
 
   app.post('/market/listings/:listingId/shipping-options', { preHandler: requireUser }, async (request, reply) => {
@@ -126,7 +152,7 @@ export async function listingShippingOptionRoutes(app: FastifyInstance): Promise
           .executeTakeFirstOrThrow();
         rows.push(row);
       }
-      return { status: 200 as const, listing, rows };
+      return { status: 200 as const, rows };
     });
 
     if (result.status === 404) return reply.code(404).send({ error: 'Listing not found' });
