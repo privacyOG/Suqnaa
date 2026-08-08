@@ -142,7 +142,7 @@ class _DisputeScreenState extends State<DisputeScreen> {
         const SizedBox(height: 20),
         Text(ar ? 'الطلبات المؤهلة' : 'Eligible orders', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ..._eligibleOrders.where((order) => !activeOrderIds.contains(order.id)).map((order) => Card(child: ListTile(
-          title: Text(order.listing.title),
+          title: Text(order.listing?.title ?? (ar ? 'طلب سوقنا' : 'Suqnaa order')),
           subtitle: Text('${order.amount} ${order.currencyCode} · ${order.status.wireValue}'),
           trailing: TextButton(onPressed: () => _openCase(order), child: Text(ar ? 'فتح نزاع' : 'Open dispute')),
         ))),
