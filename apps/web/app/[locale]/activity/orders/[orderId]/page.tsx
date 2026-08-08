@@ -5,6 +5,7 @@ import { OrderCheckoutPreparation } from '../../../../../components/order-checko
 import { OrderDeliveryPanel } from '../../../../../components/order-delivery-panel';
 import { OrderDisputePanel } from '../../../../../components/order-dispute-panel';
 import { OrderFulfilmentAction } from '../../../../../components/order-fulfilment-action';
+import { OrderProtectionPanel } from '../../../../../components/order-protection-panel';
 import { SessionRefresh } from '../../../../../components/session-refresh';
 import { isLocale } from '../../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../../lib/account-session-state';
@@ -55,6 +56,7 @@ export default async function OrderDetailPage({
           <OrderCheckoutPreparation locale={params.locale} orderId={params.orderId} />
           <OrderCancellationAction locale={params.locale} orderId={params.orderId} />
           <OrderDisputePanel locale={params.locale} orderId={params.orderId} />
+          <OrderProtectionPanel locale={params.locale} orderId={params.orderId} userId={user.id} />
         </>
       ) : needsRotation ? (
         <div className="seller-session-panel">
