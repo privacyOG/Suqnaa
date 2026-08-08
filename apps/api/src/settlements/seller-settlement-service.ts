@@ -27,7 +27,7 @@ function amount(value: number): string {
 }
 
 function commissionFor(gross: number, bps: number): number {
-  return Math.round(gross * bps) / 10000;
+  return Math.round((gross * bps / 10000) * 100) / 100;
 }
 
 function accountStatus(state: StripeConnectedAccountState): 'onboarding' | 'restricted' | 'ready' {
@@ -102,6 +102,7 @@ export async function beginSellerPayoutOnboarding(input: {
   provider: StripeConnectProvider;
   configuration: SellerSettlementConfiguration;
   webOrigin: string;
+  locale?: 'en' | 'ar';
 }) {
   if (!input.configuration.enabled) throw new SellerSettlementError('seller_settlement_disabled', 503);
   const seller = await db.selectFrom('users').select(['id', 'email', 'status'])
@@ -131,7 +132,7 @@ export async function beginSellerPayoutOnboarding(input: {
     await persistAccountState(db, input.sellerId, state, input.configuration);
   }
 
-  const base = `${input.webOrigin}/en/account/payouts`;
+  const base = `${input.webOrigin}/${input.locale ?? 'en'}/account/payouts`;
   const link = await input.provider.createOnboardingLink({
     accountId: state.id,
     refreshUrl: `${base}?connect=refresh`,
@@ -355,15 +356,16 @@ export async function recordSettlementAdjustment(
 }
 
 async function unblockReadySettlements(): Promise<void> {
-  await db.updateTable('seller_settlements').set({ status: 'scheduled', updated_at: new Date() })
-    .where('status', '=', 'blocked')
-    .where('payout_account_id', 'in', db.selectFrom('seller_payout_accounts').select('id').where('onboarding_status', '=', 'ready'))
-    .execute();
+  const now = new Date();
   await db.updateTable('seller_settlements').set({
     payout_account_id: sql`(select id from seller_payout_accounts where seller_payout_accounts.seller_id = seller_settlements.seller_id)` as any,
-    updated_at: new Date()
+    updated_at: now
   }).where('payout_account_id', 'is', null)
     .where('seller_id', 'in', db.selectFrom('seller_payout_accounts').select('seller_id').where('onboarding_status', '=', 'ready'))
+    .execute();
+  await db.updateTable('seller_settlements').set({ status: 'scheduled', updated_at: now })
+    .where('status', '=', 'blocked')
+    .where('payout_account_id', 'in', db.selectFrom('seller_payout_accounts').select('id').where('onboarding_status', '=', 'ready'))
     .execute();
 }
 
