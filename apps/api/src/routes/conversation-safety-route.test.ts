@@ -14,7 +14,7 @@ for (const path of [
   '/conversations/:conversationId/mute',
   '/conversations/:conversationId/block'
 ]) {
-  assert.match(safetyRoute, new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\:([A-Za-z]+)/g, ':$1')));
+  assert.ok(safetyRoute.includes(path), `Missing safety route ${path}`);
 }
 
 assert.match(safetyRoute, /preHandler: requireUser/g);
@@ -33,7 +33,7 @@ assert.match(conversationRoute, /publicMessagePolicy/);
 assert.match(reportRoute, /messageId:\s*z\.string\(\)\.uuid\(\)\.optional\(\)/);
 assert.match(reportRoute, /messages\.conversation_id/);
 assert.match(reportRoute, /You cannot report your own message/);
-assert.match(operationsRoute, /\/operations\/queue\/:id\/conversation-context/);
+assert.ok(operationsRoute.includes('/operations/queue/:id/conversation-context'));
 assert.match(operationsRoute, /reported_message\.body/);
 assert.match(operationsRoute, /buyerBlockedSeller/);
 assert.match(operationsRoute, /sellerBlockedBuyer/);
