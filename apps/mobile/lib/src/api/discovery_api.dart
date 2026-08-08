@@ -140,6 +140,9 @@ class DiscoveryApi implements DiscoveryGateway {
       if (query['city'] != null) 'city': query['city'],
       if (query['suburb'] != null) 'suburb': query['suburb'],
       if (query['fulfilment'] != null) 'fulfilment': query['fulfilment'],
+      if (query['nearLat'] != null) 'nearLat': double.parse(query['nearLat']!),
+      if (query['nearLon'] != null) 'nearLon': double.parse(query['nearLon']!),
+      if (query['radiusKm'] != null) 'radiusKm': double.parse(query['radiusKm']!),
     };
   }
 
