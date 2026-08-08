@@ -268,8 +268,11 @@ export async function decidePaymentOperation(input: {
     throw new PaymentOperationError('invalid_decision_reason', 400);
   }
 
-  let refundWork: RefundWork | null = null;
-  const initial = await db.transaction().execute(async (trx) => {
+  const decisionResult = await db.transaction().execute(async (trx): Promise<{
+    operationId: string;
+    status: 'rejected' | 'processing' | 'succeeded';
+    refundWork: RefundWork | null;
+  }> => {
     const operation = await trx.selectFrom('payment_operations').selectAll()
       .where('id', '=', input.operationId).forUpdate().executeTakeFirst();
     if (!operation) throw new PaymentOperationError('operation_not_found', 404);
@@ -281,6 +284,8 @@ export async function decidePaymentOperation(input: {
     }
 
     const now = new Date();
+    let refundWork: RefundWork | null = null;
+    let status: 'rejected' | 'processing' | 'succeeded';
     if (input.decision === 'reject') {
       await trx.updateTable('payment_operations').set({
         approved_by: input.decidedBy,
@@ -290,8 +295,10 @@ export async function decidePaymentOperation(input: {
         completed_at: now,
         updated_at: now
       }).where('id', '=', operation.id).execute();
+      status = 'rejected';
     } else if (operationRequiresProviderRefund(operation.kind as any)) {
       refundWork = await prepareRefundApproval(trx, operation, input.decidedBy, now);
+      status = 'processing';
     } else {
       await trx.updateTable('payment_operations').set({
         approved_by: input.decidedBy,
@@ -300,6 +307,7 @@ export async function decidePaymentOperation(input: {
         updated_at: now
       }).where('id', '=', operation.id).execute();
       await applyInternalOperation(trx, operation, now);
+      status = 'succeeded';
     }
 
     await trx.insertInto('audit_logs').values({
@@ -312,13 +320,14 @@ export async function decidePaymentOperation(input: {
       created_at: now
     }).execute();
 
-    return {
-      operationId: String(operation.id),
-      status: input.decision === 'reject' ? 'rejected' : refundWork ? 'processing' : 'succeeded'
-    };
+    return { operationId: String(operation.id), status, refundWork };
   });
 
-  const work = refundWork;
+  const initial = {
+    operationId: decisionResult.operationId,
+    status: decisionResult.status
+  };
+  const work = decisionResult.refundWork;
   if (!work || input.decision !== 'approve') return initial;
 
   let result: StripeRefundResult;
