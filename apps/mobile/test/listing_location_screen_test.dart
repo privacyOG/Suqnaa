@@ -10,8 +10,7 @@ import 'package:suqnaa/src/navigation/secure_web_handoff.dart';
 const listingId = '123e4567-e89b-42d3-a456-426614174000';
 
 class _LocationGateway implements SellerListingLocationGateway {
-  _LocationGateway({this.version = 4});
-  int version;
+  int version = 4;
   int updates = 0;
   Map<String, double>? submittedLocation;
 
