@@ -1,5 +1,9 @@
 import { postAuthed, type JsonBody } from './authed-api';
-import type { ConversationSafetyResponse, MessagePolicy } from './conversation-api';
+import {
+  getConversationSync,
+  type ConversationSafetyResponse,
+  type MessagePolicy
+} from './conversation-api';
 
 export interface ConversationEntryInput extends JsonBody {
   recipientId: string;
@@ -32,6 +36,58 @@ export interface ConversationAcknowledgementResponse {
   readAt: string;
 }
 
+let activePoll: { conversationId: string; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function conversationPathActive(conversationId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const encoded = encodeURIComponent(conversationId);
+  return window.location.pathname.includes(`/messages/${encoded}`);
+}
+
+function startConversationPolling(conversationId: string): void {
+  if (typeof window === 'undefined') return;
+  if (activePoll?.conversationId === conversationId) return;
+  if (activePoll) clearTimeout(activePoll.timer);
+
+  let cursor: string | undefined;
+  let initialized = false;
+
+  const poll = async () => {
+    if (!conversationPathActive(conversationId)) {
+      activePoll = null;
+      return;
+    }
+
+    let delay = 3000;
+    try {
+      if (!document.hidden) {
+        const result = await getConversationSync(conversationId, { limit: 100, cursor });
+        const nextCursor = result.pagination.cursor ?? cursor;
+        const changedAfterInitialization = initialized && result.changes.length > 0;
+        const deliveredDuringInitialization = !initialized && result.reconciliation.deliveredMessages > 0;
+        cursor = nextCursor;
+        initialized = true;
+        delay = Math.max(1000, Math.min(10000, result.pagination.pollAfterMs || 3000));
+
+        if (changedAfterInitialization || deliveredDuringInitialization) {
+          window.location.reload();
+          return;
+        }
+
+        if (result.pagination.hasMore) delay = 0;
+      }
+    } catch {
+      delay = 5000;
+    }
+
+    const timer = setTimeout(poll, delay);
+    activePoll = { conversationId, timer };
+  };
+
+  const timer = setTimeout(poll, 0);
+  activePoll = { conversationId, timer };
+}
+
 export function createConversationEntry(
   input: ConversationEntryInput,
   challengeResponse?: string
@@ -43,13 +99,15 @@ export function createConversationEntry(
   );
 }
 
-export function acknowledgeConversation(
+export async function acknowledgeConversation(
   conversationId: string
 ): Promise<ConversationAcknowledgementResponse> {
-  return postAuthed<ConversationAcknowledgementResponse>(
+  const response = await postAuthed<ConversationAcknowledgementResponse>(
     `/v1/conversations/${encodeURIComponent(conversationId)}/read`,
     {}
   );
+  startConversationPolling(conversationId);
+  return response;
 }
 
 export function setConversationMuted(
