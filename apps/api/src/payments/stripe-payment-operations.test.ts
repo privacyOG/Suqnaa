@@ -15,10 +15,10 @@ const configuration: PaymentCollectionConfiguration = {
 };
 
 let capturedBody = '';
-let capturedHeaders: Headers | null = null;
+let capturedIdempotencyKey = '';
 const provider = new StripePaymentOperationsProvider(configuration, (async (_url, init) => {
   capturedBody = String(init?.body ?? '');
-  capturedHeaders = new Headers(init?.headers);
+  capturedIdempotencyKey = new Headers(init?.headers).get('idempotency-key') ?? '';
   return new Response(JSON.stringify({
     id: 're_1234567890abcdef',
     object: 'refund',
@@ -43,4 +43,4 @@ const form = new URLSearchParams(capturedBody);
 assert.equal(form.get('payment_intent'), 'pi_1234567890abcdef');
 assert.equal(form.get('amount'), '1250');
 assert.equal(form.get('metadata[suqnaa_payment_operation_id]'), '123e4567-e89b-42d3-a456-426614174000');
-assert.equal(capturedHeaders?.get('idempotency-key'), 'suqnaa-payment-operation-v1-123e4567-e89b-42d3-a456-426614174000');
+assert.equal(capturedIdempotencyKey, 'suqnaa-payment-operation-v1-123e4567-e89b-42d3-a456-426614174000');
