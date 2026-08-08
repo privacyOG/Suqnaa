@@ -36,7 +36,8 @@ assert.deepEqual(decodeListingSearchCursor(newestCursor, newest), {
   sort: 'newest',
   createdAt: new Date('2026-07-21T10:00:00.000Z'),
   id: listingId,
-  price: undefined
+  price: undefined,
+  distanceMeters: undefined
 });
 
 assert.deepEqual(
@@ -66,8 +67,43 @@ assert.deepEqual(decodeListingSearchCursor(priceCursor, priceAscending), {
   sort: 'price_asc',
   createdAt: new Date('2026-07-21T09:00:00.000Z'),
   id: listingId,
-  price: '199.95'
+  price: '199.95',
+  distanceMeters: undefined
 });
+
+const nearby = publicListingSearchQuery.parse({
+  nearLat: '-33.8688197',
+  nearLon: '151.2092955',
+  radiusKm: '25',
+  sort: 'distance'
+});
+assert.equal(nearby.nearLat, -33.87);
+assert.equal(nearby.nearLon, 151.21);
+assert.equal(nearby.radiusKm, 25);
+assert.equal(nearby.sort, 'distance');
+
+const distanceCursor = encodeListingSearchCursor(nearby, {
+  createdAt: '2026-07-21T08:00:00.000Z',
+  id: listingId,
+  distanceMeters: 1234.567
+});
+assert.deepEqual(decodeListingSearchCursor(distanceCursor, nearby), {
+  kind: 'opaque',
+  sort: 'distance',
+  createdAt: new Date('2026-07-21T08:00:00.000Z'),
+  id: listingId,
+  price: undefined,
+  distanceMeters: 1234.567
+});
+assert.notEqual(
+  listingSearchFilterFingerprint(nearby),
+  listingSearchFilterFingerprint(publicListingSearchQuery.parse({
+    nearLat: -33.87,
+    nearLon: 151.21,
+    radiusKm: 50,
+    sort: 'distance'
+  }))
+);
 
 assert.throws(
   () => publicListingSearchQuery.parse({ minPrice: 10 }),
@@ -80,6 +116,18 @@ assert.throws(
 assert.throws(
   () => publicListingSearchQuery.parse({ minPrice: 20, maxPrice: 10, currency: 'AUD' }),
   /Maximum price/
+);
+assert.throws(
+  () => publicListingSearchQuery.parse({ nearLat: -33.87, radiusKm: 20 }),
+  /provided together/
+);
+assert.throws(
+  () => publicListingSearchQuery.parse({ sort: 'distance' }),
+  /Distance sorting requires/
+);
+assert.throws(
+  () => publicListingSearchQuery.parse({ nearLat: -33.87, nearLon: 151.21, radiusKm: 501 }),
+  /less than or equal to 500/
 );
 assert.throws(
   () => decodeListingSearchCursor(priceCursor, {
@@ -96,6 +144,13 @@ assert.throws(
   /does not match/
 );
 assert.throws(
+  () => decodeListingSearchCursor(distanceCursor, {
+    ...nearby,
+    radiusKm: 30
+  }),
+  /does not match/
+);
+assert.throws(
   () => decodeListingSearchCursor('not-a-cursor', newest),
   /Invalid listing search cursor/
 );
@@ -103,3 +158,5 @@ assert.throws(
   () => decodeListingSearchCursor('2026-07-21T10:00:00.000Z', priceAscending),
   /newest sorting/
 );
+
+console.log('Listing search policy tests passed.');
