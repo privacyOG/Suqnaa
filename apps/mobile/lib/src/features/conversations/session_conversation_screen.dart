@@ -348,8 +348,8 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
           PopupMenuButton<String>(
             enabled: !_safetyBusy,
             onSelected: (value) {
-              if (value == 'mute') void _toggleMute();
-              if (value == 'block') void _toggleBlock();
+              if (value == 'mute') _toggleMute();
+              if (value == 'block') _toggleBlock();
             },
             itemBuilder: (context) => [
               PopupMenuItem(
