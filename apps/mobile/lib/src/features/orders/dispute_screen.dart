@@ -8,6 +8,7 @@ import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
+import 'order_protection_panel.dart';
 
 class DisputeScreen extends StatefulWidget {
   const DisputeScreen({super.key, this.disputeGateway, this.orderGateway, this.accessToken});
@@ -192,6 +193,7 @@ class _DisputeDetailScreenState extends State<_DisputeDetailScreen> {
       const SizedBox(height: 12), Text(dispute.reason),
       const SizedBox(height: 12), Text('${ar ? 'مهلة الرد' : 'Response due'}: ${dispute.responseDueAt.toLocal()}'),
       if (_detail.paymentOperationStatus != null) Text('${ar ? 'إجراء الدفع' : 'Payment operation'}: ${_detail.paymentOperationStatus}'),
+      OrderProtectionPanel(orderId: dispute.orderId),
       if (_detail.responses.isNotEmpty) ...[const Divider(), Text(ar ? 'الردود' : 'Responses', style: const TextStyle(fontWeight: FontWeight.bold)), ..._detail.responses.map((text) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(text)))],
       if (_detail.evidence.isNotEmpty) ...[const Divider(), Text(ar ? 'الأدلة' : 'Evidence', style: const TextStyle(fontWeight: FontWeight.bold)), ..._detail.evidence.map((item) => ListTile(contentPadding: EdgeInsets.zero, leading: Icon(item.downloadPath == null ? Icons.notes : Icons.lock_outline), title: Text(item.textValue ?? item.filename ?? item.type), subtitle: item.downloadPath == null ? null : Text(ar ? 'ملف خاص - التنزيل متاح عبر الويب المحمي' : 'Private file - download available through protected web')))],
       if (!['resolved','closed'].contains(dispute.status)) ...[
