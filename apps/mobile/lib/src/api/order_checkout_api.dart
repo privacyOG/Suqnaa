@@ -106,7 +106,7 @@ class CheckoutPreparation {
   const CheckoutPreparation({
     required this.order,
     required this.nextAction,
-    required this.provider,
+    this.provider,
     this.checkoutUrl,
     this.expiresAt,
   });
@@ -185,7 +185,6 @@ abstract interface class OrderCheckoutGateway {
   Future<CheckoutPreparation> prepare(
     String accessToken, {
     required String orderId,
-    String locale = 'en',
     String? challengeResponse,
   });
 }
@@ -199,16 +198,11 @@ class OrderCheckoutApi implements OrderCheckoutGateway {
   Future<CheckoutPreparation> prepare(
     String accessToken, {
     required String orderId,
-    String locale = 'en',
     String? challengeResponse,
   }) async {
     final normalizedOrderId = orderId.trim();
     if (!_uuidPattern.hasMatch(normalizedOrderId)) {
       throw ArgumentError.value(orderId, 'orderId', 'Must be a UUID');
-    }
-    final normalizedLocale = locale.trim().toLowerCase();
-    if (normalizedLocale != 'en' && normalizedLocale != 'ar') {
-      throw ArgumentError.value(locale, 'locale', 'Must be en or ar');
     }
 
     final normalizedChallenge = challengeResponse?.trim();
@@ -223,7 +217,7 @@ class OrderCheckoutApi implements OrderCheckoutGateway {
     final response = await _authedApi.postWithHeaders(
       _checkoutPath,
       accessToken,
-      {'orderId': normalizedOrderId, 'locale': normalizedLocale},
+      {'orderId': normalizedOrderId, 'locale': 'en'},
       extraHeaders: {
         if (normalizedChallenge?.isNotEmpty == true)
           'x-suqnaa-human-check': normalizedChallenge!,
