@@ -58,6 +58,7 @@ export function listingLocationPoint(
 }
 
 export function coarseDistanceKm(distanceMeters: unknown): number | null {
+  if (distanceMeters === null || distanceMeters === undefined) return null;
   const parsed = typeof distanceMeters === 'number'
     ? distanceMeters
     : Number(distanceMeters);
