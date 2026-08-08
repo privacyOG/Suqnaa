@@ -56,6 +56,16 @@ function paymentMethodLabel(value: string | null, isArabic: boolean): string {
   return (labels[value] ?? [value, value])[isArabic ? 1 : 0];
 }
 
+export function isTrustedPaymentCheckoutUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' &&
+      (parsed.hostname === 'checkout.stripe.com' || parsed.hostname.endsWith('.checkout.stripe.com'));
+  } catch {
+    return false;
+  }
+}
+
 function preparationFailure(caught: unknown, isArabic: boolean): string {
   if (caught instanceof AuthedRequestError) {
     if (caught.status === 401) {
@@ -78,6 +88,11 @@ function preparationFailure(caught: unknown, isArabic: boolean): string {
         ? `طلبات كثيرة. انتظر${caught.retryAfter ? ` ${caught.retryAfter} ثانية` : ''}.`
         : `Too many requests. Wait${caught.retryAfter ? ` ${caught.retryAfter} seconds` : ''}.`;
     }
+    if (caught.status === 503) {
+      return isArabic
+        ? 'مزود الدفع غير متاح مؤقتاً. حاول مرة أخرى لاحقاً.'
+        : 'The payment provider is temporarily unavailable. Try again later.';
+    }
     if (caught.status === 403 || caught.payload.requiresHumanCheck) {
       return isArabic
         ? 'تعذر التحقق من الفحص الأمني. أكمله مرة أخرى.'
@@ -98,6 +113,7 @@ export function OrderCheckoutPreparation({
   orderId: string;
 }) {
   const isArabic = locale === 'ar';
+  const paymentLocale: 'en' | 'ar' = isArabic ? 'ar' : 'en';
   const [order, setOrder] = useState<OrderActivityItem | null>(null);
   const [configuration, setConfiguration] =
     useState<ChallengeConfiguration | null>(null);
@@ -168,8 +184,18 @@ export function OrderCheckoutPreparation({
     try {
       const result = await prepareProtectedCheckout(
         orderId,
+        paymentLocale,
         challengeToken ?? undefined
       );
+
+      if (result.status === 'redirect_required') {
+        if (!isTrustedPaymentCheckoutUrl(result.payment.checkoutUrl)) {
+          throw new Error('Untrusted payment checkout URL');
+        }
+        window.location.assign(result.payment.checkoutUrl);
+        return;
+      }
+
       setPreparation(result);
       setOpen(false);
     } catch (caught) {
@@ -187,15 +213,15 @@ export function OrderCheckoutPreparation({
     <>
       <section className="order-safety-card order-checkout-card">
         <span className="buyer-action-label">
-          {isArabic ? 'إعداد الدفع' : 'Payment preparation'}
+          {isArabic ? 'الدفع الآمن' : 'Secure payment'}
         </span>
         <h2>
           {isArabic ? 'تحقق من تفاصيل الطلب المحفوظة' : 'Verify the stored order details'}
         </h2>
         <p>
           {isArabic
-            ? 'يتم أخذ المبلغ والعملة وطريقة الدفع من الطلب المحفوظ. لن يتم إرسال أي دفعة في هذه الخطوة.'
-            : 'Amount, currency and payment method come from the stored order. No payment is sent in this step.'}
+            ? 'يتم أخذ المبلغ والعملة وطريقة الدفع من الطلب المحفوظ. عند تفعيل الدفع ستنتقل إلى صفحة الدفع الآمنة التابعة للمزود.'
+            : 'Amount, currency and payment method come from the stored order. When payment is enabled, you will continue to the provider’s secure checkout.'}
         </p>
         <dl className="order-detail-facts">
           <div>
@@ -217,7 +243,7 @@ export function OrderCheckoutPreparation({
         ) : null}
         {error ? <p className="auth-error" role="alert">{error}</p> : null}
 
-        {preparation ? (
+        {preparation && preparation.status === 'configuration_required' ? (
           <div className="offer-order-summary" role="status">
             <strong>
               {isArabic ? 'إعداد مزود الدفع مطلوب' : 'Payment provider setup required'}
@@ -246,7 +272,7 @@ export function OrderCheckoutPreparation({
               setResetKey((value) => value + 1);
             }}
           >
-            {isArabic ? 'إعداد الدفع' : 'Prepare payment'}
+            {isArabic ? 'متابعة إلى الدفع' : 'Continue to payment'}
           </button>
         )}
       </section>
@@ -261,15 +287,15 @@ export function OrderCheckoutPreparation({
           <form onSubmit={submitPreparation}>
             <div>
               <span className="buyer-action-label">
-                {isArabic ? 'تأكيد إعداد الدفع' : 'Confirm payment preparation'}
+                {isArabic ? 'تأكيد تفاصيل الدفع' : 'Confirm payment details'}
               </span>
               <h2 id="checkout-preparation-title">
                 {formatAmount(order.amount, order.currencyCode, locale)}
               </h2>
               <p>
                 {isArabic
-                  ? 'سيتم التحقق من الطلب والحجز والحسابات مرة أخرى. هذه الخطوة لا ترسل الأموال.'
-                  : 'The order, reservation and accounts will be checked again. This step does not send funds.'}
+                  ? 'سيتم التحقق من الطلب والحجز والحسابات مرة أخرى قبل فتح صفحة الدفع الآمنة. لن يتم الدفع حتى تكمل الخطوات لدى المزود.'
+                  : 'The order, reservation and accounts will be checked again before secure checkout opens. No payment is completed until you finish with the provider.'}
               </p>
             </div>
 
@@ -309,7 +335,7 @@ export function OrderCheckoutPreparation({
               >
                 {submitting
                   ? (isArabic ? 'جارٍ التحقق…' : 'Checking…')
-                  : (isArabic ? 'تأكيد' : 'Confirm')}
+                  : (isArabic ? 'تأكيد ومتابعة' : 'Confirm and continue')}
               </button>
               <button
                 className="button-secondary"
