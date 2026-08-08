@@ -28,6 +28,7 @@
     { "id": "0025_postgis_nearby_search", "file": "022_postgis_nearby_search.sql" },
     { "id": "0026_conversation_safety", "file": "023_conversation_safety.sql" },
     { "id": "0027_durable_notifications", "file": "024_durable_notifications.sql" },
-    { "id": "0028_notification_mute_policy", "file": "025_notification_mute_policy.sql" }
+    { "id": "0028_notification_mute_policy", "file": "025_notification_mute_policy.sql" },
+    { "id": "0029_account_security_notification_policy", "file": "026_account_security_notification_policy.sql" }
   ]
 }
