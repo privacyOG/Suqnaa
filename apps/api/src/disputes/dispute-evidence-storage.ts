@@ -168,19 +168,28 @@ export function extensionForDisputeEvidence(mimeType: DisputeEvidenceMimeType): 
   }
 }
 
+export function resolveDisputeEvidenceStorageDriver(input: {
+  nodeEnv?: string;
+  driver?: string;
+}): EvidenceStorageDriver {
+  const driver = (input.driver ?? 'local').trim().toLowerCase();
+  if (driver !== 'local' && driver !== 's3') {
+    throw new Error(`Unsupported dispute evidence storage driver: ${driver}`);
+  }
+  if (input.nodeEnv === 'production' && driver !== 's3') {
+    throw new Error('S3 dispute evidence storage is required in production');
+  }
+  return driver;
+}
+
 let cached: DisputeEvidenceStorage | null = null;
 
 export function getDisputeEvidenceStorage(): DisputeEvidenceStorage {
   if (cached) return cached;
-  const driver = (process.env.MEDIA_STORAGE_DRIVER ?? 'local').trim().toLowerCase();
-  if (process.env.NODE_ENV === 'production' && driver !== 's3') {
-    throw new Error('S3 dispute evidence storage is required in production');
-  }
-  if (driver === 's3') {
-    cached = new S3DisputeEvidenceStorage();
-    return cached;
-  }
-  if (driver !== 'local') throw new Error(`Unsupported dispute evidence storage driver: ${driver}`);
-  cached = new LocalDisputeEvidenceStorage();
+  const driver = resolveDisputeEvidenceStorageDriver({
+    nodeEnv: process.env.NODE_ENV,
+    driver: process.env.MEDIA_STORAGE_DRIVER
+  });
+  cached = driver === 's3' ? new S3DisputeEvidenceStorage() : new LocalDisputeEvidenceStorage();
   return cached;
 }
