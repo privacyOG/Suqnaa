@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 const page = readFileSync(new URL('../app/[locale]/operations/page.tsx', import.meta.url), 'utf8');
 const summaryServer = readFileSync(new URL('./operations-dashboard-server.ts', import.meta.url), 'utf8');
 const reviewServer = readFileSync(new URL('./operations-review-server.ts', import.meta.url), 'utf8');
+const accountsPage = readFileSync(new URL('../app/[locale]/operations/accounts/page.tsx', import.meta.url), 'utf8');
+const listingsPage = readFileSync(new URL('../app/[locale]/operations/listings/page.tsx', import.meta.url), 'utf8');
 const categoriesPage = readFileSync(new URL('../app/[locale]/operations/categories/page.tsx', import.meta.url), 'utf8');
 const financePage = readFileSync(new URL('../app/[locale]/operations/finance/page.tsx', import.meta.url), 'utf8');
 const fulfilmentPage = readFileSync(new URL('../app/[locale]/operations/fulfilment/page.tsx', import.meta.url), 'utf8');
@@ -12,6 +14,8 @@ const fraudPage = readFileSync(new URL('../app/[locale]/operations/fraud/page.ts
 assert.match(summaryServer, /\/v1\/operations\/dashboard/);
 assert.match(summaryServer, /cache: 'no-store'/);
 assert.match(summaryServer, /authorization: `Bearer \$\{access\}`/);
+assert.match(reviewServer, /\/v1\/operations\/dashboard\/accounts/);
+assert.match(reviewServer, /\/v1\/operations\/dashboard\/listings/);
 assert.match(reviewServer, /\/v1\/operations\/dashboard\/categories/);
 assert.match(reviewServer, /\/v1\/operations\/dashboard\/fulfilment/);
 assert.match(reviewServer, /\/v1\/operations\/dashboard\/fraud/);
@@ -25,6 +29,8 @@ for (const surface of [
 ]) {
   assert.match(page, new RegExp(surface.replace(/[&]/g, '\\&')));
 }
+assert.match(page, /operations\/accounts/);
+assert.match(page, /operations\/listings/);
 assert.match(page, /operations\/categories/);
 assert.match(page, /operations\/finance/);
 assert.match(page, /operations\/fulfilment/);
@@ -33,6 +39,11 @@ assert.match(page, /sections\.fraudSignals\.openFraudReports/);
 assert.match(page, /sections\.fraudSignals\.openChargebacks/);
 assert.match(page, /OperationsQueueBrowserPanel/);
 assert.match(page, /OperationRecordsPanel/);
+assert.match(accountsPage, /Recent accounts/);
+assert.match(accountsPage, /P0-29/);
+assert.doesNotMatch(accountsPage, /emailVerified \? row\.email/);
+assert.match(listingsPage, /Recent listings/);
+assert.match(listingsPage, /P0-29/);
 assert.match(categoriesPage, /Category inventory/);
 assert.match(categoriesPage, /P0-29/);
 assert.match(financePage, /Payments & seller settlements/);
