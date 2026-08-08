@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
+import { SaveSearchForm } from '../../../components/save-search-form';
 import { isLocale } from '../../../i18n/locales';
+import { loadAccountSessionState } from '../../../lib/account-session-state';
 import {
   getPublicCategories,
   type CategorySummary
@@ -55,10 +57,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function trimmedParam(
-  value: string | string[] | undefined,
-  maximumLength: number
-): string | undefined {
+function trimmedParam(value: string | string[] | undefined, maximumLength: number): string | undefined {
   const trimmed = firstParam(value)?.trim();
   return trimmed && trimmed.length <= maximumLength ? trimmed : undefined;
 }
@@ -84,13 +83,12 @@ function catalogOptions(searchParams: CatalogSearchParams): PublicListingsOption
   let currency = trimmedParam(searchParams.currency, 3)?.toUpperCase();
   const country = trimmedParam(searchParams.country, 2)?.toUpperCase();
 
-  if (
-    !currency &&
-    (minimumPrice !== undefined ||
-      maximumPrice !== undefined ||
-      sort === 'price_asc' ||
-      sort === 'price_desc')
-  ) {
+  if (!currency && (
+    minimumPrice !== undefined ||
+    maximumPrice !== undefined ||
+    sort === 'price_asc' ||
+    sort === 'price_desc'
+  )) {
     currency = 'AUD';
   }
 
@@ -102,9 +100,7 @@ function catalogOptions(searchParams: CatalogSearchParams): PublicListingsOption
     condition: listingConditions.includes(conditionValue as PublicListingCondition)
       ? conditionValue as PublicListingCondition
       : undefined,
-    availabilityStatus: availabilityStatuses.includes(
-      availabilityValue as PublicListingAvailabilityStatus
-    )
+    availabilityStatus: availabilityStatuses.includes(availabilityValue as PublicListingAvailabilityStatus)
       ? availabilityValue as PublicListingAvailabilityStatus
       : undefined,
     minPrice: minimumPrice,
@@ -121,11 +117,7 @@ function catalogOptions(searchParams: CatalogSearchParams): PublicListingsOption
   };
 }
 
-function catalogHref(
-  locale: string,
-  options: PublicListingsOptions,
-  before?: string
-): string {
+function catalogHref(locale: string, options: PublicListingsOptions, before?: string): string {
   const query = new URLSearchParams();
   if (before) query.set('before', before);
   if (options.q) query.set('q', options.q);
@@ -147,18 +139,9 @@ function catalogHref(
 
 function hasActiveFilters(options: PublicListingsOptions): boolean {
   return Boolean(
-    options.q ||
-    options.categoryId ||
-    options.condition ||
-    options.availabilityStatus ||
-    options.minPrice !== undefined ||
-    options.maxPrice !== undefined ||
-    options.currency ||
-    options.country ||
-    options.region ||
-    options.city ||
-    options.suburb ||
-    options.fulfilment ||
+    options.q || options.categoryId || options.condition || options.availabilityStatus ||
+    options.minPrice !== undefined || options.maxPrice !== undefined || options.currency ||
+    options.country || options.region || options.city || options.suburb || options.fulfilment ||
     (options.sort && options.sort !== 'newest')
   );
 }
@@ -202,10 +185,7 @@ function categoryLabel(category: CategorySummary, isArabic: boolean): string {
   return isArabic ? category.nameAr ?? category.nameEn : category.nameEn;
 }
 
-export default async function PublicListingsPage({
-  params,
-  searchParams
-}: {
+export default async function PublicListingsPage({ params, searchParams }: {
   params: { locale: string };
   searchParams: CatalogSearchParams;
 }) {
@@ -219,9 +199,10 @@ export default async function PublicListingsPage({
   let nextCursor: string | null = null;
   let error: string | null = null;
 
-  const [listingsResult, categoriesResult] = await Promise.allSettled([
+  const [listingsResult, categoriesResult, sessionResult] = await Promise.allSettled([
     getPublicListings(options),
-    getPublicCategories()
+    getPublicCategories(),
+    loadAccountSessionState()
   ]);
 
   if (listingsResult.status === 'fulfilled') {
@@ -235,8 +216,23 @@ export default async function PublicListingsPage({
         ? (isArabic ? 'تحقق من خيارات البحث ثم أعد المحاولة.' : 'Check the search filters and try again.')
         : (isArabic ? 'تعذر تحميل السوق حالياً.' : 'The marketplace could not be loaded right now.');
   }
-
   if (categoriesResult.status === 'fulfilled') categories = categoriesResult.value;
+  const signedIn = sessionResult.status === 'fulfilled' && Boolean(sessionResult.value.user);
+
+  const savedSearchFilters = {
+    ...(options.q ? { q: options.q } : {}),
+    ...(options.categoryId ? { categoryId: options.categoryId } : {}),
+    ...(options.condition ? { condition: options.condition } : {}),
+    ...(options.availabilityStatus ? { availabilityStatus: options.availabilityStatus } : {}),
+    ...(options.minPrice !== undefined ? { minPrice: options.minPrice } : {}),
+    ...(options.maxPrice !== undefined ? { maxPrice: options.maxPrice } : {}),
+    ...(options.currency ? { currency: options.currency } : {}),
+    ...(options.country ? { country: options.country } : {}),
+    ...(options.region ? { region: options.region } : {}),
+    ...(options.city ? { city: options.city } : {}),
+    ...(options.suburb ? { suburb: options.suburb } : {}),
+    ...(options.fulfilment ? { fulfilment: options.fulfilment } : {})
+  };
 
   return (
     <main className="page-shell catalog-page">
@@ -246,9 +242,7 @@ export default async function PublicListingsPage({
           <a href={`/${params.locale}/sell`}>{isArabic ? 'بيع' : 'Sell'}</a>
           <a href={`/${params.locale}/messages`}>{isArabic ? 'الرسائل' : 'Messages'}</a>
           <a href={`/${params.locale}/account`}>{isArabic ? 'الحساب' : 'Account'}</a>
-          <a className="language-link" href={catalogHref(isArabic ? 'en' : 'ar', options)}>
-            {isArabic ? 'English' : 'العربية'}
-          </a>
+          <a className="language-link" href={catalogHref(isArabic ? 'en' : 'ar', options)}>{isArabic ? 'English' : 'العربية'}</a>
         </div>
       </nav>
 
@@ -260,28 +254,21 @@ export default async function PublicListingsPage({
             ? 'إعلانات نشطة من بائعين حقيقيين، مع خيارات تواصل وعروض محمية.'
             : 'Active listings from real sellers, with protected messaging and offer actions.'}</p>
         </div>
-        <a className="button-primary" href={`/${params.locale}/sell`}>
-          {isArabic ? 'أنشئ إعلاناً' : 'Create listing'}
-        </a>
+        <a className="button-primary" href={`/${params.locale}/sell`}>{isArabic ? 'أنشئ إعلاناً' : 'Create listing'}</a>
       </header>
 
       <form className="catalog-filter-form" method="get" action={`/${params.locale}/listings`}>
         <label className="catalog-filter-search">
           <span>{isArabic ? 'البحث' : 'Search'}</span>
-          <input type="search" name="q" maxLength={200} defaultValue={options.q ?? ''}
-            placeholder={isArabic ? 'ابحث بالعنوان أو الوصف' : 'Search title or description'} />
+          <input type="search" name="q" maxLength={200} defaultValue={options.q ?? ''} placeholder={isArabic ? 'ابحث بالعنوان أو الوصف' : 'Search title or description'} />
         </label>
-
         <label>
           <span>{isArabic ? 'الفئة' : 'Category'}</span>
           <select name="categoryId" defaultValue={options.categoryId ?? ''}>
             <option value="">{isArabic ? 'كل الفئات' : 'All categories'}</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>{categoryLabel(category, isArabic)}</option>
-            ))}
+            {categories.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category, isArabic)}</option>)}
           </select>
         </label>
-
         <label>
           <span>{isArabic ? 'الترتيب' : 'Sort'}</span>
           <select name="sort" defaultValue={options.sort ?? 'newest'}>
@@ -290,49 +277,27 @@ export default async function PublicListingsPage({
             <option value="price_desc">{isArabic ? 'السعر: من الأعلى إلى الأقل' : 'Price: high to low'}</option>
           </select>
         </label>
-
         <label>
           <span>{isArabic ? 'الحالة' : 'Condition'}</span>
           <select name="condition" defaultValue={options.condition ?? ''}>
             <option value="">{isArabic ? 'كل الحالات' : 'Any condition'}</option>
-            {listingConditions.map((condition) => (
-              <option key={condition} value={condition}>{conditionLabel(condition, isArabic)}</option>
-            ))}
+            {listingConditions.map((condition) => <option key={condition} value={condition}>{conditionLabel(condition, isArabic)}</option>)}
           </select>
         </label>
-
         <label>
           <span>{isArabic ? 'التوفر' : 'Availability'}</span>
           <select name="availabilityStatus" defaultValue={options.availabilityStatus ?? ''}>
             <option value="">{isArabic ? 'كل خيارات التوفر' : 'Any availability'}</option>
-            {availabilityStatuses.map((status) => (
-              <option key={status} value={status}>{availabilityLabel(status, isArabic)}</option>
-            ))}
+            {availabilityStatuses.map((status) => <option key={status} value={status}>{availabilityLabel(status, isArabic)}</option>)}
           </select>
         </label>
-
-        <label><span>{isArabic ? 'الحد الأدنى للسعر' : 'Minimum price'}</span>
-          <input type="number" name="minPrice" min="0" step="0.01" defaultValue={options.minPrice} />
-        </label>
-        <label><span>{isArabic ? 'الحد الأعلى للسعر' : 'Maximum price'}</span>
-          <input type="number" name="maxPrice" min="0" step="0.01" defaultValue={options.maxPrice} />
-        </label>
-        <label><span>{isArabic ? 'العملة' : 'Currency'}</span>
-          <input name="currency" minLength={3} maxLength={3} defaultValue={options.currency ?? 'AUD'} />
-        </label>
-        <label><span>{isArabic ? 'الدولة' : 'Country'}</span>
-          <input name="country" minLength={2} maxLength={2} defaultValue={options.country ?? 'AU'} />
-        </label>
-        <label><span>{isArabic ? 'الولاية أو المنطقة' : 'State or region'}</span>
-          <input name="region" maxLength={120} defaultValue={options.region ?? ''} placeholder={isArabic ? 'نيو ساوث ويلز' : 'NSW'} />
-        </label>
-        <label><span>{isArabic ? 'المدينة' : 'City'}</span>
-          <input name="city" maxLength={120} defaultValue={options.city ?? ''} placeholder={isArabic ? 'سيدني' : 'Sydney'} />
-        </label>
-        <label><span>{isArabic ? 'الحي' : 'Suburb'}</span>
-          <input name="suburb" maxLength={120} defaultValue={options.suburb ?? ''} placeholder={isArabic ? 'جريناكر' : 'Greenacre'} />
-        </label>
-
+        <label><span>{isArabic ? 'الحد الأدنى للسعر' : 'Minimum price'}</span><input type="number" name="minPrice" min="0" step="0.01" defaultValue={options.minPrice} /></label>
+        <label><span>{isArabic ? 'الحد الأعلى للسعر' : 'Maximum price'}</span><input type="number" name="maxPrice" min="0" step="0.01" defaultValue={options.maxPrice} /></label>
+        <label><span>{isArabic ? 'العملة' : 'Currency'}</span><input name="currency" minLength={3} maxLength={3} defaultValue={options.currency ?? 'AUD'} /></label>
+        <label><span>{isArabic ? 'الدولة' : 'Country'}</span><input name="country" minLength={2} maxLength={2} defaultValue={options.country ?? 'AU'} /></label>
+        <label><span>{isArabic ? 'الولاية أو المنطقة' : 'State or region'}</span><input name="region" maxLength={120} defaultValue={options.region ?? ''} placeholder={isArabic ? 'نيو ساوث ويلز' : 'NSW'} /></label>
+        <label><span>{isArabic ? 'المدينة' : 'City'}</span><input name="city" maxLength={120} defaultValue={options.city ?? ''} placeholder={isArabic ? 'سيدني' : 'Sydney'} /></label>
+        <label><span>{isArabic ? 'الحي' : 'Suburb'}</span><input name="suburb" maxLength={120} defaultValue={options.suburb ?? ''} placeholder={isArabic ? 'جريناكر' : 'Greenacre'} /></label>
         <label>
           <span>{isArabic ? 'طريقة الاستلام' : 'Fulfilment'}</span>
           <select name="fulfilment" defaultValue={options.fulfilment ?? ''}>
@@ -342,14 +307,13 @@ export default async function PublicListingsPage({
             <option value="both">{isArabic ? 'الاستلام والتوصيل معاً' : 'Pickup and delivery'}</option>
           </select>
         </label>
-
         <div className="catalog-filter-actions">
           <button className="button-primary" type="submit">{isArabic ? 'تطبيق البحث' : 'Apply filters'}</button>
-          {filtersActive ? <a className="button-secondary" href={`/${params.locale}/listings`}>
-            {isArabic ? 'مسح الخيارات' : 'Clear filters'}
-          </a> : null}
+          {filtersActive ? <a className="button-secondary" href={`/${params.locale}/listings`}>{isArabic ? 'مسح الخيارات' : 'Clear filters'}</a> : null}
         </div>
       </form>
+
+      {signedIn && filtersActive ? <SaveSearchForm locale={params.locale} filters={savedSearchFilters} /> : null}
 
       {!error ? <p className="catalog-result-count" aria-live="polite">
         {isArabic
@@ -361,47 +325,30 @@ export default async function PublicListingsPage({
 
       {!error && listings.length === 0 ? (
         <section className="empty-catalog">
-          <strong>{filtersActive
-            ? (isArabic ? 'لا توجد نتائج مطابقة' : 'No listings match these filters')
-            : (isArabic ? 'لا توجد إعلانات نشطة بعد' : 'No active listings yet')}</strong>
-          <p>{filtersActive
-            ? (isArabic ? 'غيّر خيارات البحث أو امسحها لعرض إعلانات أخرى.' : 'Adjust or clear the filters to see other listings.')
-            : (isArabic ? 'كن أول من ينشر إعلاناً في سوقنا.' : 'Be the first to publish something on Suqnaa.')}</p>
-          <a className={filtersActive ? 'button-secondary' : 'button-primary'}
-            href={filtersActive ? `/${params.locale}/listings` : `/${params.locale}/sell`}>
-            {filtersActive
-              ? (isArabic ? 'عرض كل الإعلانات' : 'View all listings')
-              : (isArabic ? 'ابدأ البيع' : 'Start selling')}
+          <strong>{filtersActive ? (isArabic ? 'لا توجد نتائج مطابقة' : 'No listings match these filters') : (isArabic ? 'لا توجد إعلانات نشطة بعد' : 'No active listings yet')}</strong>
+          <p>{filtersActive ? (isArabic ? 'غيّر خيارات البحث أو امسحها لعرض إعلانات أخرى.' : 'Adjust or clear the filters to see other listings.') : (isArabic ? 'كن أول من ينشر إعلاناً في سوقنا.' : 'Be the first to publish something on Suqnaa.')}</p>
+          <a className={filtersActive ? 'button-secondary' : 'button-primary'} href={filtersActive ? `/${params.locale}/listings` : `/${params.locale}/sell`}>
+            {filtersActive ? (isArabic ? 'عرض كل الإعلانات' : 'View all listings') : (isArabic ? 'ابدأ البيع' : 'Start selling')}
           </a>
         </section>
       ) : (
         <section className="catalog-grid" aria-label={isArabic ? 'الإعلانات' : 'Listings'}>
           {listings.map((listing) => {
-            const location = [listing.suburb, listing.city, listing.region, listing.countryCode]
-              .filter(Boolean).join(', ');
+            const location = [listing.suburb, listing.city, listing.region, listing.countryCode].filter(Boolean).join(', ');
             const sellerName = listing.seller?.displayName ?? (isArabic ? 'بائع سوقنا' : 'Suqnaa seller');
             const firstPhoto = listing.media[0];
-            const listingCategory = listing.category
-              ? (isArabic ? listing.category.nameAr ?? listing.category.nameEn : listing.category.nameEn)
-              : null;
-
+            const listingCategory = listing.category ? (isArabic ? listing.category.nameAr ?? listing.category.nameEn : listing.category.nameEn) : null;
             return (
               <article className="catalog-card" key={listing.id}>
                 <a className="catalog-visual" href={`/${params.locale}/listings/${listing.id}`} aria-label={listing.title}>
-                  {firstPhoto
-                    ? <img src={firstPhoto.url} alt={firstPhoto.altText ?? listing.title} loading="lazy" />
-                    : <span>{listing.title.slice(0, 1).toUpperCase()}</span>}
+                  {firstPhoto ? <img src={firstPhoto.url} alt={firstPhoto.altText ?? listing.title} loading="lazy" /> : <span>{listing.title.slice(0, 1).toUpperCase()}</span>}
                 </a>
                 <div className="catalog-card-body">
                   <div className="catalog-card-tags">
                     {listingCategory ? <span>{listingCategory}</span> : null}
                     <span>{conditionLabel(listing.condition, isArabic)}</span>
                     <span>{availabilityLabel(listing.availabilityStatus, isArabic)}</span>
-                    <span>{listing.allowPickup && listing.allowDelivery
-                      ? (isArabic ? 'استلام وتوصيل' : 'Pickup and delivery')
-                      : listing.allowDelivery
-                        ? (isArabic ? 'توصيل' : 'Delivery')
-                        : (isArabic ? 'استلام' : 'Pickup')}</span>
+                    <span>{listing.allowPickup && listing.allowDelivery ? (isArabic ? 'استلام وتوصيل' : 'Pickup and delivery') : listing.allowDelivery ? (isArabic ? 'توصيل' : 'Delivery') : (isArabic ? 'استلام' : 'Pickup')}</span>
                   </div>
                   <h2><a href={`/${params.locale}/listings/${listing.id}`}>{listing.title}</a></h2>
                   <p className="catalog-price">{formatPrice(listing, params.locale)}</p>
@@ -417,9 +364,7 @@ export default async function PublicListingsPage({
         </section>
       )}
 
-      {nextCursor ? <a className="button-secondary catalog-next" href={catalogHref(params.locale, options, nextCursor)}>
-        {isArabic ? 'المزيد من الإعلانات' : 'More listings'}
-      </a> : null}
+      {nextCursor ? <a className="button-secondary catalog-next" href={catalogHref(params.locale, options, nextCursor)}>{isArabic ? 'المزيد من الإعلانات' : 'More listings'}</a> : null}
     </main>
   );
 }

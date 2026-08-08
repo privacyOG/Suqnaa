@@ -44,6 +44,11 @@ export interface Database {
   listings: TableShape;
   listing_media: TableShape;
   listing_inventory_reservations: TableShape;
+  saved_listings: TableShape;
+  listing_watchlist: TableShape;
+  recently_viewed_listings: TableShape;
+  saved_searches: TableShape;
+  saved_search_notifications: TableShape;
   conversations: TableShape;
   messages: TableShape;
   offers: TableShape;

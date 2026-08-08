@@ -3,6 +3,7 @@ import 'package:suqnaa/l10n/app_localizations.dart';
 import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
 import '../conversations/session_conversation_inbox.dart';
+import '../discovery/discovery_screen.dart';
 import '../orders/order_activity_screen.dart';
 import '../orders/order_cancellation_screen.dart';
 import '../orders/order_fulfilment_screen.dart';
@@ -108,9 +109,7 @@ class AccountScreen extends StatelessWidget {
                   ? 'تحقق من هوية البائع أو بيانات النشاط التجاري وتابع الحالة'
                   : 'Verify seller or business identity and track status',
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const SellerVerificationScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const SellerVerificationScreen()),
               ),
             ),
             _AccountTile(
@@ -121,9 +120,7 @@ class AccountScreen extends StatelessWidget {
                   ? 'تحقق من البريد الإلكتروني أو رقم الهاتف المسجل'
                   : 'Verify your registered email or phone',
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const AccountVerificationScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const AccountVerificationScreen()),
               ),
             ),
             _AccountTile(
@@ -135,6 +132,17 @@ class AccountScreen extends StatelessWidget {
                   : 'Change your password and review active sessions',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AccountSecurityScreen()),
+              ),
+            ),
+            _AccountTile(
+              key: const Key('discovery-account-tile'),
+              icon: Icons.bookmarks_outlined,
+              title: isArabic ? 'المحفوظات والمراقبة والتنبيهات' : 'Saved items, watchlist and alerts',
+              subtitle: isArabic
+                  ? 'راجع الإعلانات المحفوظة والمشاهدة والبحث والتنبيهات'
+                  : 'Review saved listings, watchlist, recent views, searches and alerts',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DiscoveryScreen()),
               ),
             ),
           ],
@@ -155,56 +163,40 @@ class AccountScreen extends StatelessWidget {
           _AccountTile(
             icon: Icons.receipt_long_outlined,
             title: text.orders,
-            subtitle: signedIn
-                ? text.orderHistorySubtitle
-                : 'Sign in to view your orders',
+            subtitle: signedIn ? text.orderHistorySubtitle : 'Sign in to view your orders',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => signedIn
-                    ? const OrderActivityScreen()
-                    : const AccountLoginScreen(),
+                builder: (_) => signedIn ? const OrderActivityScreen() : const AccountLoginScreen(),
               ),
             ),
           ),
           _AccountTile(
             icon: Icons.local_shipping_outlined,
             title: text.fulfilmentActions,
-            subtitle: signedIn
-                ? text.fulfilmentActionsSubtitle
-                : text.signInForFulfilmentActions,
+            subtitle: signedIn ? text.fulfilmentActionsSubtitle : text.signInForFulfilmentActions,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => signedIn
-                    ? const OrderFulfilmentScreen()
-                    : const AccountLoginScreen(),
+                builder: (_) => signedIn ? const OrderFulfilmentScreen() : const AccountLoginScreen(),
               ),
             ),
           ),
           _AccountTile(
             icon: Icons.cancel_outlined,
             title: text.cancelOrder,
-            subtitle: signedIn
-                ? text.cancelOrderTitle
-                : 'Sign in to cancel an order',
+            subtitle: signedIn ? text.cancelOrderTitle : 'Sign in to cancel an order',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => signedIn
-                    ? const OrderCancellationScreen()
-                    : const AccountLoginScreen(),
+                builder: (_) => signedIn ? const OrderCancellationScreen() : const AccountLoginScreen(),
               ),
             ),
           ),
           _AccountTile(
             icon: Icons.payments_outlined,
             title: text.paymentPreparation,
-            subtitle: signedIn
-                ? text.paymentPreparationSubtitle
-                : 'Sign in to prepare payment',
+            subtitle: signedIn ? text.paymentPreparationSubtitle : 'Sign in to prepare payment',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => signedIn
-                    ? const PaymentPreparationScreen()
-                    : const AccountLoginScreen(),
+                builder: (_) => signedIn ? const PaymentPreparationScreen() : const AccountLoginScreen(),
               ),
             ),
           ),
@@ -217,9 +209,7 @@ class AccountScreen extends StatelessWidget {
                 : 'Sign in to manage your listings',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => signedIn
-                    ? const MyListingsScreen()
-                    : const AccountLoginScreen(),
+                builder: (_) => signedIn ? const MyListingsScreen() : const AccountLoginScreen(),
               ),
             ),
           ),
@@ -232,9 +222,7 @@ class AccountScreen extends StatelessWidget {
                 : 'Sign in to manage listing photos',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => signedIn
-                    ? const ListingMediaManagerScreen()
-                    : const AccountLoginScreen(),
+                builder: (_) => signedIn ? const ListingMediaManagerScreen() : const AccountLoginScreen(),
               ),
             ),
           ),
@@ -245,9 +233,7 @@ class AccountScreen extends StatelessWidget {
               subtitle: 'Revoke and clear this device session',
               onTap: () async {
                 await session.signOut();
-                if (!context.mounted) {
-                  return;
-                }
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Signed out')),
                 );
@@ -260,14 +246,7 @@ class AccountScreen extends StatelessWidget {
 }
 
 class _AccountTile extends StatelessWidget {
-  const _AccountTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
-
+  const _AccountTile({super.key, required this.icon, required this.title, required this.subtitle, this.onTap});
   final IconData icon;
   final String title;
   final String subtitle;
@@ -278,10 +257,7 @@ class _AccountTile extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: Icon(icon, color: SuqnaaBrand.blue),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,

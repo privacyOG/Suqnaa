@@ -8,6 +8,8 @@ import {
   publicListingSearchQuery
 } from '../search/listing-search-policy.js';
 
+const likeEscapeCharacter = '\\';
+
 function enforcePublicSearchLimit(
   request: FastifyRequest,
   reply: FastifyReply
@@ -211,17 +213,17 @@ export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
     }
     if (query.region) {
       listingsQuery = listingsQuery.where(sql<boolean>`
-        listings.region ILIKE ${containsPattern(query.region)} ESCAPE E'\\'
+        listings.region ILIKE ${containsPattern(query.region)} ESCAPE ${likeEscapeCharacter}
       `);
     }
     if (query.city) {
       listingsQuery = listingsQuery.where(sql<boolean>`
-        listings.city ILIKE ${containsPattern(query.city)} ESCAPE E'\\'
+        listings.city ILIKE ${containsPattern(query.city)} ESCAPE ${likeEscapeCharacter}
       `);
     }
     if (query.suburb) {
       listingsQuery = listingsQuery.where(sql<boolean>`
-        listings.suburb ILIKE ${containsPattern(query.suburb)} ESCAPE E'\\'
+        listings.suburb ILIKE ${containsPattern(query.suburb)} ESCAPE ${likeEscapeCharacter}
       `);
     }
     if (query.fulfilment === 'pickup') {

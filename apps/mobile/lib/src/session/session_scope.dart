@@ -8,9 +8,13 @@ class SessionScope extends InheritedNotifier<AppSession> {
     super.key,
   }) : super(notifier: session);
 
+  static AppSession? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<SessionScope>()?.notifier;
+  }
+
   static AppSession of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<SessionScope>();
-    assert(scope != null, 'SessionScope is missing above this context');
-    return scope!.notifier!;
+    final session = maybeOf(context);
+    assert(session != null, 'SessionScope is missing above this context');
+    return session!;
   }
 }
