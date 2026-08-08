@@ -16,6 +16,11 @@ assert.equal(permissionForOperationsRequest('POST', `/v1/operations/queue/${queu
 assert.equal(permissionForOperationsRequest('GET', '/v1/operations/records'), 'audit.read');
 assert.equal(permissionForOperationsRequest('GET', '/v1/operations/verifications'), 'verification.read');
 assert.equal(permissionForOperationsRequest('POST', `/v1/operations/verifications/${queueItemId}/review`), 'verification.review');
+assert.equal(permissionForOperationsRequest('GET', '/v1/operations/payments'), 'payments.read');
+assert.equal(permissionForOperationsRequest('POST', `/v1/operations/payments/${queueItemId}/request`), 'payments.request');
+assert.equal(permissionForOperationsRequest('POST', `/v1/operations/payment-operations/${queueItemId}/decision`), 'payments.approve');
+assert.equal(permissionForOperationsRequest('GET', '/v1/operations/settlements?status=failed'), 'settlements.read');
+assert.equal(permissionForOperationsRequest('POST', '/v1/operations/settlements/run'), 'settlements.run');
 assert.equal(permissionForOperationsRequest('GET', `/v1/operations/queue/${queueItemId}/messages`), null);
 assert.equal(permissionForOperationsRequest('POST', '/v1/operations/unknown'), null);
 

@@ -15,7 +15,9 @@ export type AdministrativePermission =
   | 'roles.manage'
   | 'payments.read'
   | 'payments.request'
-  | 'payments.approve';
+  | 'payments.approve'
+  | 'settlements.read'
+  | 'settlements.run';
 
 export interface AuthorizedOperationsRequest extends AuthenticatedRequest {
   operationsUserId: string;
