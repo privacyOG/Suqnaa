@@ -13,6 +13,15 @@ export interface ShippingOption {
   etaMaxDays: number | null;
 }
 
+export interface SellerShippingOptionsResponse {
+  listingId: string;
+  listingStatus: string;
+  allowDelivery: boolean;
+  currencyCode: string;
+  editable: boolean;
+  options: ShippingOption[];
+}
+
 export interface OrderAddress {
   line1: string;
   line2: string | null;
@@ -94,6 +103,10 @@ function listingId(value: string): string {
 
 export function getListingShippingOptions(value: string): Promise<{ listingId: string; options: ShippingOption[] }> {
   return getAuthed(`/v1/listings/${listingId(value)}/shipping-options`);
+}
+
+export function getSellerShippingOptions(value: string): Promise<SellerShippingOptionsResponse> {
+  return getAuthed(`/v1/market/listings/${listingId(value)}/shipping-options`);
 }
 
 export function replaceListingShippingOptions(value: string, options: Array<{
