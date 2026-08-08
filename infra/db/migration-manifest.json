@@ -32,6 +32,7 @@
     { "id": "0029_account_security_notification_policy", "file": "026_account_security_notification_policy.sql" },
     { "id": "0030_payment_collection", "file": "027_payment_collection.sql" },
     { "id": "0031_payment_state_transitions", "file": "028_payment_state_transitions.sql" },
-    { "id": "0032_seller_settlement", "file": "029_seller_settlement.sql" }
+    { "id": "0032_seller_settlement", "file": "029_seller_settlement.sql" },
+    { "id": "0033_delivery_pickup", "file": "030_delivery_pickup.sql" }
   ]
 }
