@@ -58,10 +58,7 @@ function enforceCheckoutLimit(
       ? ipLimit
       : undefined;
 
-  if (!limited) {
-    return true;
-  }
-
+  if (!limited) return true;
   reply.header('Retry-After', String(limited.retryAfterSeconds));
   reply.code(429).send(rateLimitResponse(limited));
   return false;
@@ -76,22 +73,12 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
       const buyerId = authRequest.user.sub;
       const body = checkoutBody.parse(request.body);
 
-      if (!enforceCheckoutLimit(request, reply, buyerId)) {
-        return;
-      }
+      if (!enforceCheckoutLimit(request, reply, buyerId)) return;
 
       const order = await db.selectFrom('transactions')
         .select([
-          'id',
-          'listing_id',
-          'buyer_id',
-          'seller_id',
-          'amount',
-          'currency_code',
-          'status',
-          'payment_method',
-          'payment_provider',
-          'payment_reference'
+          'id', 'listing_id', 'buyer_id', 'seller_id', 'amount', 'item_amount', 'shipping_amount',
+          'currency_code', 'status', 'payment_method', 'payment_provider', 'payment_reference'
         ])
         .where('id', '=', body.orderId)
         .executeTakeFirst();
@@ -100,7 +87,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(404).send({ error: 'Order not found' });
       }
 
-      const [buyer, seller, listing] = await Promise.all([
+      const [buyer, seller, listing, delivery] = await Promise.all([
         db.selectFrom('users')
           .select(['id', 'status', 'email', 'email_verified_at'])
           .where('id', '=', buyerId)
@@ -112,6 +99,10 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
         db.selectFrom('listings')
           .select(['id', 'seller_id', 'status', 'country_code'])
           .where('id', '=', order.listing_id)
+          .executeTakeFirst(),
+        db.selectFrom('order_fulfilment_details')
+          .select(['mode', 'shipping_amount', 'currency_code'])
+          .where('order_id', '=', order.id)
           .executeTakeFirst()
       ]);
 
@@ -121,14 +112,18 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
       if (!seller || seller.status !== 'active') {
         return reply.code(409).send({ error: 'Seller account is unavailable' });
       }
+      if (!listing || listing.seller_id !== order.seller_id || listing.status !== 'reserved') {
+        return reply.code(409).send({ error: 'Order reservation is no longer available' });
+      }
+      if (!delivery) {
+        return reply.code(409).send({ error: 'Select delivery or pickup before payment' });
+      }
       if (
-        !listing ||
-        listing.seller_id !== order.seller_id ||
-        listing.status !== 'reserved'
+        String(delivery.currency_code).toUpperCase() !== String(order.currency_code).toUpperCase() ||
+        Number(delivery.shipping_amount) !== Number(order.shipping_amount) ||
+        Number(order.amount) !== Number(order.item_amount) + Number(order.shipping_amount)
       ) {
-        return reply.code(409).send({
-          error: 'Order reservation is no longer available'
-        });
+        return reply.code(409).send({ error: 'Order delivery pricing is inconsistent; refresh and try again' });
       }
 
       if (order.status !== 'pending') {
@@ -137,18 +132,13 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
           currentStatus: order.status
         });
       }
-
       if (order.payment_provider || order.payment_reference) {
-        return reply.code(409).send({
-          error: 'Order payment is already configured'
-        });
+        return reply.code(409).send({ error: 'Order payment is already configured' });
       }
 
       const parsedPaymentMethod = paymentMethod.safeParse(order.payment_method);
       if (!parsedPaymentMethod.success) {
-        return reply.code(409).send({
-          error: 'Order payment method is unavailable'
-        });
+        return reply.code(409).send({ error: 'Order payment method is unavailable' });
       }
 
       const launchEligibility = evaluateInitialLaunchPayment({
@@ -183,9 +173,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
           accountId: buyerId,
           ip: request.ip,
           userAgent: firstHeader(request.headers['user-agent']),
-          challengeResponse: firstHeader(
-            request.headers['x-suqnaa-human-check']
-          )
+          challengeResponse: firstHeader(request.headers['x-suqnaa-human-check'])
         },
         challengeVerifier
       );
@@ -209,17 +197,18 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
           !buyer.email_verified_at ||
           (parsedPaymentMethod.data !== 'card' && parsedPaymentMethod.data !== 'wallet')
         ) {
-          return reply.code(409).send({
-            error: 'Buyer payment contact or payment method is unavailable'
-          });
+          return reply.code(409).send({ error: 'Buyer payment contact or payment method is unavailable' });
         }
 
         const intent = await db.selectFrom('payment_intents')
-          .select(['id', 'status'])
+          .select(['id', 'status', 'amount'])
           .where('transaction_id', '=', order.id)
           .executeTakeFirst();
         if (!intent || (intent.status !== 'created' && intent.status !== 'awaiting_payment')) {
           return reply.code(409).send({ error: 'Order payment context is unavailable' });
+        }
+        if (Number(intent.amount) !== Number(order.amount)) {
+          return reply.code(409).send({ error: 'Order payment amount is stale; refresh and try again' });
         }
 
         try {
@@ -250,6 +239,8 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
               countryCode: listing.country_code,
               currencyCode: order.currency_code,
               paymentMethod: parsedPaymentMethod.data,
+              fulfilmentMode: delivery.mode,
+              shippingAmount: order.shipping_amount,
               provider: 'stripe'
             }
           });
@@ -260,10 +251,13 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
             order: {
               id: String(order.id),
               listingId: String(order.listing_id),
+              itemAmount: order.item_amount,
+              shippingAmount: order.shipping_amount,
               amount: order.amount,
               currencyCode: String(order.currency_code).toUpperCase(),
               status: 'pending' as const,
-              paymentMethod: parsedPaymentMethod.data
+              paymentMethod: parsedPaymentMethod.data,
+              fulfilmentMode: delivery.mode
             },
             payment: {
               provider: 'stripe' as const,
@@ -313,11 +307,21 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
           listingId: order.listing_id,
           countryCode: listing.country_code,
           currencyCode: order.currency_code,
-          paymentMethod: parsedPaymentMethod.data
+          paymentMethod: parsedPaymentMethod.data,
+          fulfilmentMode: delivery.mode,
+          shippingAmount: order.shipping_amount
         }
       });
 
-      return reply.send(checkout);
+      return reply.send({
+        ...checkout,
+        order: {
+          ...checkout.order,
+          itemAmount: order.item_amount,
+          shippingAmount: order.shipping_amount,
+          fulfilmentMode: delivery.mode
+        }
+      });
     }
   );
 }
