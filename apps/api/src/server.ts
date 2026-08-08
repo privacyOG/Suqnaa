@@ -21,6 +21,7 @@ import { listingSearchRoutes } from './routes/listing-search.js';
 import { listingRoutes } from './routes/listings.js';
 import { marketActionRoutes } from './routes/market-actions.js';
 import { messageRoutes } from './routes/messages.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { offerWorkflowRoutes } from './routes/offer-workflow.js';
 import { operationRecordRoutes } from './routes/operation-records.js';
 import { operationsAccessRoutes } from './routes/operations-access.js';
@@ -62,7 +63,7 @@ app.addHook('onRequest', async (request, reply) => {
 
   if (origin === webOrigin) {
     reply.header('Access-Control-Allow-Origin', origin);
-    reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    reply.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     reply.header(
       'Access-Control-Allow-Headers',
       'content-type, authorization, x-suqnaa-human-check'
@@ -122,6 +123,7 @@ await app.register(orderCancellationRoutes, { prefix: '/v1' });
 await app.register(orderFulfilmentRoutes, { prefix: '/v1' });
 await app.register(orderPaymentContextRoutes, { prefix: '/v1' });
 await app.register(messageRoutes, { prefix: '/v1' });
+await app.register(notificationRoutes, { prefix: '/v1' });
 await app.register(reportRoutes, { prefix: '/v1' });
 await app.register(sessionManagementRoutes, { prefix: '/v1' });
 
