@@ -24,6 +24,7 @@
     { "id": "0021_listing_optimistic_concurrency", "file": "018_listing_optimistic_concurrency.sql" },
     { "id": "0022_listing_lifecycle_inventory", "file": "019_listing_lifecycle_inventory.sql" },
     { "id": "0023_listing_lifecycle_boundary_guards", "file": "020_listing_lifecycle_boundary_guards.sql" },
-    { "id": "0024_discovery_saved_searches", "file": "021_discovery_saved_searches.sql" }
+    { "id": "0024_discovery_saved_searches", "file": "021_discovery_saved_searches.sql" },
+    { "id": "0025_postgis_nearby_search", "file": "022_postgis_nearby_search.sql" }
   ]
 }

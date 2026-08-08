@@ -15,6 +15,20 @@ abstract interface class SellerListingEditGateway {
   });
 }
 
+abstract interface class SellerListingLocationGateway {
+  Future<Map<String, dynamic>> getLocation(
+    String accessToken, {
+    required String listingId,
+  });
+
+  Future<Map<String, dynamic>> updateLocation(
+    String accessToken, {
+    required String listingId,
+    required int version,
+    required Map<String, double>? approximateLocation,
+  });
+}
+
 abstract interface class SellerListingLifecycleGateway {
   Future<Map<String, dynamic>> getLifecycle(
     String accessToken, {
@@ -28,7 +42,7 @@ abstract interface class SellerListingLifecycleGateway {
   });
 }
 
-class SellerListingApi implements SellerListingEditGateway, SellerListingLifecycleGateway {
+class SellerListingApi implements SellerListingEditGateway, SellerListingLocationGateway, SellerListingLifecycleGateway {
   SellerListingApi({required AuthedApi authedApi}) : _authedApi = authedApi;
 
   final AuthedApi _authedApi;
@@ -62,6 +76,15 @@ class SellerListingApi implements SellerListingEditGateway, SellerListingLifecyc
   }
 
   @override
+  Future<Map<String, dynamic>> getLocation(
+    String accessToken, {
+    required String listingId,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.get('/v1/listings/$encodedId/location/manage', accessToken);
+  }
+
+  @override
   Future<Map<String, dynamic>> getLifecycle(
     String accessToken, {
     required String listingId,
@@ -86,6 +109,24 @@ class SellerListingApi implements SellerListingEditGateway, SellerListingLifecyc
       '/v1/listings/$encodedId/edit',
       accessToken,
       input,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateLocation(
+    String accessToken, {
+    required String listingId,
+    required int version,
+    required Map<String, double>? approximateLocation,
+  }) {
+    final encodedId = Uri.encodeComponent(listingId);
+    return _authedApi.post(
+      '/v1/listings/$encodedId/location',
+      accessToken,
+      {
+        'version': version,
+        'approximateLocation': approximateLocation,
+      },
     );
   }
 

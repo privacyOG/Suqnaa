@@ -172,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
       count += 1;
     }
     if (_options.fulfilment != null) count += 1;
+    if (_options.radiusKm != null) count += 1;
     if (_options.sort != 'newest') count += 1;
     return count;
   }
@@ -493,11 +494,20 @@ class _ListingCard extends StatelessWidget {
     }
   }
 
+  String _distance(BuildContext context) {
+    final distance = listing.distanceKm;
+    if (distance == null) return '';
+    final ar = Localizations.localeOf(context).languageCode == 'ar';
+    if (distance <= 0) return ar ? 'ضمن نحو 1 كم' : 'Within about 1 km';
+    return ar ? 'على بُعد نحو $distance كم' : 'About $distance km away';
+  }
+
   @override
   Widget build(BuildContext context) {
     final cover = listing.coverMedia;
     final languageCode = Localizations.localeOf(context).languageCode;
     final category = listing.category?.labelFor(languageCode);
+    final distance = _distance(context);
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -539,6 +549,10 @@ class _ListingCard extends StatelessWidget {
                     Text(_price(context), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SuqnaaBrand.blue, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 4),
                     Text(listing.location.isEmpty ? text.notSpecified : listing.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SuqnaaBrand.muted, fontSize: 11)),
+                    if (distance.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(distance, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SuqnaaBrand.teal, fontSize: 11, fontWeight: FontWeight.w700)),
+                    ],
                   ],
                 ),
               ),

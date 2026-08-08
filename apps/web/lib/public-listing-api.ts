@@ -12,7 +12,7 @@ export type PublicListingAvailabilityStatus =
   | 'service_available';
 
 export type PublicListingFulfilment = 'pickup' | 'delivery' | 'both';
-export type PublicListingSort = 'newest' | 'price_asc' | 'price_desc';
+export type PublicListingSort = 'newest' | 'price_asc' | 'price_desc' | 'distance';
 
 export interface PublicListingMedia {
   id: string;
@@ -57,6 +57,7 @@ export interface PublicListingSummary {
   allowDelivery: boolean;
   publishedAt: string | null;
   createdAt: string;
+  distanceKm: number | null;
   media: PublicListingMedia[];
   mediaCount: number;
   category: PublicCategorySummary | null;
@@ -107,6 +108,9 @@ export interface PublicListingsOptions {
   city?: string;
   suburb?: string;
   fulfilment?: PublicListingFulfilment;
+  nearLat?: number;
+  nearLon?: number;
+  radiusKm?: number;
   sort?: PublicListingSort;
 }
 
@@ -168,6 +172,9 @@ export async function getPublicListings(
   if (options.city) query.set('city', options.city);
   if (options.suburb) query.set('suburb', options.suburb);
   if (options.fulfilment) query.set('fulfilment', options.fulfilment);
+  if (options.nearLat !== undefined) query.set('nearLat', options.nearLat.toFixed(2));
+  if (options.nearLon !== undefined) query.set('nearLon', options.nearLon.toFixed(2));
+  if (options.radiusKm !== undefined) query.set('radiusKm', String(options.radiusKm));
   if (options.sort) query.set('sort', options.sort);
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
@@ -187,9 +194,12 @@ export async function getPublicListing(listingId: string): Promise<PublicListing
     cache: 'no-store',
     headers: { accept: 'application/json' }
   });
-  const payload = await readJson<{ listing: PublicListingDetail }>(
+  const payload = await readJson<{ listing: Omit<PublicListingDetail, 'distanceKm'> & { distanceKm?: null } }>(
     response,
     'Unable to load listing'
   );
-  return withAbsoluteMediaUrls(payload.listing);
+  return withAbsoluteMediaUrls({
+    ...payload.listing,
+    distanceKm: null
+  });
 }

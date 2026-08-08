@@ -8,10 +8,21 @@ import 'package:suqnaa/src/api/seller_listing_api.dart';
 const listingId = '123e4567-e89b-42d3-a456-426614174000';
 
 void main() {
-  test('uses exact owner edit routes and preserves optimistic version body', () async {
+  test('uses exact owner edit and approximate location routes', () async {
     final requests = <http.Request>[];
     final client = MockClient((request) async {
       requests.add(request);
+      if (request.method == 'GET' && request.url.path.endsWith('/location/manage')) {
+        return http.Response(jsonEncode({
+          'listing': {
+            'listingId': listingId,
+            'version': 6,
+            'status': 'draft',
+            'approximateLocation': {'latitude': -33.87, 'longitude': 151.21},
+            'editable': true,
+          }
+        }), 200);
+      }
       if (request.method == 'GET' && request.url.path.endsWith('/manage')) {
         return http.Response(jsonEncode({
           'listing': {'id': listingId, 'version': 5, 'status': 'draft'},
@@ -69,5 +80,22 @@ void main() {
     expect(requests.last.url.path, '/v1/listings/$listingId/edit');
     expect(jsonDecode(requests.last.body), input);
     expect(result['listing']['version'], 6);
+
+    final location = await api.getLocation('access-token', listingId: listingId);
+    expect(location['listing']['version'], 6);
+    expect(requests.last.url.path, '/v1/listings/$listingId/location/manage');
+
+    await api.updateLocation(
+      'access-token',
+      listingId: listingId,
+      version: 6,
+      approximateLocation: const {'latitude': -33.87, 'longitude': 151.21},
+    );
+    expect(requests.last.method, 'POST');
+    expect(requests.last.url.path, '/v1/listings/$listingId/location');
+    expect(jsonDecode(requests.last.body), {
+      'version': 6,
+      'approximateLocation': {'latitude': -33.87, 'longitude': 151.21},
+    });
   });
 }

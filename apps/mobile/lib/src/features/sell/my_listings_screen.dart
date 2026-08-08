@@ -8,6 +8,7 @@ import '../../session/session_scope.dart';
 import 'create_listing_screen.dart';
 import 'edit_listing_screen.dart';
 import 'listing_lifecycle_screen.dart';
+import 'listing_location_screen.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -128,6 +129,15 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     if (listingId == null || listingId.isEmpty) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => EditListingScreen(listingId: listingId)),
+    );
+    if (mounted) await _reload();
+  }
+
+  Future<void> _manageLocation(Map<String, dynamic> listing) async {
+    final listingId = listing['id']?.toString();
+    if (listingId == null || listingId.isEmpty) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ListingLocationScreen(listingId: listingId)),
     );
     if (mounted) await _reload();
   }
@@ -275,6 +285,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                                 data: listing,
                                 busy: _updatingIds.contains(listingId),
                                 onEdit: editable ? () => _editListing(listing) : null,
+                                onLocation: editable ? () => _manageLocation(listing) : null,
                                 onLifecycle: () => _manageLifecycle(listing),
                                 onStatusSelected: (next) => _changeStatus(listing, next),
                               );
@@ -330,12 +341,14 @@ class _ListingCard extends StatelessWidget {
     required this.onLifecycle,
     required this.onStatusSelected,
     this.onEdit,
+    this.onLocation,
   });
 
   final Map<String, dynamic> data;
   final bool busy;
   final VoidCallback onLifecycle;
   final VoidCallback? onEdit;
+  final VoidCallback? onLocation;
   final ValueChanged<String> onStatusSelected;
 
   @override
@@ -377,6 +390,13 @@ class _ListingCard extends StatelessWidget {
                     onPressed: onLifecycle,
                     icon: const Icon(Icons.event_repeat_outlined),
                   ),
+                  if (onLocation != null)
+                    IconButton(
+                      key: Key('location-listing-${data['id']}'),
+                      tooltip: 'Approximate map location',
+                      onPressed: onLocation,
+                      icon: const Icon(Icons.location_on_outlined),
+                    ),
                   if (onEdit != null)
                     IconButton(
                       key: Key('edit-listing-${data['id']}'),

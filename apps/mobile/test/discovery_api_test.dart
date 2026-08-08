@@ -47,7 +47,18 @@ void main() {
       }
       if (request.url.path == '/v1/discovery/saved-searches' && request.method == 'POST') {
         return http.Response(jsonEncode({
-          'search': {'id': searchId, 'name': 'Sydney camera', 'filters': {'q': 'camera', 'country': 'AU'}, 'active': true}
+          'search': {
+            'id': searchId,
+            'name': 'Sydney camera',
+            'filters': {
+              'q': 'camera',
+              'country': 'AU',
+              'nearLat': -33.87,
+              'nearLon': 151.21,
+              'radiusKm': 20.0,
+            },
+            'active': true,
+          }
         }), 201);
       }
       if (request.url.path == '/v1/discovery/notifications') {
@@ -98,11 +109,21 @@ void main() {
       filters: const CatalogSearchOptions(
         query: 'camera',
         country: 'au',
+        nearLatitude: -33.8688,
+        nearLongitude: 151.2093,
+        radiusKm: 20,
+        sort: 'distance',
       ),
     );
     expect(created.id, searchId);
     final savedBody = jsonDecode(requests.last.body) as Map<String, dynamic>;
-    expect(savedBody['filters'], {'q': 'camera', 'country': 'AU'});
+    expect(savedBody['filters'], {
+      'q': 'camera',
+      'country': 'AU',
+      'nearLat': -33.87,
+      'nearLon': 151.21,
+      'radiusKm': 20.0,
+    });
     expect(savedBody.containsKey('limit'), isFalse);
     expect(savedBody.containsKey('sort'), isFalse);
 

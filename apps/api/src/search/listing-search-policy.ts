@@ -1,10 +1,15 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import {
+  maximumNearbyRadiusKm,
+  normalizeApproximateListingLocation
+} from '../listings/listing-location.js';
 
 export const listingSearchSort = z.enum([
   'newest',
   'price_asc',
-  'price_desc'
+  'price_desc',
+  'distance'
 ]);
 
 export type ListingSearchSort = z.infer<typeof listingSearchSort>;
@@ -26,7 +31,7 @@ const availabilityStatus = z.enum([
 
 const boundedMoney = z.coerce.number().finite().nonnegative().max(1_000_000_000_000);
 
-export const publicListingSearchQuery = z.object({
+const publicListingSearchObject = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   before: z.string().trim().min(1).max(512).optional(),
   q: z.string().trim().min(1).max(200).optional(),
@@ -41,6 +46,9 @@ export const publicListingSearchQuery = z.object({
   city: z.string().trim().min(1).max(120).optional(),
   suburb: z.string().trim().min(1).max(120).optional(),
   fulfilment: z.enum(['pickup', 'delivery', 'both']).optional(),
+  nearLat: z.coerce.number().finite().min(-90).max(90).optional(),
+  nearLon: z.coerce.number().finite().min(-180).max(180).optional(),
+  radiusKm: z.coerce.number().finite().min(1).max(maximumNearbyRadiusKm).optional(),
   sort: listingSearchSort.default('newest')
 }).superRefine((value, context) => {
   if (
@@ -66,6 +74,38 @@ export const publicListingSearchQuery = z.object({
       message: 'Currency is required for price filters and price sorting'
     });
   }
+
+  const spatialValues = [value.nearLat, value.nearLon, value.radiusKm];
+  const spatialCount = spatialValues.filter((entry) => entry !== undefined).length;
+  if (spatialCount !== 0 && spatialCount !== 3) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['radiusKm'],
+      message: 'Latitude, longitude, and radius must be provided together'
+    });
+  }
+  if (value.sort === 'distance' && spatialCount !== 3) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sort'],
+      message: 'Distance sorting requires a nearby search centre and radius'
+    });
+  }
+});
+
+export const publicListingSearchQuery = publicListingSearchObject.transform((value) => {
+  if (value.nearLat === undefined || value.nearLon === undefined) {
+    return value;
+  }
+  const normalized = normalizeApproximateListingLocation({
+    latitude: value.nearLat,
+    longitude: value.nearLon
+  });
+  return {
+    ...value,
+    nearLat: normalized.latitude,
+    nearLon: normalized.longitude
+  };
 });
 
 export type PublicListingSearchQuery = z.infer<typeof publicListingSearchQuery>;
@@ -77,6 +117,7 @@ interface CursorPayload {
   createdAt: string;
   id: string;
   price?: string;
+  distanceMeters?: number;
 }
 
 export type ListingSearchCursor =
@@ -90,6 +131,7 @@ export type ListingSearchCursor =
       createdAt: Date;
       id: string;
       price?: string;
+      distanceMeters?: number;
     };
 
 const cursorPayload = z.object({
@@ -98,9 +140,11 @@ const cursorPayload = z.object({
   filter: z.string().regex(/^[a-f0-9]{32}$/),
   createdAt: z.string().datetime(),
   id: z.string().uuid(),
-  price: z.string().regex(/^[0-9]{1,18}(?:\.[0-9]{1,8})?$/).optional()
+  price: z.string().regex(/^[0-9]{1,18}(?:\.[0-9]{1,8})?$/).optional(),
+  distanceMeters: z.number().finite().nonnegative().optional()
 }).superRefine((value, context) => {
   const needsPrice = value.sort === 'price_asc' || value.sort === 'price_desc';
+  const needsDistance = value.sort === 'distance';
   if (needsPrice && !value.price) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -112,7 +156,21 @@ const cursorPayload = z.object({
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['price'],
-      message: 'Price cursor value is not allowed for newest sorting'
+      message: 'Price cursor value is not allowed for this sorting mode'
+    });
+  }
+  if (needsDistance && value.distanceMeters === undefined) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['distanceMeters'],
+      message: 'Distance cursor value is required for distance sorting'
+    });
+  }
+  if (!needsDistance && value.distanceMeters !== undefined) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['distanceMeters'],
+      message: 'Distance cursor value is not allowed for this sorting mode'
     });
   }
 });
@@ -131,6 +189,9 @@ function filterMaterial(query: PublicListingSearchQuery) {
     city: query.city ?? null,
     suburb: query.suburb ?? null,
     fulfilment: query.fulfilment ?? null,
+    nearLat: query.nearLat ?? null,
+    nearLon: query.nearLon ?? null,
+    radiusKm: query.radiusKm ?? null,
     sort: query.sort
   };
 }
@@ -150,6 +211,7 @@ export function encodeListingSearchCursor(
     createdAt: Date | string;
     id: string;
     price?: string | number;
+    distanceMeters?: string | number;
   }
 ): string {
   const createdAt = value.createdAt instanceof Date
@@ -161,7 +223,12 @@ export function encodeListingSearchCursor(
     filter: listingSearchFilterFingerprint(query),
     createdAt,
     id: value.id,
-    ...(query.sort === 'newest' ? {} : { price: String(value.price) })
+    ...(query.sort === 'price_asc' || query.sort === 'price_desc'
+      ? { price: String(value.price) }
+      : {}),
+    ...(query.sort === 'distance'
+      ? { distanceMeters: Number(value.distanceMeters) }
+      : {})
   };
   const validated = cursorPayload.parse(payload);
   return `ls1.${Buffer.from(JSON.stringify(validated), 'utf8').toString('base64url')}`;
@@ -206,6 +273,7 @@ export function decodeListingSearchCursor(
     sort: payload.sort,
     createdAt: new Date(payload.createdAt),
     id: payload.id,
-    price: payload.price
+    price: payload.price,
+    distanceMeters: payload.distanceMeters
   };
 }
