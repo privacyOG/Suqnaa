@@ -12,7 +12,9 @@ assert.match(participant, /bodyLimit: maximumDisputeEvidenceBytes/);
 assert.match(participant, /detectDisputeEvidenceMime/);
 assert.match(participant, /Cache-Control', 'private, no-store'/);
 assert.doesNotMatch(participant, /listing-media/);
-assert.match(storage, /private, max-age=60/);
+assert.match(storage, /CacheControl: 'private, no-store'/);
+assert.match(storage, /expiresIn: 300/);
+assert.match(storage, /S3 dispute evidence storage is required in production/);
 assert.doesNotMatch(storage, /MEDIA_PUBLIC_BASE_URL/);
 
 assert.match(operations, /preHandler: requireOperationsUser/g);
