@@ -21,6 +21,10 @@ assert.match(delivery, /\/delivery-evidence/);
 assert.match(delivery, /\/timeline/);
 assert.match(delivery, /timingSafeEqual/);
 assert.match(delivery, /pickupHash/);
+assert.match(delivery, /attempt_count:\s*attemptCount/);
+assert.match(delivery, /invalid:\s*true/);
+assert.match(delivery, /if \(result\.invalid\)/);
+assert.match(delivery, /return reply\.code\(403\)/);
 assert.doesNotMatch(delivery, /metadata:\s*\{[^}]*address_line1/s);
 
 assert.match(fulfilment, /trackingUrl/);
