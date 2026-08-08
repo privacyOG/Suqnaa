@@ -46,6 +46,9 @@ export default async function AccountPage({ params }: { params: { locale: string
                 <a className="button-primary" href={`/${params.locale}/account/profile`}>
                   {isArabic ? 'الملف والخصوصية' : 'Profile and privacy'}
                 </a>
+                <a className="button-secondary" href={`/${params.locale}/notifications`}>
+                  {isArabic ? 'الإشعارات وقنوات التوصيل' : 'Notifications and delivery channels'}
+                </a>
                 <a className="button-secondary" href={`/${params.locale}/account/discovery`}>
                   {isArabic ? 'المحفوظات والمراقبة والتنبيهات' : 'Saved items, watchlist and alerts'}
                 </a>
