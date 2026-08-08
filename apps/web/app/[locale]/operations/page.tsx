@@ -31,12 +31,12 @@ export default async function OperationsPage({ params }: { params: { locale: str
     {
       key: 'accounts', titleEn: 'Accounts', titleAr: 'الحسابات',
       value: number(sections.accounts.suspended), detailEn: 'Suspended accounts', detailAr: 'الحسابات الموقوفة',
-      href: `/${params.locale}/operations#reports`, available: sections.accounts.available
+      href: `/${params.locale}/operations/accounts`, available: sections.accounts.available
     },
     {
       key: 'listings', titleEn: 'Listings', titleAr: 'الإعلانات',
       value: number(sections.listings.removed), detailEn: 'Removed listings', detailAr: 'الإعلانات المحذوفة',
-      href: `/${params.locale}/operations#reports`, available: sections.listings.available
+      href: `/${params.locale}/operations/listings`, available: sections.listings.available
     },
     {
       key: 'categories', titleEn: 'Categories', titleAr: 'الفئات',
