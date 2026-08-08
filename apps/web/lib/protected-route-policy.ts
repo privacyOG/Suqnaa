@@ -23,6 +23,7 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: /^\/v1\/account\/security\/sessions$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/conversations$/, queryKeys: new Set(['limit', 'before']) },
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/messages$`), queryKeys: new Set(['limit', 'before']) },
+  { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/sync$`), queryKeys: new Set(['limit', 'cursor']) },
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/safety$`), queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/messages\/policy$/, queryKeys: new Set() },
   { method: 'GET', pattern: new RegExp(`^/v1/discovery/listings/${uuid}/state$`), queryKeys: new Set() },
