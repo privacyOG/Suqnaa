@@ -3,10 +3,12 @@ export const paymentOperationKinds = [
   'refund_full',
   'refund_partial',
   'cancel_after_payment',
+  'chargeback',
   'compliance_hold'
 ] as const;
 
 export type PaymentOperationKind = (typeof paymentOperationKinds)[number];
+export type RequestedPaymentOperationKind = Exclude<PaymentOperationKind, 'chargeback'>;
 
 export const paymentOperationStatuses = [
   'requested',
@@ -39,7 +41,7 @@ export function normalizeOperationAmount(value: string | number): string {
 }
 
 export function validateOperationInput(input: {
-  kind: PaymentOperationKind;
+  kind: RequestedPaymentOperationKind;
   reason: string;
   amount?: string | number | null;
 }): { reason: string; amount: string | null } {
@@ -67,7 +69,7 @@ export function operationRequiresProviderRefund(kind: PaymentOperationKind): boo
 export function targetPaymentStatusForOperation(
   kind: PaymentOperationKind,
   fullyRefunded = false
-): 'released' | 'refunded' | 'held' | 'compliance_hold' {
+): 'released' | 'refunded' | 'held' | 'disputed' | 'compliance_hold' {
   switch (kind) {
     case 'release':
       return 'released';
@@ -76,6 +78,8 @@ export function targetPaymentStatusForOperation(
       return 'refunded';
     case 'refund_partial':
       return fullyRefunded ? 'refunded' : 'held';
+    case 'chargeback':
+      return 'disputed';
     case 'compliance_hold':
       return 'compliance_hold';
   }
