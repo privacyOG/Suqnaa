@@ -138,10 +138,18 @@ export async function orderPaymentContextRoutes(
         throw error;
       }
 
-      const fulfilment = await db.selectFrom('fulfilments')
-        .select(['id', 'payment_intent_id', 'status', 'created_at', 'updated_at'])
-        .where('payment_intent_id', '=', intent.id)
-        .executeTakeFirst();
+      const [fulfilment, receipt] = await Promise.all([
+        db.selectFrom('fulfilments')
+          .select(['id', 'payment_intent_id', 'status', 'created_at', 'updated_at'])
+          .where('payment_intent_id', '=', intent.id)
+          .executeTakeFirst(),
+        accountId === order.buyer_id
+          ? db.selectFrom('payment_receipts')
+              .select(['provider', 'receipt_url', 'receipt_number', 'issued_at'])
+              .where('payment_intent_id', '=', intent.id)
+              .executeTakeFirst()
+          : Promise.resolve(undefined)
+      ]);
 
       if (!fulfilment || fulfilment.payment_intent_id !== intent.id) {
         return reply.code(409).send({
@@ -151,7 +159,15 @@ export async function orderPaymentContextRoutes(
 
       return reply.send({
         orderId: order.id,
-        paymentContext: presentOrderPaymentContext(intent, fulfilment)
+        paymentContext: presentOrderPaymentContext(intent, fulfilment),
+        receipt: receipt
+          ? {
+              provider: receipt.provider,
+              receiptUrl: receipt.receipt_url ?? null,
+              receiptNumber: receipt.receipt_number ?? null,
+              issuedAt: receipt.issued_at
+            }
+          : null
       });
     }
   );
