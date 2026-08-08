@@ -29,7 +29,7 @@ export class StripeProviderError extends Error {
   }
 }
 
-function minorUnits(value: string | number): number {
+export function stripeMinorUnits(value: string | number): number {
   const normalized = String(value).trim();
   const match = /^(\d{1,12})(?:\.(\d{1,2}))?$/.exec(normalized);
   if (!match) {
@@ -77,7 +77,7 @@ export class StripeCheckoutProvider {
       throw new StripeProviderError('unsupported_currency');
     }
 
-    const amount = minorUnits(input.amount);
+    const amount = stripeMinorUnits(input.amount);
     const returnBase = `${this.configuration.webOrigin}/${input.locale}/activity/orders/${input.orderId}`;
     const form = new URLSearchParams();
     form.set('mode', 'payment');
