@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
@@ -32,7 +33,8 @@ const fulfilmentBody = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('shipped'),
     carrier: z.string().trim().min(2).max(80),
-    trackingReference: z.string().trim().min(3).max(160)
+    trackingReference: z.string().trim().min(3).max(160),
+    trackingUrl: z.string().trim().url().max(1000).optional()
   }).strict(),
   z.object({
     action: z.literal('confirm_received')
@@ -41,7 +43,7 @@ const fulfilmentBody = z.discriminatedUnion('action', [
 
 class FulfilmentRouteError extends Error {
   constructor(
-    readonly statusCode: 404 | 409,
+    readonly statusCode: 400 | 404 | 409,
     readonly payload: Record<string, unknown>
   ) {
     super(String(payload.error ?? 'Fulfilment transition failed'));
@@ -75,10 +77,7 @@ function enforceFulfilmentLimit(
       ? ipLimit
       : undefined;
 
-  if (!limited) {
-    return true;
-  }
-
+  if (!limited) return true;
   reply.header('Retry-After', String(limited.retryAfterSeconds));
   reply.code(429).send(rateLimitResponse(limited));
   return false;
@@ -88,6 +87,15 @@ function challengeAction(action: FulfilmentAction): string {
   return action === 'confirm_received'
     ? 'fulfilment.confirm'
     : 'fulfilment.manage';
+}
+
+function safeTrackingUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  const parsed = new URL(value);
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !parsed.hostname) {
+    throw new FulfilmentRouteError(400, { error: 'Tracking link must use a public HTTPS URL' });
+  }
+  return parsed.toString();
 }
 
 function transitionError(reason: string): Record<string, unknown> {
@@ -118,6 +126,7 @@ function fulfilmentResponse(
       status: fulfilment.status,
       carrier: fulfilment.carrier,
       trackingReference: fulfilment.tracking_reference,
+      trackingUrl: fulfilment.tracking_url,
       shippedAt: fulfilment.shipped_at,
       deliveredAt: fulfilment.delivered_at,
       buyerConfirmedAt: fulfilment.buyer_confirmed_at,
@@ -128,6 +137,24 @@ function fulfilmentResponse(
       releaseEnabled: false
     }
   };
+}
+
+async function appendTimeline(transaction: any, input: {
+  orderId: string;
+  actorId: string;
+  eventType: 'ready_for_pickup' | 'shipped' | 'received_confirmed';
+  details?: Record<string, unknown>;
+  now: Date;
+}) {
+  await transaction.insertInto('order_timeline_events').values({
+    order_id: input.orderId,
+    actor_id: input.actorId,
+    event_key: `${input.eventType}:${randomUUID()}`,
+    event_type: input.eventType,
+    details: JSON.stringify(input.details ?? {}),
+    occurred_at: input.now,
+    created_at: input.now
+  }).execute();
 }
 
 export async function orderFulfilmentRoutes(
@@ -143,10 +170,9 @@ export async function orderFulfilmentRoutes(
       const body = fulfilmentBody.parse(request.body);
       const action = body.action as FulfilmentAction;
       const auditAction = challengeAction(action);
+      const trackingUrl = body.action === 'shipped' ? safeTrackingUrl(body.trackingUrl) : null;
 
-      if (!enforceFulfilmentLimit(request, reply, accountId)) {
-        return;
-      }
+      if (!enforceFulfilmentLimit(request, reply, accountId)) return;
 
       const protection = await checkHumanProtectionWithChallenge(
         {
@@ -181,50 +207,55 @@ export async function orderFulfilmentRoutes(
             .where('id', '=', params.orderId)
             .executeTakeFirst();
 
-          if (
-            !order ||
-            (order.buyer_id !== accountId && order.seller_id !== accountId)
-          ) {
+          if (!order || (order.buyer_id !== accountId && order.seller_id !== accountId)) {
             throw new FulfilmentRouteError(404, { error: 'Order not found' });
           }
 
           const role = order.buyer_id === accountId ? 'buyer' : 'seller';
           const intent = await transaction.selectFrom('payment_intents')
-            .select([
-              'id',
-              'transaction_id',
-              'status',
-              'provider',
-              'provider_reference'
-            ])
+            .select(['id', 'transaction_id', 'status', 'provider', 'provider_reference'])
             .where('transaction_id', '=', order.id)
             .executeTakeFirst();
 
           if (!intent) {
-            throw new FulfilmentRouteError(409, {
-              error: 'Order payment context is unavailable'
-            });
+            throw new FulfilmentRouteError(409, { error: 'Order payment context is unavailable' });
           }
 
           const fulfilment = await transaction.selectFrom('fulfilments')
             .select([
-              'id',
-              'payment_intent_id',
-              'status',
-              'carrier',
-              'tracking_reference',
-              'shipped_at',
-              'delivered_at',
-              'buyer_confirmed_at',
-              'updated_at'
+              'id', 'payment_intent_id', 'status', 'carrier', 'tracking_reference', 'tracking_url',
+              'shipped_at', 'delivered_at', 'buyer_confirmed_at', 'updated_at'
             ])
             .where('payment_intent_id', '=', intent.id)
             .executeTakeFirst();
 
           if (!fulfilment) {
-            throw new FulfilmentRouteError(409, {
-              error: 'Order fulfilment context is unavailable'
-            });
+            throw new FulfilmentRouteError(409, { error: 'Order fulfilment context is unavailable' });
+          }
+
+          const details = await transaction.selectFrom('order_fulfilment_details')
+            .selectAll()
+            .where('order_id', '=', order.id)
+            .executeTakeFirst();
+
+          if (!details) {
+            throw new FulfilmentRouteError(409, { error: 'Buyer must select delivery or pickup before fulfilment' });
+          }
+          if (body.action === 'ready_for_pickup') {
+            if (details.mode !== 'pickup') {
+              throw new FulfilmentRouteError(409, { error: 'This order is configured for shipping' });
+            }
+            if (!details.pickup_address_line1 || !details.pickup_locality || !details.pickup_region || !details.pickup_postal_code) {
+              throw new FulfilmentRouteError(409, { error: 'Pickup location must be disclosed before marking ready' });
+            }
+          }
+          if (body.action === 'shipped') {
+            if (details.mode !== 'shipping') {
+              throw new FulfilmentRouteError(409, { error: 'This order is configured for pickup' });
+            }
+            if (!details.address_line1 || !details.locality || !details.region || !details.postal_code) {
+              throw new FulfilmentRouteError(409, { error: 'Shipping address is unavailable' });
+            }
           }
 
           const decision = decideFulfilmentTransition({
@@ -232,28 +263,22 @@ export async function orderFulfilmentRoutes(
             action,
             orderStatus: order.status as TransactionStatus,
             paymentStatus: intent.status as PaymentStatus,
-            providerConfigured: Boolean(
-              intent.provider && intent.provider_reference
-            ),
+            providerConfigured: Boolean(intent.provider && intent.provider_reference),
             fulfilmentStatus: fulfilment.status as FulfilmentStatus
           });
 
           if (!decision.allowed) {
-            throw new FulfilmentRouteError(
-              409,
-              transitionError(decision.reason)
-            );
+            throw new FulfilmentRouteError(409, transitionError(decision.reason));
           }
 
           if (decision.unchanged) {
             if (
               body.action === 'shipped' &&
               (fulfilment.carrier !== body.carrier ||
-                fulfilment.tracking_reference !== body.trackingReference)
+                fulfilment.tracking_reference !== body.trackingReference ||
+                (fulfilment.tracking_url ?? null) !== trackingUrl)
             ) {
-              throw new FulfilmentRouteError(409, {
-                error: 'Stored shipping details differ from this request'
-              });
+              throw new FulfilmentRouteError(409, { error: 'Stored shipping details differ from this request' });
             }
             return {
               fulfilment,
@@ -266,15 +291,13 @@ export async function orderFulfilmentRoutes(
           const now = new Date();
           let updateValues: Record<string, unknown>;
           if (body.action === 'ready_for_pickup') {
-            updateValues = {
-              status: 'ready_for_pickup',
-              updated_at: now
-            };
+            updateValues = { status: 'ready_for_pickup', updated_at: now };
           } else if (body.action === 'shipped') {
             updateValues = {
               status: 'shipped',
               carrier: body.carrier,
               tracking_reference: body.trackingReference,
+              tracking_url: trackingUrl,
               shipped_at: now,
               updated_at: now
             };
@@ -292,21 +315,49 @@ export async function orderFulfilmentRoutes(
             .where('payment_intent_id', '=', intent.id)
             .where('status', '=', fulfilment.status)
             .returning([
-              'id',
-              'payment_intent_id',
-              'status',
-              'carrier',
-              'tracking_reference',
-              'shipped_at',
-              'delivered_at',
-              'buyer_confirmed_at',
-              'updated_at'
+              'id', 'payment_intent_id', 'status', 'carrier', 'tracking_reference', 'tracking_url',
+              'shipped_at', 'delivered_at', 'buyer_confirmed_at', 'updated_at'
             ])
             .executeTakeFirst();
 
           if (!updated) {
-            throw new FulfilmentRouteError(409, {
-              error: 'Fulfilment state changed; refresh and try again'
+            throw new FulfilmentRouteError(409, { error: 'Fulfilment state changed; refresh and try again' });
+          }
+
+          if (body.action === 'ready_for_pickup') {
+            await appendTimeline(transaction, {
+              orderId: order.id,
+              actorId: accountId,
+              eventType: 'ready_for_pickup',
+              details: { mode: 'pickup' },
+              now
+            });
+          } else if (body.action === 'shipped') {
+            await transaction.insertInto('order_fulfilment_evidence').values({
+              order_id: order.id,
+              fulfilment_id: fulfilment.id,
+              actor_id: accountId,
+              evidence_type: 'tracking_declared',
+              reference: body.trackingReference,
+              evidence_url: trackingUrl,
+              note: null,
+              occurred_at: now,
+              created_at: now
+            }).execute();
+            await appendTimeline(transaction, {
+              orderId: order.id,
+              actorId: accountId,
+              eventType: 'shipped',
+              details: { carrier: body.carrier, trackingLinkAvailable: Boolean(trackingUrl) },
+              now
+            });
+          } else {
+            await appendTimeline(transaction, {
+              orderId: order.id,
+              actorId: accountId,
+              eventType: 'received_confirmed',
+              details: {},
+              now
             });
           }
 
@@ -334,13 +385,7 @@ export async function orderFulfilmentRoutes(
           }
         });
 
-        return reply.send(
-          fulfilmentResponse(
-            params.orderId,
-            result.fulfilment,
-            result.unchanged
-          )
-        );
+        return reply.send(fulfilmentResponse(params.orderId, result.fulfilment, result.unchanged));
       } catch (error) {
         if (error instanceof FulfilmentRouteError) {
           return reply.code(error.statusCode).send(error.payload);
