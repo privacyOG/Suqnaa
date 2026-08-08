@@ -39,7 +39,6 @@ export async function reconcilePaymentAdjustments(limit = 100): Promise<number> 
       'payment_operations.kind as kind',
       'payment_operations.amount as amount',
       'payment_operations.completed_at as completed_at',
-      'seller_settlements.provider_transfer_reference as provider_transfer_reference',
       'settlement_reversals.id as reversal_id'
     ])
     .where('payment_operations.status', '=', 'succeeded')
@@ -49,8 +48,10 @@ export async function reconcilePaymentAdjustments(limit = 100): Promise<number> 
     .execute();
   let processed = 0;
   for (const row of rows) {
-    if (row.reversal_id) continue;
-    const ledgerReference = `settlement-source:${String(row.operation_id)}`;
+    if (row.reversal_id || !row.completed_at) continue;
+    const eventTime = row.completed_at instanceof Date ? row.completed_at : new Date(row.completed_at);
+    const adjustmentKind = row.kind === 'chargeback' ? 'chargeback' : 'refund';
+    const ledgerReference = `${adjustmentKind}:${String(row.operation_id)}:${eventTime.getTime()}`;
     const ledger = await db.selectFrom('settlement_ledger_entries').select(['id'])
       .where('reference', '=', ledgerReference).executeTakeFirst();
     if (ledger) continue;
@@ -60,23 +61,10 @@ export async function reconcilePaymentAdjustments(limit = 100): Promise<number> 
       await recordSettlementAdjustment(trx, {
         paymentIntentId: String(row.payment_intent_id),
         paymentOperationId: String(row.operation_id),
-        kind: row.kind === 'chargeback' ? 'chargeback' : 'refund',
+        kind: adjustmentKind,
         grossAdjustmentAmount: adjustment,
-        now: row.completed_at instanceof Date ? row.completed_at : new Date(row.completed_at ?? Date.now())
+        now: eventTime
       });
-      const settlement = await trx.selectFrom('seller_settlements').select(['id'])
-        .where('payment_intent_id', '=', row.payment_intent_id).executeTakeFirst();
-      if (settlement) {
-        await trx.insertInto('settlement_ledger_entries').values({
-          settlement_id: settlement.id,
-          entry_type: 'seller_payable',
-          amount: '0.01',
-          currency_code: 'AUD',
-          reference: ledgerReference,
-          created_at: new Date()
-        }).execute();
-        await trx.deleteFrom('settlement_ledger_entries').where('reference', '=', ledgerReference).execute();
-      }
     });
     processed += 1;
   }
