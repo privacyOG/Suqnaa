@@ -87,7 +87,7 @@ class FakeOrderGateway implements OrderActivityGateway {
     String accessToken, {
     required String orderId,
   }) async {
-    throw UnimplementedError();
+    return orders.firstWhere((order) => order.id == orderId);
   }
 }
 
