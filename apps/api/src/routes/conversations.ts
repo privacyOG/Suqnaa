@@ -1,7 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { sql } from 'kysely';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
+import { publicMessagePolicy } from '../messaging/message-safety-policy.js';
 import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
 
@@ -77,6 +79,34 @@ function rejectConversationAccess(
   return reply.code(404).send({ error: 'Conversation not found' });
 }
 
+function counterpartSql(userId: string) {
+  return sql`CASE
+    WHEN conversations.buyer_id = ${userId} THEN conversations.seller_id
+    ELSE conversations.buyer_id
+  END`;
+}
+
+function safetySelect(userId: string) {
+  const counterpart = counterpartSql(userId);
+  return [
+    sql<boolean>`EXISTS (
+      SELECT 1 FROM conversation_mutes cm
+      WHERE cm.user_id = ${userId}
+        AND cm.conversation_id = conversations.id
+    )`.as('muted'),
+    sql<boolean>`EXISTS (
+      SELECT 1 FROM user_blocks ub
+      WHERE ub.blocker_id = ${userId}
+        AND ub.blocked_id = ${counterpart}
+    )`.as('blocked_by_me'),
+    sql<boolean>`NOT EXISTS (
+      SELECT 1 FROM user_blocks ub
+      WHERE (ub.blocker_id = ${userId} AND ub.blocked_id = ${counterpart})
+         OR (ub.blocker_id = ${counterpart} AND ub.blocked_id = ${userId})
+    )`.as('messaging_available')
+  ];
+}
+
 export async function conversationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/conversations', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
@@ -88,7 +118,10 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
     }
 
     let conversationsQuery = db.selectFrom('conversations')
-      .select(['id', 'listing_id', 'buyer_id', 'seller_id', 'created_at', 'updated_at'])
+      .select([
+        'id', 'listing_id', 'buyer_id', 'seller_id', 'created_at', 'updated_at',
+        ...safetySelect(userId)
+      ])
       .where((expression) => expression.or([
         expression('buyer_id', '=', userId),
         expression('seller_id', '=', userId)
@@ -147,10 +180,16 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
               senderId: latestMessage.sender_id,
               body: latestMessage.body,
               status: latestMessage.status,
-              createdAt: latestMessage.created_at
+              createdAt: latestMessage.created_at,
+              attachments: []
             }
           : null,
         unreadCount: Number(unread?.count ?? 0),
+        safety: {
+          muted: Boolean(conversation.muted),
+          blockedByMe: Boolean(conversation.blocked_by_me),
+          messagingAvailable: Boolean(conversation.messaging_available)
+        },
         createdAt: conversation.created_at,
         updatedAt: conversation.updated_at
       };
@@ -159,6 +198,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
     const last = page.at(-1);
     return reply.send({
       conversations,
+      policy: publicMessagePolicy(),
       pagination: {
         hasMore,
         nextCursor: hasMore && last
@@ -179,7 +219,10 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const conversation = await db.selectFrom('conversations')
-      .select(['id', 'listing_id', 'buyer_id', 'seller_id'])
+      .select([
+        'id', 'listing_id', 'buyer_id', 'seller_id',
+        ...safetySelect(userId)
+      ])
       .where('id', '=', params.conversationId)
       .executeTakeFirst();
 
@@ -227,8 +270,14 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
         id: conversation.id,
         listingId: conversation.listing_id,
         buyerId: conversation.buyer_id,
-        sellerId: conversation.seller_id
+        sellerId: conversation.seller_id,
+        safety: {
+          muted: Boolean(conversation.muted),
+          blockedByMe: Boolean(conversation.blocked_by_me),
+          messagingAvailable: Boolean(conversation.messaging_available)
+        }
       },
+      policy: publicMessagePolicy(),
       messages: page.map((message) => ({
         id: message.id,
         conversationId: message.conversation_id,
@@ -238,7 +287,8 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
         status: message.status,
         createdAt: message.created_at,
         updatedAt: message.updated_at,
-        readAt: message.read_at
+        readAt: message.read_at,
+        attachments: []
       })),
       pagination: {
         hasMore,
