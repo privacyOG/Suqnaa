@@ -7,7 +7,7 @@ const participantRoutes = readFileSync(new URL('../routes/order-protection.ts', 
 const operationsRoutes = readFileSync(new URL('../routes/operations-disputes.ts', import.meta.url), 'utf8');
 const permissionMap = readFileSync(new URL('../auth/require-operations-user.ts', import.meta.url), 'utf8');
 const server = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
-const migration = readFileSync(new URL('../../../infra/db/migrations/033_buyer_seller_protection.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../../../../infra/db/migrations/033_buyer_seller_protection.sql', import.meta.url), 'utf8');
 
 assert.match(policy, /au-marketplace-protection-v1/);
 assert.match(policy, /itemIssueWindowDays = 7/);
