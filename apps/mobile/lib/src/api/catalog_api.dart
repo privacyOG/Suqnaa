@@ -18,9 +18,10 @@ const _availabilityStatuses = <String>{
   'service_available',
 };
 const _fulfilmentModes = <String>{'pickup', 'delivery', 'both'};
-const _sortModes = <String>{'newest', 'price_asc', 'price_desc'};
+const _sortModes = <String>{'newest', 'price_asc', 'price_desc', 'distance'};
 const _mediaTypes = <String>{'image/jpeg', 'image/png', 'image/webp'};
 const _maximumMoney = 1000000000000.0;
+const _maximumRadiusKm = 500.0;
 
 abstract interface class CatalogGateway {
   Future<List<CatalogCategoryDto>> fetchCategories();
@@ -213,6 +214,9 @@ class CatalogSearchOptions {
     this.city,
     this.suburb,
     this.fulfilment,
+    this.nearLatitude,
+    this.nearLongitude,
+    this.radiusKm,
     this.sort = 'newest',
   });
 
@@ -230,6 +234,9 @@ class CatalogSearchOptions {
   final String? city;
   final String? suburb;
   final String? fulfilment;
+  final double? nearLatitude;
+  final double? nearLongitude;
+  final double? radiusKm;
   final String sort;
 
   CatalogSearchOptions copyWith({
@@ -247,6 +254,9 @@ class CatalogSearchOptions {
     String? city,
     String? suburb,
     String? fulfilment,
+    double? nearLatitude,
+    double? nearLongitude,
+    double? radiusKm,
     String? sort,
     bool clearBefore = false,
     bool clearQuery = false,
@@ -261,6 +271,7 @@ class CatalogSearchOptions {
     bool clearCity = false,
     bool clearSuburb = false,
     bool clearFulfilment = false,
+    bool clearNearby = false,
   }) {
     return CatalogSearchOptions(
       limit: limit ?? this.limit,
@@ -283,6 +294,9 @@ class CatalogSearchOptions {
       city: clearCity ? null : city ?? this.city,
       suburb: clearSuburb ? null : suburb ?? this.suburb,
       fulfilment: clearFulfilment ? null : fulfilment ?? this.fulfilment,
+      nearLatitude: clearNearby ? null : nearLatitude ?? this.nearLatitude,
+      nearLongitude: clearNearby ? null : nearLongitude ?? this.nearLongitude,
+      radiusKm: clearNearby ? null : radiusKm ?? this.radiusKm,
       sort: sort ?? this.sort,
     );
   }
@@ -315,6 +329,9 @@ class CatalogSearchOptions {
     add('city', city);
     add('suburb', suburb);
     add('fulfilment', fulfilment);
+    if (nearLatitude != null) add('nearLat', nearLatitude!.toStringAsFixed(2));
+    if (nearLongitude != null) add('nearLon', nearLongitude!.toStringAsFixed(2));
+    if (radiusKm != null) add('radiusKm', radiusKm);
     if (sort != 'newest') add('sort', sort);
     return output;
   }
@@ -378,6 +395,28 @@ class CatalogSearchOptions {
     if (country != null && country!.trim().length != 2) {
       throw ArgumentError.value(country, 'country', 'Must contain 2 letters');
     }
+
+    final spatialCount = [nearLatitude, nearLongitude, radiusKm]
+        .where((value) => value != null)
+        .length;
+    if (spatialCount != 0 && spatialCount != 3) {
+      throw ArgumentError('Nearby latitude, longitude, and radius are required together');
+    }
+    if (nearLatitude != null &&
+        (!nearLatitude!.isFinite || nearLatitude! < -90 || nearLatitude! > 90)) {
+      throw ArgumentError.value(nearLatitude, 'nearLatitude', 'Invalid value');
+    }
+    if (nearLongitude != null &&
+        (!nearLongitude!.isFinite || nearLongitude! < -180 || nearLongitude! > 180)) {
+      throw ArgumentError.value(nearLongitude, 'nearLongitude', 'Invalid value');
+    }
+    if (radiusKm != null &&
+        (!radiusKm!.isFinite || radiusKm! < 1 || radiusKm! > _maximumRadiusKm)) {
+      throw ArgumentError.value(radiusKm, 'radiusKm', 'Invalid value');
+    }
+    if (sort == 'distance' && spatialCount != 3) {
+      throw ArgumentError.value(sort, 'sort', 'Distance sorting requires nearby search');
+    }
   }
 
   bool get hasFilters =>
@@ -393,6 +432,7 @@ class CatalogSearchOptions {
       city != null ||
       suburb != null ||
       fulfilment != null ||
+      radiusKm != null ||
       sort != 'newest';
 }
 
@@ -468,6 +508,7 @@ class CatalogListingDto {
     this.region,
     this.city,
     this.suburb,
+    this.distanceKm,
     this.category,
     this.seller,
   });
@@ -485,6 +526,7 @@ class CatalogListingDto {
   final String? region;
   final String? city;
   final String? suburb;
+  final int? distanceKm;
   final bool allowPickup;
   final bool allowDelivery;
   final List<CatalogMediaDto> media;
@@ -504,6 +546,12 @@ class CatalogListingDto {
     final condition = json['condition']?.toString() ?? '';
     final availability = json['availabilityStatus']?.toString() ?? '';
     final priceAmount = _strictDouble(json['priceAmount'], 'priceAmount');
+    final rawDistance = json['distanceKm'];
+    final distanceKm = rawDistance == null
+        ? null
+        : rawDistance is int && rawDistance >= 0
+            ? rawDistance
+            : throw const FormatException('Invalid listing distance');
     final rawMedia = json['media'];
     final rawMediaCount = json['mediaCount'];
     final rawCategory = json['category'];
@@ -548,6 +596,7 @@ class CatalogListingDto {
       region: json['region']?.toString(),
       city: json['city']?.toString(),
       suburb: json['suburb']?.toString(),
+      distanceKm: distanceKm,
       allowPickup: json['allowPickup'] == true,
       allowDelivery: json['allowDelivery'] == true,
       media: media,
