@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../api/challenge_config_api.dart';
 import '../../api/order_activity_api.dart';
 import '../../api/order_checkout_api.dart';
@@ -248,6 +249,19 @@ class _PaymentPreparationScreenState extends State<PaymentPreparationScreen> {
         orderId: order.id,
       );
       _validatePreparation(order, preparation);
+
+      final checkoutUrl = preparation.checkoutUrl;
+      if (checkoutUrl != null) {
+        final opened = await launchUrl(
+          checkoutUrl,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!opened) {
+          throw StateError('Unable to open hosted payment checkout');
+        }
+        return;
+      }
+
       if (mounted) {
         setState(() => _preparations[order.id] = preparation);
       }
@@ -589,5 +603,6 @@ String _nextActionText(
       text.configureBankTransfer,
     CheckoutNextAction.configureWalletProvider => text.configureWalletProvider,
     CheckoutNextAction.configureXmrPaymentAddress => text.configureXmrAddress,
+    CheckoutNextAction.redirectToProvider => text.configureCardProvider,
   };
 }
