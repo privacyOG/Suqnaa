@@ -84,7 +84,7 @@ Worker controls:
 - Contact destinations are snapshotted only after contact verification.
 - Conversation mutes suppress message email/push fan-out without deleting or hiding the recipient's in-app notification history.
 - Outbound provider failures do not expose provider response bodies to users.
-- Account-security notifications are derived from durable security audit records, including implemented `account.password.*`, `account.session.*`, `account.sessions.*`, contact-verification completion, and account closure/deletion events.
+- Account-security notifications are derived from durable security audit records, including implemented `account.password.*`, `account.password_reset.*`, `account.session.*`, `account.sessions.*`, contact-verification completion, and account closure/deletion events.
 - Dispute trigger coverage is present even while buyer/seller dispute submission remains quarantined; when the later dispute workflow writes the existing dispute tables, delivery semantics are already durable.
 
 ## Relationship to P0-20
