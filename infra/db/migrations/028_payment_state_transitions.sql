@@ -75,9 +75,9 @@ CREATE INDEX payment_operations_review_idx
   ON payment_operations(status, requested_at)
   WHERE status IN ('requested', 'approved', 'processing');
 
-CREATE UNIQUE INDEX payment_operations_single_release_idx
+CREATE UNIQUE INDEX payment_operations_active_release_idx
   ON payment_operations(payment_intent_id)
-  WHERE kind = 'release' AND status IN ('requested', 'approved', 'processing', 'succeeded');
+  WHERE kind = 'release' AND status IN ('requested', 'approved', 'processing');
 
 CREATE UNIQUE INDEX payment_operations_active_refund_idx
   ON payment_operations(payment_intent_id)
