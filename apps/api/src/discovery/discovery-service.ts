@@ -4,6 +4,10 @@ import { resolveDiscoveryNotificationConfiguration } from '../config/discovery-n
 import { db } from '../db/index.js';
 import type { Database } from '../db/types.js';
 import {
+  listingLocationPoint,
+  maximumNearbyRadiusKm
+} from '../listings/listing-location.js';
+import {
   listingSearchFilterFingerprint,
   publicListingSearchQuery
 } from '../search/listing-search-policy.js';
@@ -25,7 +29,10 @@ const savedSearchFilterInput = z.object({
   region: z.string().trim().min(1).max(120).optional(),
   city: z.string().trim().min(1).max(120).optional(),
   suburb: z.string().trim().min(1).max(120).optional(),
-  fulfilment: z.enum(['pickup', 'delivery', 'both']).optional()
+  fulfilment: z.enum(['pickup', 'delivery', 'both']).optional(),
+  nearLat: z.number().finite().min(-90).max(90).optional(),
+  nearLon: z.number().finite().min(-180).max(180).optional(),
+  radiusKm: z.number().finite().min(1).max(maximumNearbyRadiusKm).optional()
 }).strict();
 
 export type SavedSearchFilters = z.infer<typeof savedSearchFilterInput>;
@@ -70,7 +77,10 @@ export function normalizeSavedSearchFilters(input: unknown): {
       ...(query.region ? { region: query.region } : {}),
       ...(query.city ? { city: query.city } : {}),
       ...(query.suburb ? { suburb: query.suburb } : {}),
-      ...(query.fulfilment ? { fulfilment: query.fulfilment } : {})
+      ...(query.fulfilment ? { fulfilment: query.fulfilment } : {}),
+      ...(query.nearLat !== undefined ? { nearLat: query.nearLat } : {}),
+      ...(query.nearLon !== undefined ? { nearLon: query.nearLon } : {}),
+      ...(query.radiusKm !== undefined ? { radiusKm: query.radiusKm } : {})
     },
     fingerprint: listingSearchFilterFingerprint(query)
   };
@@ -128,6 +138,16 @@ function applySavedSearchFilters(query: any, filters: SavedSearchFilters): any {
   if (filters.suburb) {
     output = output.where(sql<boolean>`
       listings.suburb ILIKE ${containsPattern(filters.suburb)} ESCAPE ${likeEscapeCharacter}
+    `);
+  }
+  if (
+    filters.nearLat !== undefined &&
+    filters.nearLon !== undefined &&
+    filters.radiusKm !== undefined
+  ) {
+    const searchPoint = listingLocationPoint(filters.nearLat, filters.nearLon);
+    output = output.where(sql<boolean>`
+      ST_DWithin(listings.location, ${searchPoint}, ${filters.radiusKm * 1000})
     `);
   }
   if (filters.fulfilment === 'pickup') {
