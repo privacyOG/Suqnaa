@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { OrderActivityDetail } from '../../../../../components/order-activity-panel';
 import { OrderCancellationAction } from '../../../../../components/order-cancellation-action';
 import { OrderCheckoutPreparation } from '../../../../../components/order-checkout-preparation';
+import { OrderDeliveryPanel } from '../../../../../components/order-delivery-panel';
 import { OrderFulfilmentAction } from '../../../../../components/order-fulfilment-action';
 import { SessionRefresh } from '../../../../../components/session-refresh';
 import { isLocale } from '../../../../../i18n/locales';
@@ -48,6 +49,7 @@ export default async function OrderDetailPage({
       {user ? (
         <>
           <OrderActivityDetail locale={params.locale} orderId={params.orderId} />
+          <OrderDeliveryPanel locale={params.locale} orderId={params.orderId} />
           <OrderFulfilmentAction locale={params.locale} orderId={params.orderId} />
           <OrderCheckoutPreparation locale={params.locale} orderId={params.orderId} />
           <OrderCancellationAction locale={params.locale} orderId={params.orderId} />
@@ -59,9 +61,7 @@ export default async function OrderDetailPage({
       ) : (
         <div className="signed-out-panel seller-session-panel">
           <p className="auth-error">
-            {isArabic
-              ? 'سجّل الدخول لعرض تفاصيل الطلب.'
-              : 'Sign in to view order details.'}
+            {isArabic ? 'سجّل الدخول لعرض تفاصيل الطلب.' : 'Sign in to view order details.'}
           </p>
           <a className="button-primary" href={`/${params.locale}/account/sign-in`}>
             {isArabic ? 'تسجيل الدخول' : 'Sign in'}
