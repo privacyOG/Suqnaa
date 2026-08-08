@@ -29,7 +29,7 @@ class _SellerPayoutScreenState extends State<SellerPayoutScreen> {
     );
   }
 
-  String get _token => SessionScope.of(context).access.value ?? '';
+  String get _token => SessionScope.of(context).access.value;
 
   @override
   void didChangeDependencies() {
