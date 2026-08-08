@@ -13,6 +13,7 @@ export type ReportReason =
 export interface SubmitReportInput extends JsonBody {
   listingId?: string;
   reportedUserId?: string;
+  messageId?: string;
   reason: ReportReason;
   details?: string;
 }
@@ -23,6 +24,8 @@ export interface SubmitReportResponse {
     status: 'submitted' | 'already_reported';
     listingId?: string | null;
     reportedUserId?: string | null;
+    conversationId?: string | null;
+    messageId?: string | null;
     reason?: ReportReason;
     createdAt: string;
   };

@@ -23,14 +23,22 @@ const reportReason = z.enum([
 const reportBody = z.object({
   listingId: z.string().uuid().optional(),
   reportedUserId: z.string().uuid().optional(),
+  messageId: z.string().uuid().optional(),
   reason: reportReason,
   details: z.string().trim().max(1200).optional()
-}).superRefine((value, context) => {
-  if (!value.listingId && !value.reportedUserId) {
+}).strict().superRefine((value, context) => {
+  if (!value.listingId && !value.reportedUserId && !value.messageId) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['listingId'],
-      message: 'A listing or user must be reported'
+      message: 'A listing, user, or message must be reported'
+    });
+  }
+  if (value.messageId && (value.listingId || value.reportedUserId)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['messageId'],
+      message: 'Message reports derive conversation and account context from the message'
     });
   }
 });
@@ -84,8 +92,41 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
     let listingId = body.listingId ?? null;
     let reportedUserId = body.reportedUserId ?? null;
+    let conversationId: string | null = null;
+    let messageId: string | null = body.messageId ?? null;
 
-    if (listingId) {
+    if (messageId) {
+      const message = await db.selectFrom('messages')
+        .innerJoin('conversations', 'conversations.id', 'messages.conversation_id')
+        .innerJoin('users', 'users.id', 'messages.sender_id')
+        .select([
+          'messages.id as id',
+          'messages.sender_id as sender_id',
+          'messages.conversation_id as conversation_id',
+          'conversations.buyer_id as buyer_id',
+          'conversations.seller_id as seller_id',
+          'users.status as sender_status'
+        ])
+        .where('messages.id', '=', messageId)
+        .executeTakeFirst();
+
+      if (!message || (
+        message.buyer_id !== authRequest.user.sub &&
+        message.seller_id !== authRequest.user.sub
+      )) {
+        return reply.code(404).send({ error: 'Message not found' });
+      }
+      if (message.sender_id === authRequest.user.sub) {
+        return reply.code(409).send({ error: 'You cannot report your own message' });
+      }
+      if (message.sender_status === 'closed') {
+        return reply.code(404).send({ error: 'Reported user not found' });
+      }
+
+      conversationId = message.conversation_id;
+      reportedUserId = message.sender_id;
+      listingId = null;
+    } else if (listingId) {
       const listing = await db.selectFrom('listings')
         .innerJoin('users', 'users.id', 'listings.seller_id')
         .select([
@@ -113,7 +154,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       reportedUserId = listing.seller_id;
     }
 
-    if (reportedUserId) {
+    if (reportedUserId && !messageId) {
       if (reportedUserId === authRequest.user.sub) {
         return reply.code(409).send({ error: 'You cannot report yourself' });
       }
@@ -133,12 +174,17 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       .where('reporter_id', '=', authRequest.user.sub)
       .where('resolved_at', 'is', null);
 
-    duplicateQuery = listingId
-      ? duplicateQuery.where('listing_id', '=', listingId)
-      : duplicateQuery.where('listing_id', 'is', null);
-    duplicateQuery = reportedUserId
-      ? duplicateQuery.where('reported_user_id', '=', reportedUserId)
-      : duplicateQuery.where('reported_user_id', 'is', null);
+    if (messageId) {
+      duplicateQuery = duplicateQuery.where('message_id', '=', messageId);
+    } else {
+      duplicateQuery = listingId
+        ? duplicateQuery.where('listing_id', '=', listingId)
+        : duplicateQuery.where('listing_id', 'is', null);
+      duplicateQuery = reportedUserId
+        ? duplicateQuery.where('reported_user_id', '=', reportedUserId)
+        : duplicateQuery.where('reported_user_id', 'is', null);
+      duplicateQuery = duplicateQuery.where('message_id', 'is', null);
+    }
 
     const existingReport = await duplicateQuery.executeTakeFirst();
     if (existingReport) {
@@ -156,17 +202,22 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         reporter_id: authRequest.user.sub,
         listing_id: listingId,
         reported_user_id: reportedUserId,
+        conversation_id: conversationId,
+        message_id: messageId,
         reason: body.reason,
         details: body.details || null
       })
-      .returning(['id', 'listing_id', 'reported_user_id', 'reason', 'created_at'])
+      .returning([
+        'id', 'listing_id', 'reported_user_id', 'conversation_id', 'message_id',
+        'reason', 'created_at'
+      ])
       .executeTakeFirstOrThrow();
 
     writeSecurityAudit(app.log, {
       action: 'report.create',
       decision: 'allow',
       actorId: authRequest.user.sub,
-      targetId: inserted.listing_id ?? inserted.reported_user_id ?? undefined,
+      targetId: inserted.message_id ?? inserted.listing_id ?? inserted.reported_user_id ?? undefined,
       ip: request.ip,
       riskScore: protection.riskScore,
       reasonCodes: protection.reasonCodes,
@@ -174,6 +225,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         reportId: inserted.id,
         listingId: inserted.listing_id,
         reportedUserId: inserted.reported_user_id,
+        conversationId: inserted.conversation_id,
+        messageId: inserted.message_id,
         reason: inserted.reason
       }
     });
@@ -184,6 +237,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         status: 'submitted',
         listingId: inserted.listing_id,
         reportedUserId: inserted.reported_user_id,
+        conversationId: inserted.conversation_id,
+        messageId: inserted.message_id,
         reason: inserted.reason,
         createdAt: inserted.created_at
       }

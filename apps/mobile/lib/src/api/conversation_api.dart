@@ -33,6 +33,17 @@ class ConversationApi {
     );
   }
 
+  Future<Map<String, dynamic>> getSafety(
+    String accessToken,
+    String conversationId,
+  ) {
+    final encodedId = Uri.encodeComponent(conversationId);
+    return _authedApi.get(
+      '/v1/conversations/$encodedId/safety',
+      accessToken,
+    );
+  }
+
   Future<Map<String, dynamic>> createEntry(
     String accessToken, {
     required String recipientId,
@@ -43,6 +54,7 @@ class ConversationApi {
     return _authedApi.post('/v1/messages', accessToken, {
       'recipientId': recipientId,
       'body': body,
+      'attachments': const <dynamic>[],
       if (listingId != null) 'listingId': listingId,
       if (clientMessageId != null) 'clientMessageId': clientMessageId,
     });
@@ -57,6 +69,54 @@ class ConversationApi {
       '/v1/conversations/$encodedId/read',
       accessToken,
       const {},
+    );
+  }
+
+  Future<Map<String, dynamic>> setMuted(
+    String accessToken,
+    String conversationId, {
+    required bool muted,
+  }) {
+    final encodedId = Uri.encodeComponent(conversationId);
+    return _authedApi.post(
+      '/v1/conversations/$encodedId/mute',
+      accessToken,
+      {'muted': muted},
+    );
+  }
+
+  Future<Map<String, dynamic>> setBlocked(
+    String accessToken,
+    String conversationId, {
+    required bool blocked,
+  }) {
+    final encodedId = Uri.encodeComponent(conversationId);
+    return _authedApi.post(
+      '/v1/conversations/$encodedId/block',
+      accessToken,
+      {'blocked': blocked},
+    );
+  }
+
+  Future<Map<String, dynamic>> reportMessage(
+    String accessToken, {
+    required String messageId,
+    required String reason,
+    String? details,
+    String? challengeResponse,
+  }) {
+    return _authedApi.postWithHeaders(
+      '/v1/reports',
+      accessToken,
+      {
+        'messageId': messageId,
+        'reason': reason,
+        if (details != null && details.trim().isNotEmpty) 'details': details.trim(),
+      },
+      extraHeaders: {
+        if (challengeResponse != null && challengeResponse.isNotEmpty)
+          'x-suqnaa-human-check': challengeResponse,
+      },
     );
   }
 

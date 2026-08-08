@@ -41,13 +41,17 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
       .leftJoin('listings', 'listings.id', 'reports.listing_id')
       .leftJoin('users as reporter', 'reporter.id', 'reports.reporter_id')
       .leftJoin('users as subject_account', 'subject_account.id', 'reports.reported_user_id')
+      .leftJoin('messages as reported_message', 'reported_message.id', 'reports.message_id')
       .select([
         'reports.id as id', 'reports.reporter_id as reporter_id', 'reports.listing_id as listing_id',
-        'reports.reported_user_id as reported_user_id', 'reports.reason as reason', 'reports.details as details',
+        'reports.reported_user_id as reported_user_id', 'reports.conversation_id as conversation_id',
+        'reports.message_id as message_id', 'reports.reason as reason', 'reports.details as details',
         'reports.created_at as created_at', 'reports.resolved_at as resolved_at', 'reports.review_action as review_action',
         'reports.review_note as review_note', 'listings.title as listing_title', 'listings.status as listing_status',
         'reporter.display_name as reporter_name', 'reporter.status as reporter_status',
-        'subject_account.display_name as subject_name', 'subject_account.status as subject_status'
+        'subject_account.display_name as subject_name', 'subject_account.status as subject_status',
+        'reported_message.body as message_body', 'reported_message.status as message_status',
+        'reported_message.created_at as message_created_at'
       ]);
 
     if (query.status === 'open') queue = queue.where('reports.resolved_at', 'is', null);
@@ -62,11 +66,172 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
         id: item.id, status: item.resolved_at ? 'closed' : 'open', reporterId: item.reporter_id,
         reporterName: item.reporter_name, reporterStatus: item.reporter_status, listingId: item.listing_id,
         listingTitle: item.listing_title, listingStatus: item.listing_status, subjectUserId: item.reported_user_id,
-        subjectUserName: item.subject_name, subjectUserStatus: item.subject_status, reason: item.reason,
-        details: item.details, createdAt: item.created_at, resolvedAt: item.resolved_at,
+        subjectUserName: item.subject_name, subjectUserStatus: item.subject_status,
+        conversationId: item.conversation_id, messageId: item.message_id,
+        messagePreview: item.message_body ? String(item.message_body).slice(0, 200) : null,
+        messageStatus: item.message_status, messageCreatedAt: item.message_created_at,
+        reason: item.reason, details: item.details, createdAt: item.created_at, resolvedAt: item.resolved_at,
         reviewAction: item.review_action, reviewNote: item.review_note
       })),
       pagination: { hasMore: rows.length > query.limit, nextCursor: rows.length > query.limit && last ? new Date(last.created_at).toISOString() : null }
+    });
+  });
+
+  app.get('/operations/queue/:id/conversation-context', { preHandler: requireOperationsUser }, async (request, reply) => {
+    const authRequest = request as OperationsRequest;
+    const params = itemParams.parse(request.params);
+    const limited = limitedOperation(request, authRequest.operationsUserId, 'operations.conversation_context');
+    if (limited) {
+      reply.header('Retry-After', String(limited.retryAfterSeconds));
+      return reply.code(429).send(rateLimitResponse(limited));
+    }
+
+    const report = await db.selectFrom('reports')
+      .select([
+        'id', 'reporter_id', 'reported_user_id', 'conversation_id', 'message_id',
+        'reason', 'details', 'created_at', 'resolved_at', 'review_action', 'review_note'
+      ])
+      .where('id', '=', params.id)
+      .executeTakeFirst();
+    if (!report?.conversation_id || !report.message_id) {
+      return reply.code(404).send({ error: 'Conversation context is not available for this queue item' });
+    }
+
+    const [conversation, targetMessage] = await Promise.all([
+      db.selectFrom('conversations')
+        .leftJoin('listings', 'listings.id', 'conversations.listing_id')
+        .leftJoin('users as buyer', 'buyer.id', 'conversations.buyer_id')
+        .leftJoin('users as seller', 'seller.id', 'conversations.seller_id')
+        .select([
+          'conversations.id as id', 'conversations.listing_id as listing_id',
+          'conversations.buyer_id as buyer_id', 'conversations.seller_id as seller_id',
+          'conversations.created_at as created_at', 'conversations.updated_at as updated_at',
+          'listings.title as listing_title', 'listings.status as listing_status',
+          'buyer.display_name as buyer_name', 'buyer.status as buyer_status',
+          'seller.display_name as seller_name', 'seller.status as seller_status'
+        ])
+        .where('conversations.id', '=', report.conversation_id)
+        .executeTakeFirst(),
+      db.selectFrom('messages')
+        .select(['id', 'conversation_id', 'sender_id', 'body', 'status', 'created_at', 'updated_at', 'read_at'])
+        .where('id', '=', report.message_id)
+        .where('conversation_id', '=', report.conversation_id)
+        .executeTakeFirst()
+    ]);
+
+    if (!conversation || !targetMessage) {
+      return reply.code(404).send({ error: 'Conversation context is no longer available' });
+    }
+
+    const [olderDescending, newer, buyerBlock, sellerBlock, buyerMute, sellerMute] = await Promise.all([
+      db.selectFrom('messages')
+        .select(['id', 'sender_id', 'body', 'status', 'created_at', 'read_at'])
+        .where('conversation_id', '=', conversation.id)
+        .where('created_at', '<=', targetMessage.created_at)
+        .orderBy('created_at', 'desc')
+        .limit(20)
+        .execute(),
+      db.selectFrom('messages')
+        .select(['id', 'sender_id', 'body', 'status', 'created_at', 'read_at'])
+        .where('conversation_id', '=', conversation.id)
+        .where('created_at', '>', targetMessage.created_at)
+        .orderBy('created_at', 'asc')
+        .limit(20)
+        .execute(),
+      db.selectFrom('user_blocks')
+        .select(['blocker_id'])
+        .where('blocker_id', '=', conversation.buyer_id)
+        .where('blocked_id', '=', conversation.seller_id)
+        .executeTakeFirst(),
+      db.selectFrom('user_blocks')
+        .select(['blocker_id'])
+        .where('blocker_id', '=', conversation.seller_id)
+        .where('blocked_id', '=', conversation.buyer_id)
+        .executeTakeFirst(),
+      db.selectFrom('conversation_mutes')
+        .select(['user_id'])
+        .where('user_id', '=', conversation.buyer_id)
+        .where('conversation_id', '=', conversation.id)
+        .executeTakeFirst(),
+      db.selectFrom('conversation_mutes')
+        .select(['user_id'])
+        .where('user_id', '=', conversation.seller_id)
+        .where('conversation_id', '=', conversation.id)
+        .executeTakeFirst()
+    ]);
+
+    const contextMessages = [...olderDescending.reverse(), ...newer].map((message) => ({
+      id: message.id,
+      senderId: message.sender_id,
+      body: message.body,
+      status: message.status,
+      createdAt: message.created_at,
+      readAt: message.read_at,
+      reported: message.id === targetMessage.id
+    }));
+
+    writeSecurityAudit(app.log, {
+      action: 'operations.conversation_context.read',
+      decision: 'allow',
+      actorId: authRequest.operationsUserId,
+      targetId: report.id,
+      ip: request.ip,
+      metadata: {
+        queueItemId: report.id,
+        conversationId: conversation.id,
+        messageId: targetMessage.id,
+        contextMessageCount: contextMessages.length
+      }
+    });
+
+    return reply.send({
+      report: {
+        id: report.id,
+        reporterId: report.reporter_id,
+        subjectUserId: report.reported_user_id,
+        conversationId: report.conversation_id,
+        messageId: report.message_id,
+        reason: report.reason,
+        details: report.details,
+        createdAt: report.created_at,
+        resolvedAt: report.resolved_at,
+        reviewAction: report.review_action,
+        reviewNote: report.review_note
+      },
+      conversation: {
+        id: conversation.id,
+        listingId: conversation.listing_id,
+        listingTitle: conversation.listing_title,
+        listingStatus: conversation.listing_status,
+        buyer: {
+          id: conversation.buyer_id,
+          displayName: conversation.buyer_name,
+          status: conversation.buyer_status
+        },
+        seller: {
+          id: conversation.seller_id,
+          displayName: conversation.seller_name,
+          status: conversation.seller_status
+        },
+        safety: {
+          buyerBlockedSeller: Boolean(buyerBlock),
+          sellerBlockedBuyer: Boolean(sellerBlock),
+          buyerMutedConversation: Boolean(buyerMute),
+          sellerMutedConversation: Boolean(sellerMute)
+        },
+        createdAt: conversation.created_at,
+        updatedAt: conversation.updated_at
+      },
+      targetMessage: {
+        id: targetMessage.id,
+        senderId: targetMessage.sender_id,
+        body: targetMessage.body,
+        status: targetMessage.status,
+        createdAt: targetMessage.created_at,
+        updatedAt: targetMessage.updated_at,
+        readAt: targetMessage.read_at
+      },
+      messages: contextMessages
     });
   });
 

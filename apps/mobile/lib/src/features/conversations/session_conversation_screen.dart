@@ -34,6 +34,13 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
   AppSession? _session;
   bool _loading = false;
   bool _sending = false;
+  bool _safetyBusy = false;
+  bool _muted = false;
+  bool _blockedByMe = false;
+  bool _messagingAvailable = true;
+  bool _attachmentsEnabled = false;
+  String _attachmentPolicy = 'Attachments are currently disabled for message safety.';
+  int _maxBodyCharacters = 2000;
   String? _error;
 
   @override
@@ -58,6 +65,29 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
     super.dispose();
   }
 
+  void _applySafety(Map<dynamic, dynamic>? safety) {
+    if (safety == null) return;
+    _muted = safety['muted'] == true;
+    _blockedByMe = safety['blockedByMe'] == true;
+    _messagingAvailable = safety['messagingAvailable'] == true;
+  }
+
+  void _applyPolicy(Map<dynamic, dynamic>? policy) {
+    if (policy == null) return;
+    final maxBody = policy['maxBodyCharacters'];
+    if (maxBody is num && maxBody.toInt() > 0) {
+      _maxBodyCharacters = maxBody.toInt();
+    }
+    final attachments = policy['attachments'];
+    if (attachments is Map) {
+      _attachmentsEnabled = attachments['enabled'] == true;
+      final reason = attachments['reason']?.toString();
+      if (reason != null && reason.trim().isNotEmpty) {
+        _attachmentPolicy = reason.trim();
+      }
+    }
+  }
+
   Future<void> _load() async {
     final api = _api;
     final token = _session?.access.value ?? '';
@@ -76,22 +106,21 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
         widget.conversationId,
         limit: 100,
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       final raw = response['messages'];
       final items = raw is List
-          ? raw
-              .whereType<Map>()
-              .map((item) => Map<String, dynamic>.from(item))
-              .toList()
+          ? raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
           : <Map<String, dynamic>>[];
+      final conversation = response['conversation'];
+      final policy = response['policy'];
 
       setState(() {
         _messages
           ..clear()
           ..addAll(items.reversed);
+        if (conversation is Map) _applySafety(conversation['safety'] as Map?);
+        if (policy is Map) _applyPolicy(policy);
       });
       await api.acknowledge(token, widget.conversationId);
     } catch (_) {
@@ -99,9 +128,7 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
         setState(() => _error = 'Unable to load this conversation.');
       }
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -109,7 +136,12 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
     final api = _api;
     final token = _session?.access.value ?? '';
     final body = _composer.text.trim();
-    if (api == null || token.isEmpty || body.isEmpty || _sending) {
+    if (api == null ||
+        token.isEmpty ||
+        body.isEmpty ||
+        body.length > _maxBodyCharacters ||
+        !_messagingAvailable ||
+        _sending) {
       return;
     }
 
@@ -126,9 +158,7 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
         listingId: widget.listingId,
         clientMessageId: _newUuid(),
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       final raw = response['message'];
       if (raw is Map) {
@@ -141,12 +171,160 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
       _composer.clear();
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Message could not be sent.');
+        setState(() => _error = 'Message could not be sent. Refresh the conversation before retrying.');
+        await _load();
       }
     } finally {
-      if (mounted) {
-        setState(() => _sending = false);
-      }
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _toggleMute() async {
+    final api = _api;
+    final token = _session?.access.value ?? '';
+    if (api == null || token.isEmpty || _safetyBusy) return;
+    setState(() {
+      _safetyBusy = true;
+      _error = null;
+    });
+    try {
+      final response = await api.setMuted(
+        token,
+        widget.conversationId,
+        muted: !_muted,
+      );
+      if (!mounted) return;
+      final safety = response['safety'];
+      setState(() {
+        if (safety is Map) _applySafety(safety);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Unable to change the mute setting.');
+    } finally {
+      if (mounted) setState(() => _safetyBusy = false);
+    }
+  }
+
+  Future<void> _toggleBlock() async {
+    final api = _api;
+    final token = _session?.access.value ?? '';
+    if (api == null || token.isEmpty || _safetyBusy) return;
+
+    if (!_blockedByMe) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Block this user?'),
+          content: const Text(
+            'Blocking stops new messages in both directions and mutes your conversations with this user. Existing history stays visible.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Block')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    setState(() {
+      _safetyBusy = true;
+      _error = null;
+    });
+    try {
+      final response = await api.setBlocked(
+        token,
+        widget.conversationId,
+        blocked: !_blockedByMe,
+      );
+      if (!mounted) return;
+      final safety = response['safety'];
+      setState(() {
+        if (safety is Map) _applySafety(safety);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Unable to change the block setting.');
+    } finally {
+      if (mounted) setState(() => _safetyBusy = false);
+    }
+  }
+
+  Future<void> _reportMessage(Map<String, dynamic> message) async {
+    final api = _api;
+    final token = _session?.access.value ?? '';
+    final messageId = message['id']?.toString() ?? '';
+    if (api == null || token.isEmpty || messageId.isEmpty) return;
+
+    var reason = 'harassment';
+    final detailsController = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Report message'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: reason,
+                  decoration: const InputDecoration(labelText: 'Reason'),
+                  items: const [
+                    DropdownMenuItem(value: 'harassment', child: Text('Harassment or abuse')),
+                    DropdownMenuItem(value: 'spam', child: Text('Spam or repeated content')),
+                    DropdownMenuItem(value: 'scam', child: Text('Scam or suspicious request')),
+                    DropdownMenuItem(value: 'unsafe', child: Text('Unsafe request or threat')),
+                    DropdownMenuItem(value: 'other', child: Text('Other safety concern')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => reason = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: detailsController,
+                  maxLength: 1200,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Optional details',
+                    helperText: 'Do not include passwords or verification codes.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Submit report')),
+          ],
+        ),
+      ),
+    );
+    final details = detailsController.text;
+    detailsController.dispose();
+    if (submitted != true || !mounted) return;
+
+    try {
+      final response = await api.reportMessage(
+        token,
+        messageId: messageId,
+        reason: reason,
+        details: details,
+      );
+      if (!mounted) return;
+      final report = response['report'];
+      final status = report is Map ? report['status']?.toString() : null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'already_reported'
+                ? 'You already have an unresolved report for this message.'
+                : 'Message report submitted for review.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Unable to submit the message report.');
     }
   }
 
@@ -166,15 +344,42 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
       appBar: AppBar(
         title: Text(widget.counterpartName),
         backgroundColor: SuqnaaBrand.ivory,
+        actions: [
+          PopupMenuButton<String>(
+            enabled: !_safetyBusy,
+            onSelected: (value) {
+              if (value == 'mute') _toggleMute();
+              if (value == 'block') _toggleBlock();
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'mute',
+                child: Text(_muted ? 'Unmute conversation' : 'Mute conversation'),
+              ),
+              PopupMenuItem(
+                value: 'block',
+                child: Text(_blockedByMe ? 'Unblock user' : 'Block user'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [
           if (_error != null)
             MaterialBanner(
               content: Text(_error!),
-              actions: [
-                TextButton(onPressed: _load, child: const Text('Retry')),
-              ],
+              actions: [TextButton(onPressed: _load, child: const Text('Retry'))],
+            ),
+          if (_muted)
+            const MaterialBanner(
+              content: Text('This conversation is muted. The preference is retained for notifications.'),
+              actions: <Widget>[],
+            ),
+          if (!_messagingAvailable)
+            const MaterialBanner(
+              content: Text('New messaging is unavailable for this participant pair. Existing history remains visible.'),
+              actions: <Widget>[],
             ),
           Expanded(
             child: _loading && _messages.isEmpty
@@ -184,48 +389,60 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
+                      final mine = message['senderId']?.toString() == userId;
                       return _Bubble(
                         body: message['body']?.toString() ?? '',
-                        mine: message['senderId']?.toString() == userId,
+                        mine: mine,
                         status: message['status']?.toString() ?? '',
+                        onReport: mine ? null : () => _reportMessage(message),
                       );
                     },
                   ),
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _composer,
-                      minLines: 1,
-                      maxLines: 5,
-                      maxLength: 2000,
-                      decoration: const InputDecoration(
-                        hintText: 'Write a message',
-                        counterText: '',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _sending ? null : _send,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                  ),
-                ],
+          if (!_attachmentsEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                _attachmentPolicy,
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
               ),
             ),
-          ),
+          if (_messagingAvailable)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _composer,
+                        minLines: 1,
+                        maxLines: 5,
+                        maxLength: _maxBodyCharacters,
+                        decoration: const InputDecoration(
+                          hintText: 'Write a message',
+                          counterText: '',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: _sending ? null : _send,
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -233,11 +450,17 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.body, required this.mine, required this.status});
+  const _Bubble({
+    required this.body,
+    required this.mine,
+    required this.status,
+    this.onReport,
+  });
 
   final String body;
   final bool mine;
   final String status;
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +482,13 @@ class _Bubble extends StatelessWidget {
             if (mine && status.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(status, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            ],
+            if (onReport != null) ...[
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: onReport,
+                child: const Text('Report message'),
+              ),
             ],
           ],
         ),

@@ -5,6 +5,22 @@ export interface CursorPageOptions {
   before?: string;
 }
 
+export interface ConversationSafetyState {
+  muted: boolean;
+  blockedByMe: boolean;
+  messagingAvailable: boolean;
+}
+
+export interface MessagePolicy {
+  maxBodyCharacters: number;
+  maxHttpUrls: number;
+  attachments: {
+    enabled: boolean;
+    maxCount: number;
+    reason: string;
+  };
+}
+
 export interface ConversationSummary {
   id: string;
   listingId: string | null;
@@ -19,14 +35,17 @@ export interface ConversationSummary {
     body: string;
     status: string;
     createdAt: string;
+    attachments: unknown[];
   } | null;
   unreadCount: number;
+  safety: ConversationSafetyState;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ConversationListResponse {
   conversations: ConversationSummary[];
+  policy: MessagePolicy;
   pagination: {
     hasMore: boolean;
     nextCursor: string | null;
@@ -43,6 +62,7 @@ export interface ConversationMessage {
   createdAt: string;
   updatedAt: string;
   readAt: string | null;
+  attachments: unknown[];
 }
 
 export interface ConversationHistoryResponse {
@@ -51,12 +71,22 @@ export interface ConversationHistoryResponse {
     listingId: string | null;
     buyerId: string;
     sellerId: string;
+    safety: ConversationSafetyState;
   };
+  policy: MessagePolicy;
   messages: ConversationMessage[];
   pagination: {
     hasMore: boolean;
     nextCursor: string | null;
   };
+}
+
+export interface ConversationSafetyResponse {
+  safety: ConversationSafetyState & {
+    conversationId: string;
+    counterpartId: string;
+  };
+  policy: MessagePolicy;
 }
 
 function pagedPath(path: string, options: CursorPageOptions = {}) {
@@ -90,5 +120,13 @@ export function getConversationHistory(
       `/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
       options
     )
+  );
+}
+
+export function getConversationSafety(
+  conversationId: string
+): Promise<ConversationSafetyResponse> {
+  return getAuthed<ConversationSafetyResponse>(
+    `/v1/conversations/${encodeURIComponent(conversationId)}/safety`
   );
 }

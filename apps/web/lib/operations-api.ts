@@ -17,6 +17,11 @@ export interface OperationsQueueItem {
   subjectUserId: string | null;
   subjectUserName: string | null;
   subjectUserStatus: string | null;
+  conversationId: string | null;
+  messageId: string | null;
+  messagePreview: string | null;
+  messageStatus: string | null;
+  messageCreatedAt: string | null;
   reason: string;
   details: string | null;
   createdAt: string;
@@ -31,6 +36,56 @@ export interface OperationsQueueResponse {
     hasMore: boolean;
     nextCursor: string | null;
   };
+}
+
+export interface OperationsConversationContextResponse {
+  report: {
+    id: string;
+    reporterId: string;
+    subjectUserId: string | null;
+    conversationId: string;
+    messageId: string;
+    reason: string;
+    details: string | null;
+    createdAt: string;
+    resolvedAt: string | null;
+    reviewAction: string | null;
+    reviewNote: string | null;
+  };
+  conversation: {
+    id: string;
+    listingId: string | null;
+    listingTitle: string | null;
+    listingStatus: string | null;
+    buyer: { id: string; displayName: string | null; status: string | null };
+    seller: { id: string; displayName: string | null; status: string | null };
+    safety: {
+      buyerBlockedSeller: boolean;
+      sellerBlockedBuyer: boolean;
+      buyerMutedConversation: boolean;
+      sellerMutedConversation: boolean;
+    };
+    createdAt: string;
+    updatedAt: string;
+  };
+  targetMessage: {
+    id: string;
+    senderId: string;
+    body: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    readAt: string | null;
+  };
+  messages: Array<{
+    id: string;
+    senderId: string;
+    body: string;
+    status: string;
+    createdAt: string;
+    readAt: string | null;
+    reported: boolean;
+  }>;
 }
 
 export interface OperationsQueueOptions {
@@ -103,15 +158,9 @@ export function getOperationsQueue(
   options: OperationsQueueOptions = {}
 ): Promise<OperationsQueueResponse> {
   const query = new URLSearchParams();
-  if (options.status) {
-    query.set('status', options.status);
-  }
-  if (options.limit !== undefined) {
-    query.set('limit', String(options.limit));
-  }
-  if (options.before) {
-    query.set('before', options.before);
-  }
+  if (options.status) query.set('status', options.status);
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.before) query.set('before', options.before);
 
   const encoded = query.toString();
   return getAuthed<OperationsQueueResponse>(
@@ -119,22 +168,22 @@ export function getOperationsQueue(
   );
 }
 
+export function getOperationsConversationContext(
+  itemId: string
+): Promise<OperationsConversationContextResponse> {
+  return getAuthed<OperationsConversationContextResponse>(
+    `/v1/operations/queue/${encodeURIComponent(itemId)}/conversation-context`
+  );
+}
+
 export function getOperationRecords(
   options: OperationRecordsOptions = {}
 ): Promise<OperationRecordsResponse> {
   const query = new URLSearchParams();
-  if (options.limit !== undefined) {
-    query.set('limit', String(options.limit));
-  }
-  if (options.before) {
-    query.set('before', options.before);
-  }
-  if (options.action) {
-    query.set('action', options.action);
-  }
-  if (options.entityType) {
-    query.set('entityType', options.entityType);
-  }
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.before) query.set('before', options.before);
+  if (options.action) query.set('action', options.action);
+  if (options.entityType) query.set('entityType', options.entityType);
 
   const encoded = query.toString();
   return getAuthed<OperationRecordsResponse>(

@@ -2,6 +2,20 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
+import {
+  assertPairMessagingAvailable,
+  ConversationSafetyError,
+  enforceDurableMessageSpamPolicy,
+  lockMessagingPair,
+  lockMessageSender,
+  messagingParticipantKey
+} from '../messaging/conversation-safety-service.js';
+import {
+  assertMessageAttachmentsDisabled,
+  inspectMessageBody,
+  MessagePolicyError,
+  publicMessagePolicy
+} from '../messaging/message-safety-policy.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import {
   checkHumanProtectionWithChallenge,
@@ -15,16 +29,13 @@ const challengeVerifier = new NoopChallengeVerifier();
 const createMessageBody = z.object({
   recipientId: z.string().uuid(),
   listingId: z.string().uuid().optional(),
-  body: z.string().trim().min(1).max(2000),
-  clientMessageId: z.string().uuid().optional()
-});
+  body: z.string(),
+  clientMessageId: z.string().uuid().optional(),
+  attachments: z.array(z.unknown()).optional()
+}).strict();
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function participantKey(firstId: string, secondId: string): string {
-  return [firstId, secondId].sort().join(':');
 }
 
 function directParticipants(firstId: string, secondId: string) {
@@ -32,7 +43,38 @@ function directParticipants(firstId: string, secondId: string) {
   return { buyerId: sorted[0], sellerId: sorted[1] };
 }
 
+function safetyFailure(
+  app: FastifyInstance,
+  request: AuthenticatedRequest,
+  reply: any,
+  recipientId: string,
+  error: ConversationSafetyError | MessagePolicyError
+) {
+  writeSecurityAudit(app.log, {
+    action: 'message.create',
+    decision: 'reject',
+    actorId: request.user.sub,
+    targetId: recipientId,
+    ip: request.ip,
+    reasonCodes: [error.code]
+  });
+  if (error instanceof ConversationSafetyError && error.retryAfterSeconds) {
+    reply.header('Retry-After', String(error.retryAfterSeconds));
+  }
+  return reply.code(error.statusCode).send({
+    error: error.message,
+    code: error.code,
+    ...(error instanceof ConversationSafetyError && error.retryAfterSeconds
+      ? { retryAfterSeconds: error.retryAfterSeconds }
+      : {})
+  });
+}
+
 export async function messageRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/messages/policy', { preHandler: requireUser }, async (_request, reply) => {
+    return reply.send({ policy: publicMessagePolicy() });
+  });
+
   app.post('/messages', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = createMessageBody.parse(request.body);
@@ -61,10 +103,22 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
             listingId: body.listingId ?? null,
             clientMessageId: body.clientMessageId,
             status: existingMessage.status,
-            createdAt: existingMessage.created_at
+            createdAt: existingMessage.created_at,
+            attachments: []
           }
         });
       }
+    }
+
+    let inspected;
+    try {
+      assertMessageAttachmentsDisabled(body.attachments);
+      inspected = inspectMessageBody(body.body);
+    } catch (caught) {
+      if (caught instanceof MessagePolicyError) {
+        return safetyFailure(app, authRequest, reply, body.recipientId, caught);
+      }
+      throw caught;
     }
 
     const accountLimit = checkRateLimit({
@@ -81,7 +135,7 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
     });
     const pairLimit = checkRateLimit({
       group: 'messages.create.pair',
-      identifiers: [`pair:${participantKey(senderId, body.recipientId)}`],
+      identifiers: [`pair:${messagingParticipantKey(senderId, body.recipientId)}`],
       limit: 20,
       windowMs: 10 * 60 * 1000
     });
@@ -134,8 +188,9 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const recipient = await db.selectFrom('users')
-      .select(['id'])
+      .select(['id', 'status'])
       .where('id', '=', body.recipientId)
+      .where('status', '=', 'active')
       .executeTakeFirst();
 
     if (!recipient) {
@@ -170,78 +225,99 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
       sellerId = participants.sellerId;
     }
 
-    const key = participantKey(buyerId, sellerId);
-    const persisted = await db.transaction().execute(async (trx) => {
-      let conversationQuery = trx.selectFrom('conversations')
-        .select(['id'])
-        .where('participant_key', '=', key);
+    const key = messagingParticipantKey(buyerId, sellerId);
+    let persisted;
+    try {
+      persisted = await db.transaction().execute(async (trx) => {
+        await lockMessagingPair(trx, senderId, body.recipientId);
+        await lockMessageSender(trx, senderId);
+        await assertPairMessagingAvailable(trx, senderId, body.recipientId);
+        const now = new Date();
+        await enforceDurableMessageSpamPolicy(trx, {
+          senderId,
+          recipientId: body.recipientId,
+          participantKey: key,
+          fingerprint: inspected.fingerprint,
+          now
+        });
 
-      conversationQuery = body.listingId
-        ? conversationQuery.where('listing_id', '=', body.listingId)
-        : conversationQuery.where('listing_id', 'is', null);
-
-      let conversation = await conversationQuery.executeTakeFirst();
-
-      if (!conversation) {
-        conversation = await trx.insertInto('conversations')
-          .values({
-            listing_id: body.listingId ?? null,
-            buyer_id: buyerId,
-            seller_id: sellerId,
-            participant_key: key,
-            updated_at: new Date()
-          })
-          .onConflict((conflict) => conflict.doNothing())
-          .returning(['id'])
-          .executeTakeFirst();
-      }
-
-      if (!conversation) {
-        let retryQuery = trx.selectFrom('conversations')
+        let conversationQuery = trx.selectFrom('conversations')
           .select(['id'])
           .where('participant_key', '=', key);
 
-        retryQuery = body.listingId
-          ? retryQuery.where('listing_id', '=', body.listingId)
-          : retryQuery.where('listing_id', 'is', null);
+        conversationQuery = body.listingId
+          ? conversationQuery.where('listing_id', '=', body.listingId)
+          : conversationQuery.where('listing_id', 'is', null);
 
-        conversation = await retryQuery.executeTakeFirstOrThrow();
-      }
+        let conversation = await conversationQuery.executeTakeFirst();
 
-      let message = await trx.insertInto('messages')
-        .values({
-          conversation_id: conversation.id,
-          sender_id: senderId,
-          body: body.body,
-          client_message_id: body.clientMessageId ?? null,
-          status: 'queued',
-          updated_at: new Date()
-        })
-        .onConflict((conflict) => conflict.doNothing())
-        .returning(['id', 'conversation_id', 'status', 'created_at'])
-        .executeTakeFirst();
+        if (!conversation) {
+          conversation = await trx.insertInto('conversations')
+            .values({
+              listing_id: body.listingId ?? null,
+              buyer_id: buyerId,
+              seller_id: sellerId,
+              participant_key: key,
+              updated_at: now
+            })
+            .onConflict((conflict) => conflict.doNothing())
+            .returning(['id'])
+            .executeTakeFirst();
+        }
 
-      let created = true;
-      if (!message && body.clientMessageId) {
-        message = await trx.selectFrom('messages')
-          .select(['id', 'conversation_id', 'status', 'created_at'])
-          .where('sender_id', '=', senderId)
-          .where('client_message_id', '=', body.clientMessageId)
+        if (!conversation) {
+          let retryQuery = trx.selectFrom('conversations')
+            .select(['id'])
+            .where('participant_key', '=', key);
+
+          retryQuery = body.listingId
+            ? retryQuery.where('listing_id', '=', body.listingId)
+            : retryQuery.where('listing_id', 'is', null);
+
+          conversation = await retryQuery.executeTakeFirstOrThrow();
+        }
+
+        let message = await trx.insertInto('messages')
+          .values({
+            conversation_id: conversation.id,
+            sender_id: senderId,
+            body: inspected.body,
+            content_fingerprint: inspected.fingerprint,
+            client_message_id: body.clientMessageId ?? null,
+            status: 'queued',
+            updated_at: now
+          })
+          .onConflict((conflict) => conflict.doNothing())
+          .returning(['id', 'conversation_id', 'status', 'created_at'])
           .executeTakeFirst();
-        created = false;
+
+        let created = true;
+        if (!message && body.clientMessageId) {
+          message = await trx.selectFrom('messages')
+            .select(['id', 'conversation_id', 'status', 'created_at'])
+            .where('sender_id', '=', senderId)
+            .where('client_message_id', '=', body.clientMessageId)
+            .executeTakeFirst();
+          created = false;
+        }
+
+        if (!message) {
+          throw new Error('Message persistence failed');
+        }
+
+        await trx.updateTable('conversations')
+          .set({ updated_at: now })
+          .where('id', '=', conversation.id)
+          .execute();
+
+        return { message, created };
+      });
+    } catch (caught) {
+      if (caught instanceof ConversationSafetyError) {
+        return safetyFailure(app, authRequest, reply, body.recipientId, caught);
       }
-
-      if (!message) {
-        throw new Error('Message persistence failed');
-      }
-
-      await trx.updateTable('conversations')
-        .set({ updated_at: new Date() })
-        .where('id', '=', conversation.id)
-        .execute();
-
-      return { message, created };
-    });
+      throw caught;
+    }
 
     writeSecurityAudit(app.log, {
       action: 'message.create',
@@ -256,7 +332,9 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
         messageId: persisted.message.id,
         idempotent: !persisted.created,
         hasListingContext: Boolean(body.listingId),
-        bodyLength: body.body.length
+        bodyLength: inspected.body.length,
+        httpUrlCount: inspected.httpUrlCount,
+        attachments: 0
       }
     });
 
@@ -271,8 +349,10 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
         listingId: body.listingId ?? null,
         clientMessageId: body.clientMessageId ?? null,
         status: persisted.message.status,
-        createdAt: persisted.message.created_at
-      }
+        createdAt: persisted.message.created_at,
+        attachments: []
+      },
+      policy: publicMessagePolicy()
     });
   });
 }

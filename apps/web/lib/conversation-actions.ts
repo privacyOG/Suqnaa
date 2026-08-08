@@ -1,10 +1,12 @@
 import { postAuthed, type JsonBody } from './authed-api';
+import type { ConversationSafetyResponse, MessagePolicy } from './conversation-api';
 
 export interface ConversationEntryInput extends JsonBody {
   recipientId: string;
   listingId?: string;
   body: string;
   clientMessageId?: string;
+  attachments?: unknown[];
 }
 
 export interface ConversationEntryResponse {
@@ -19,7 +21,9 @@ export interface ConversationEntryResponse {
     clientMessageId: string | null;
     status: string;
     createdAt: string;
+    attachments: unknown[];
   };
+  policy?: MessagePolicy;
 }
 
 export interface ConversationAcknowledgementResponse {
@@ -45,5 +49,25 @@ export function acknowledgeConversation(
   return postAuthed<ConversationAcknowledgementResponse>(
     `/v1/conversations/${encodeURIComponent(conversationId)}/read`,
     {}
+  );
+}
+
+export function setConversationMuted(
+  conversationId: string,
+  muted: boolean
+): Promise<ConversationSafetyResponse> {
+  return postAuthed<ConversationSafetyResponse>(
+    `/v1/conversations/${encodeURIComponent(conversationId)}/mute`,
+    { muted }
+  );
+}
+
+export function setConversationBlocked(
+  conversationId: string,
+  blocked: boolean
+): Promise<ConversationSafetyResponse> {
+  return postAuthed<ConversationSafetyResponse>(
+    `/v1/conversations/${encodeURIComponent(conversationId)}/block`,
+    { blocked }
   );
 }
