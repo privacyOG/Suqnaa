@@ -14,9 +14,7 @@ export interface ConversationInboxPanelProps {
 
 function formatTime(value: string, locale: string): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
 
   return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-AU' : 'en-AU', {
     dateStyle: 'medium',
@@ -167,6 +165,12 @@ export function ConversationInboxPanel({
                         ? (isArabic ? 'مرتبطة بإعلان' : 'Listing conversation')
                         : (isArabic ? 'محادثة مباشرة' : 'Direct conversation')}
                     </span>
+                    {conversation.safety.muted ? (
+                      <span>{isArabic ? 'مكتومة' : 'Muted'}</span>
+                    ) : null}
+                    {!conversation.safety.messagingAvailable ? (
+                      <span>{isArabic ? 'المراسلة متوقفة' : 'Messaging unavailable'}</span>
+                    ) : null}
                     {conversation.unreadCount > 0 ? (
                       <span className="unread-badge">{conversation.unreadCount}</span>
                     ) : null}
