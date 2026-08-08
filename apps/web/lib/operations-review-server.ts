@@ -21,6 +21,37 @@ async function readOperations<T>(path: string): Promise<T | null> {
   }
 }
 
+export interface OperationsAccountRow {
+  id: string;
+  displayName: string;
+  status: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  trustScore: number | null;
+  business: boolean;
+  businessName: string | null;
+  countryCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OperationsListingRow {
+  id: string;
+  title: string;
+  status: string;
+  priceAmount: string | number;
+  currencyCode: string;
+  condition: string;
+  countryCode: string;
+  city: string | null;
+  publishedAt: string | null;
+  expiresAt: string | null;
+  seller: { id: string; displayName: string | null; status: string | null };
+  category: null | { slug: string; nameEn: string | null; nameAr: string | null };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OperationsCategoryRow {
   id: string;
   parentId: string | null;
@@ -88,6 +119,14 @@ export interface OperationsFraudReview {
 export interface OperationsFinanceReview {
   operations: Array<Record<string, unknown>>;
   settlements: Array<Record<string, unknown>>;
+}
+
+export function loadOperationsAccounts() {
+  return readOperations<{ accounts: OperationsAccountRow[] }>('/v1/operations/dashboard/accounts');
+}
+
+export function loadOperationsListings() {
+  return readOperations<{ listings: OperationsListingRow[] }>('/v1/operations/dashboard/listings');
 }
 
 export function loadOperationsCategories() {
