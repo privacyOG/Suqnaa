@@ -39,11 +39,14 @@ async function run() {
       city: 'Sydney',
       suburb: 'Greenacre',
       fulfilment: 'both',
-      sort: 'price_asc'
+      nearLat: -33.8688,
+      nearLon: 151.2093,
+      radiusKm: 25,
+      sort: 'distance'
     });
     assert.equal(
       capturedUrl,
-      'http://localhost:4000/v1/listings/search?limit=24&before=ls1.opaque-cursor&q=phone+case&categoryId=123e4567-e89b-42d3-a456-426614174002&condition=good&availabilityStatus=in_stock&minPrice=10&maxPrice=250&currency=AUD&country=AU&region=NSW&city=Sydney&suburb=Greenacre&fulfilment=both&sort=price_asc'
+      'http://localhost:4000/v1/listings/search?limit=24&before=ls1.opaque-cursor&q=phone+case&categoryId=123e4567-e89b-42d3-a456-426614174002&condition=good&availabilityStatus=in_stock&minPrice=10&maxPrice=250&currency=AUD&country=AU&region=NSW&city=Sydney&suburb=Greenacre&fulfilment=both&nearLat=-33.87&nearLon=151.21&radiusKm=25&sort=distance'
     );
     assert.equal(capturedInit?.cache, 'no-store');
     assert.equal(new Headers(capturedInit?.headers).has('authorization'), false);
@@ -104,6 +107,7 @@ async function run() {
 
     const listing = await getPublicListing(listingId);
     assert.equal(listing.id, listingId);
+    assert.equal(listing.distanceKm, null);
     assert.equal(capturedUrl, `http://localhost:4000/v1/listings/${listingId}`);
     assert.equal(new Headers(capturedInit?.headers).has('authorization'), false);
 
