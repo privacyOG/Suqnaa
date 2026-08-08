@@ -29,7 +29,9 @@ assert.match(route, /query\.suburb/);
 assert.match(route, /query\.fulfilment === 'both'/);
 assert.match(route, /allow_pickup', '=', true/);
 assert.match(route, /allow_delivery', '=', true/);
-assert.match(route, /ESCAPE E'\\\\'/);
+assert.match(route, /const likeEscapeCharacter = '\\\\'/);
+assert.match(route, /ESCAPE \$\{likeEscapeCharacter\}/);
+assert.doesNotMatch(route, /ESCAPE E'/);
 assert.doesNotMatch(route, /object_key/);
 
 assert.match(migration, /CREATE EXTENSION IF NOT EXISTS pg_trgm/);
