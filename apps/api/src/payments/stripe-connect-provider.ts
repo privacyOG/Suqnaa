@@ -101,6 +101,9 @@ export class StripeConnectProvider {
     ) {
       throw new StripeProviderError('settlement_provider_disabled');
     }
+    if (this.paymentConfiguration.liveMode && !this.settlementConfiguration.liveApproved) {
+      throw new StripeProviderError('live_settlement_not_approved');
+    }
   }
 
   private async request(path: string, init: RequestInit): Promise<Record<string, unknown>> {
@@ -108,13 +111,12 @@ export class StripeConnectProvider {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.paymentConfiguration.timeoutMs);
     try {
+      const headers = new Headers(init.headers);
+      headers.set('authorization', `Bearer ${this.paymentConfiguration.secretKey}`);
+      headers.set('stripe-version', this.paymentConfiguration.apiVersion);
       const response = await this.fetcher(`${this.paymentConfiguration.apiBaseUrl}${path}`, {
         ...init,
-        headers: {
-          authorization: `Bearer ${this.paymentConfiguration.secretKey}`,
-          'stripe-version': this.paymentConfiguration.apiVersion,
-          ...(init.headers ?? {})
-        },
+        headers,
         signal: controller.signal
       });
       if (!response.ok) throw new StripeProviderError('settlement_provider_request_failed');
