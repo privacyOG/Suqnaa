@@ -14,6 +14,8 @@ const routePermissions: readonly {
 }[] = [
   { method: 'GET', pattern: /^\/v1\/operations\/health(?:\?.*)?$/, permission: 'operations.access' },
   { method: 'GET', pattern: /^\/v1\/operations\/dashboard(?:\?.*)?$/, permission: 'operations.access' },
+  { method: 'GET', pattern: /^\/v1\/operations\/dashboard\/accounts(?:\?.*)?$/, permission: 'moderation.account.manage' },
+  { method: 'GET', pattern: /^\/v1\/operations\/dashboard\/listings(?:\?.*)?$/, permission: 'moderation.listing.manage' },
   { method: 'GET', pattern: /^\/v1\/operations\/dashboard\/categories(?:\?.*)?$/, permission: 'operations.access' },
   { method: 'GET', pattern: /^\/v1\/operations\/dashboard\/fulfilment(?:\?.*)?$/, permission: 'disputes.read' },
   { method: 'GET', pattern: /^\/v1\/operations\/dashboard\/fraud(?:\?.*)?$/, permission: 'operations.access' },
