@@ -33,6 +33,26 @@ class ConversationApi {
     );
   }
 
+  Future<Map<String, dynamic>> getConversationSync(
+    String accessToken,
+    String conversationId, {
+    int limit = 50,
+    String? cursor,
+  }) {
+    final encodedId = Uri.encodeComponent(conversationId);
+    final query = <String, String>{
+      'limit': limit.toString(),
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    };
+    return _authedApi.get(
+      Uri(
+        path: '/v1/conversations/$encodedId/sync',
+        queryParameters: query,
+      ).toString(),
+      accessToken,
+    );
+  }
+
   Future<Map<String, dynamic>> getSafety(
     String accessToken,
     String conversationId,
