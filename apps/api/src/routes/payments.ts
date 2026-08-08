@@ -1,12 +1,18 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
+import { paymentCollectionConfigurationFromEnvironment } from '../config/payment-collection-config.js';
 import { db } from '../db/index.js';
 import {
   checkoutPaymentMethods,
   prepareOrderCheckout
 } from '../payments/checkout-preparation.js';
 import { evaluateInitialLaunchPayment } from '../payments/launch-policy.js';
+import {
+  beginStripeCheckout,
+  PaymentCollectionError
+} from '../payments/payment-collection-service.js';
+import { StripeCheckoutProvider, StripeProviderError } from '../payments/stripe-checkout-provider.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import {
   checkHumanProtectionWithChallenge,
@@ -17,9 +23,12 @@ import { writeSecurityAudit } from '../security/security-audit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 const paymentMethod = z.enum(checkoutPaymentMethods);
+const collectionConfiguration = paymentCollectionConfigurationFromEnvironment();
+const stripeProvider = new StripeCheckoutProvider(collectionConfiguration);
 
 const checkoutBody = z.object({
-  orderId: z.string().uuid()
+  orderId: z.string().uuid(),
+  locale: z.enum(['en', 'ar']).default('en')
 }).strict();
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
@@ -93,7 +102,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
 
       const [buyer, seller, listing] = await Promise.all([
         db.selectFrom('users')
-          .select(['id', 'status'])
+          .select(['id', 'status', 'email', 'email_verified_at'])
           .where('id', '=', buyerId)
           .executeTakeFirst(),
         db.selectFrom('users')
@@ -192,6 +201,95 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
           reasonCodes: protection.reasonCodes
         });
         return reply.code(403).send(humanProtectionResponse(protection));
+      }
+
+      if (collectionConfiguration.enabled) {
+        if (
+          !buyer.email ||
+          !buyer.email_verified_at ||
+          (parsedPaymentMethod.data !== 'card' && parsedPaymentMethod.data !== 'wallet')
+        ) {
+          return reply.code(409).send({
+            error: 'Buyer payment contact or payment method is unavailable'
+          });
+        }
+
+        const intent = await db.selectFrom('payment_intents')
+          .select(['id', 'status'])
+          .where('transaction_id', '=', order.id)
+          .executeTakeFirst();
+        if (!intent || (intent.status !== 'created' && intent.status !== 'awaiting_payment')) {
+          return reply.code(409).send({ error: 'Order payment context is unavailable' });
+        }
+
+        try {
+          const session = await beginStripeCheckout({
+            provider: stripeProvider,
+            internalPaymentIntentId: String(intent.id),
+            orderId: String(order.id),
+            listingId: String(order.listing_id),
+            sellerId: String(order.seller_id),
+            buyerId,
+            buyerEmail: String(buyer.email),
+            amount: order.amount as string | number,
+            currencyCode: String(order.currency_code),
+            paymentMethod: parsedPaymentMethod.data,
+            locale: body.locale
+          });
+
+          writeSecurityAudit(app.log, {
+            action: 'payment.checkout_prepare',
+            decision: 'allow',
+            actorId: buyerId,
+            targetId: order.id,
+            ip: request.ip,
+            riskScore: protection.riskScore,
+            reasonCodes: [...protection.reasonCodes, 'provider_checkout_created'],
+            metadata: {
+              listingId: order.listing_id,
+              countryCode: listing.country_code,
+              currencyCode: order.currency_code,
+              paymentMethod: parsedPaymentMethod.data,
+              provider: 'stripe'
+            }
+          });
+
+          return reply.send({
+            accepted: true,
+            status: 'redirect_required' as const,
+            order: {
+              id: String(order.id),
+              listingId: String(order.listing_id),
+              amount: order.amount,
+              currencyCode: String(order.currency_code).toUpperCase(),
+              status: 'pending' as const,
+              paymentMethod: parsedPaymentMethod.data
+            },
+            payment: {
+              provider: 'stripe' as const,
+              nextAction: 'redirect_to_provider' as const,
+              checkoutUrl: session.url,
+              expiresAt: session.expiresAt
+            },
+            releaseModel: 'hold_until_fulfilment_or_dispute_resolution' as const
+          });
+        } catch (error) {
+          if (error instanceof StripeProviderError) {
+            writeSecurityAudit(app.log, {
+              action: 'payment.checkout_prepare',
+              decision: 'reject',
+              actorId: buyerId,
+              targetId: order.id,
+              ip: request.ip,
+              reasonCodes: [error.safeCode]
+            });
+            return reply.code(503).send({ error: 'Payment provider is temporarily unavailable' });
+          }
+          if (error instanceof PaymentCollectionError) {
+            return reply.code(409).send({ error: 'Order payment context changed; refresh and try again' });
+          }
+          throw error;
+        }
       }
 
       const checkout = prepareOrderCheckout({

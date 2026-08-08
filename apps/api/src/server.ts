@@ -38,6 +38,7 @@ import { paymentRoutes } from './routes/payments.js';
 import { reportRoutes } from './routes/reports.js';
 import { sellerVerificationRoutes } from './routes/seller-verification.js';
 import { sessionManagementRoutes } from './routes/session-management.js';
+import { stripePaymentEventRoutes } from './routes/stripe-payment-events.js';
 
 const app = Fastify({
   logger: env.NODE_ENV !== 'test',
@@ -115,6 +116,7 @@ await app.register(listingSearchRoutes, { prefix: '/v1' });
 await app.register(marketActionRoutes, { prefix: '/v1' });
 await app.register(offerWorkflowRoutes, { prefix: '/v1' });
 await app.register(paymentProviderEventRoutes, { prefix: '/v1' });
+await app.register(stripePaymentEventRoutes, { prefix: '/v1' });
 await app.register(paymentRoutes, { prefix: '/v1' });
 await app.register(operationsAccessRoutes, { prefix: '/v1' });
 await app.register(operationsRoutes, { prefix: '/v1' });

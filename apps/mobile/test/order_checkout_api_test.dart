@@ -29,8 +29,30 @@ String checkoutResponse({Object? provider, String responseOrderId = orderId}) {
   });
 }
 
+String hostedCheckoutResponse({String url = 'https://checkout.stripe.com/c/pay/cs_test_1234567890abcdef'}) {
+  return jsonEncode({
+    'accepted': true,
+    'status': 'redirect_required',
+    'order': {
+      'id': orderId,
+      'listingId': listingId,
+      'amount': '80.00',
+      'currencyCode': 'AUD',
+      'status': 'pending',
+      'paymentMethod': 'card',
+    },
+    'payment': {
+      'provider': 'stripe',
+      'nextAction': 'redirect_to_provider',
+      'checkoutUrl': url,
+      'expiresAt': '2026-08-08T12:00:00.000Z',
+    },
+    'releaseModel': 'hold_until_fulfilment_or_dispute_resolution',
+  });
+}
+
 void main() {
-  test('sends only the order id with the protected challenge header', () async {
+  test('sends only order identity, bounded locale and protected challenge header', () async {
     http.Request? captured;
     final client = MockClient((request) async {
       captured = request;
@@ -64,7 +86,7 @@ void main() {
       captured?.headers['x-suqnaa-human-check'],
       'verified-human-check',
     );
-    expect(jsonDecode(captured?.body ?? ''), {'orderId': orderId});
+    expect(jsonDecode(captured?.body ?? ''), {'orderId': orderId, 'locale': 'en'});
 
     expect(result.order.id, orderId);
     expect(result.order.listingId, listingId);
@@ -78,9 +100,41 @@ void main() {
       result.nextAction,
       CheckoutNextAction.configureBankTransferInstructions,
     );
+    expect(result.checkoutUrl, isNull);
   });
 
-  test('rejects a response that claims a configured provider', () async {
+  test('accepts only trusted Stripe hosted checkout URLs', () async {
+    final client = MockClient((request) async => http.Response(hostedCheckoutResponse(), 200));
+    final api = OrderCheckoutApi(
+      authedApi: AuthedApi(
+        baseUrl: Uri.parse('https://api.suqnaa.test'),
+        client: client,
+      ),
+    );
+
+    final result = await api.prepare('access-token', orderId: orderId);
+    expect(result.provider, 'stripe');
+    expect(result.nextAction, CheckoutNextAction.redirectToProvider);
+    expect(result.requiresProviderRedirect, isTrue);
+    expect(result.checkoutUrl?.host, 'checkout.stripe.com');
+
+    final untrustedClient = MockClient((request) async => http.Response(
+      hostedCheckoutResponse(url: 'https://evil.example/pay'),
+      200,
+    ));
+    final untrustedApi = OrderCheckoutApi(
+      authedApi: AuthedApi(
+        baseUrl: Uri.parse('https://api.suqnaa.test'),
+        client: untrustedClient,
+      ),
+    );
+    await expectLater(
+      untrustedApi.prepare('access-token', orderId: orderId),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('rejects a configuration response that claims a configured provider', () async {
     final client = MockClient((request) async {
       return http.Response(checkoutResponse(provider: 'configured'), 200);
     });

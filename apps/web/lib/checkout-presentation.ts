@@ -27,6 +27,10 @@ export function checkoutNextActionMessage(
     configure_xmr_payment_address: [
       'The payment address must be configured before payment can begin.',
       'يجب إعداد عنوان الدفع قبل بدء الدفع.'
+    ],
+    redirect_to_provider: [
+      'Continue to the secure payment provider to complete payment.',
+      'تابع إلى مزود الدفع الآمن لإكمال الدفع.'
     ]
   };
 

@@ -10,33 +10,50 @@ export type CheckoutNextAction =
   | 'configure_card_provider'
   | 'configure_bank_transfer_instructions'
   | 'configure_wallet_provider'
-  | 'configure_xmr_payment_address';
+  | 'configure_xmr_payment_address'
+  | 'redirect_to_provider';
 
-export interface CheckoutPreparationResponse {
-  accepted: true;
-  status: 'configuration_required';
-  order: {
-    id: string;
-    listingId: string;
-    amount: string | number;
-    currencyCode: string;
-    status: 'pending';
-    paymentMethod: CheckoutPaymentMethod;
-  };
-  payment: {
-    provider: null;
-    nextAction: CheckoutNextAction;
-  };
-  releaseModel: 'hold_until_fulfilment_or_dispute_resolution';
+interface CheckoutOrderSnapshot {
+  id: string;
+  listingId: string;
+  amount: string | number;
+  currencyCode: string;
+  status: 'pending';
+  paymentMethod: CheckoutPaymentMethod;
 }
+
+export type CheckoutPreparationResponse =
+  | {
+      accepted: true;
+      status: 'configuration_required';
+      order: CheckoutOrderSnapshot;
+      payment: {
+        provider: null;
+        nextAction: Exclude<CheckoutNextAction, 'redirect_to_provider'>;
+      };
+      releaseModel: 'hold_until_fulfilment_or_dispute_resolution';
+    }
+  | {
+      accepted: true;
+      status: 'redirect_required';
+      order: CheckoutOrderSnapshot;
+      payment: {
+        provider: 'stripe';
+        nextAction: 'redirect_to_provider';
+        checkoutUrl: string;
+        expiresAt: string;
+      };
+      releaseModel: 'hold_until_fulfilment_or_dispute_resolution';
+    };
 
 export function prepareProtectedCheckout(
   orderId: string,
+  locale: 'en' | 'ar',
   challengeResponse?: string
 ): Promise<CheckoutPreparationResponse> {
   return postAuthed<CheckoutPreparationResponse>(
     '/v1/payments/protected-checkout',
-    { orderId },
+    { orderId, locale },
     challengeResponse
   );
 }
