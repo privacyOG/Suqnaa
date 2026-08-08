@@ -14,6 +14,7 @@ const routePermissions: readonly {
 }[] = [
   { method: 'GET', pattern: /^\/v1\/operations\/health(?:\?.*)?$/, permission: 'operations.access' },
   { method: 'GET', pattern: /^\/v1\/operations\/queue(?:\?.*)?$/, permission: 'moderation.queue.read' },
+  { method: 'GET', pattern: /^\/v1\/operations\/queue\/[0-9a-fA-F-]+\/conversation-context(?:\?.*)?$/, permission: 'moderation.queue.read' },
   { method: 'POST', pattern: /^\/v1\/operations\/queue\/[0-9a-fA-F-]+\/complete(?:\?.*)?$/, permission: 'moderation.queue.resolve' },
   { method: 'POST', pattern: /^\/v1\/operations\/queue\/[0-9a-fA-F-]+\/listing-status(?:\?.*)?$/, permission: 'moderation.listing.manage' },
   { method: 'POST', pattern: /^\/v1\/operations\/queue\/[0-9a-fA-F-]+\/account-status(?:\?.*)?$/, permission: 'moderation.account.manage' },
