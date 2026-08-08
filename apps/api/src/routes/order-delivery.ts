@@ -35,12 +35,21 @@ const deliveryEvidenceBody = z.object({
 }).strict();
 
 class OrderDeliveryError extends Error {
-  constructor(readonly statusCode: 400 | 403 | 404 | 409 | 422, readonly code: string) {
+  constructor(
+    readonly statusCode: 400 | 403 | 404 | 409 | 422,
+    readonly code: string
+  ) {
     super(code);
   }
 }
 
-function enforceLimit(request: FastifyRequest, reply: FastifyReply, accountId: string, group: string, limit: number): boolean {
+function enforceLimit(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  accountId: string,
+  group: string,
+  limit: number
+): boolean {
   const result = checkRateLimit({
     group,
     identifiers: [`account:${accountId}`, `ip:${request.ip}`],
@@ -56,7 +65,12 @@ function enforceLimit(request: FastifyRequest, reply: FastifyReply, accountId: s
 function safeHttpsUrl(value: string | undefined): string | null {
   if (!value) return null;
   const parsed = new URL(value);
-  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !parsed.hostname) {
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username ||
+    parsed.password ||
+    !parsed.hostname
+  ) {
     throw new OrderDeliveryError(400, 'delivery_evidence_url_invalid');
   }
   return parsed.toString();
@@ -68,15 +82,13 @@ function pickupCode(): string {
 }
 
 function pickupHash(code: string): Buffer {
-  return createHash('sha256').update(code.replaceAll('-', '').trim().toUpperCase()).digest();
+  return createHash('sha256')
+    .update(code.replaceAll('-', '').trim().toUpperCase())
+    .digest();
 }
 
 function storedHash(value: string): Buffer {
   return Buffer.from(value, 'hex');
-}
-
-function timelineDetails(details: Record<string, unknown>) {
-  return details;
 }
 
 async function appendTimeline(executor: any, input: {
@@ -92,26 +104,44 @@ async function appendTimeline(executor: any, input: {
     actor_id: input.actorId ?? null,
     event_key: input.eventKey ?? `${input.eventType}:${randomUUID()}`,
     event_type: input.eventType,
-    details: JSON.stringify(timelineDetails(input.details ?? {})),
+    details: JSON.stringify(input.details ?? {}),
     occurred_at: input.occurredAt ?? new Date(),
     created_at: new Date()
-  }).onConflict((conflict: any) => conflict.columns(['order_id', 'event_key']).doNothing()).execute();
+  }).onConflict((conflict: any) =>
+    conflict.columns(['order_id', 'event_key']).doNothing()
+  ).execute();
 }
 
 async function participantOrder(executor: any, orderId: string, accountId: string) {
   const order = await executor.selectFrom('transactions')
     .select([
-      'id', 'listing_id', 'buyer_id', 'seller_id', 'status', 'amount', 'item_amount', 'shipping_amount', 'currency_code'
+      'id',
+      'listing_id',
+      'buyer_id',
+      'seller_id',
+      'status',
+      'amount',
+      'item_amount',
+      'shipping_amount',
+      'currency_code'
     ])
     .where('id', '=', orderId)
     .executeTakeFirst();
+
   if (!order || (order.buyer_id !== accountId && order.seller_id !== accountId)) {
     throw new OrderDeliveryError(404, 'order_not_found');
   }
-  return { order, role: order.buyer_id === accountId ? 'buyer' as const : 'seller' as const };
+
+  return {
+    order,
+    role: order.buyer_id === accountId ? 'buyer' as const : 'seller' as const
+  };
 }
 
-function addressResponse(prefix: '' | 'pickup_', row: Record<string, any> | undefined | null) {
+function addressResponse(
+  prefix: '' | 'pickup_',
+  row: Record<string, any> | undefined | null
+) {
   if (!row) return null;
   const line1 = row[`${prefix}address_line1`];
   const locality = row[`${prefix}locality`];
@@ -129,26 +159,40 @@ function addressResponse(prefix: '' | 'pickup_', row: Record<string, any> | unde
   };
 }
 
+async function fulfilmentForOrder(executor: any, orderId: string) {
+  return executor.selectFrom('fulfilments')
+    .innerJoin('payment_intents', 'payment_intents.id', 'fulfilments.payment_intent_id')
+    .selectAll('fulfilments')
+    .where('payment_intents.transaction_id', '=', orderId)
+    .executeTakeFirst();
+}
+
 export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
   app.get('/market/orders/:orderId/delivery', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const params = orderParams.parse(request.params);
     try {
       const { order, role } = await participantOrder(db, params.orderId, authRequest.user.sub);
-      const intent = await db.selectFrom('payment_intents').select(['id', 'status'])
-        .where('transaction_id', '=', order.id).executeTakeFirst();
-      const fulfilment = intent
-        ? await db.selectFrom('fulfilments').selectAll().where('payment_intent_id', '=', intent.id).executeTakeFirst()
-        : null;
-      const details = await db.selectFrom('order_fulfilment_details').selectAll()
-        .where('order_id', '=', order.id).executeTakeFirst();
+      const fulfilment = await fulfilmentForOrder(db, order.id);
+      const details = await db.selectFrom('order_fulfilment_details')
+        .selectAll()
+        .where('order_id', '=', order.id)
+        .executeTakeFirst();
       const proof = await db.selectFrom('pickup_proofs')
         .select(['id', 'expires_at', 'verified_at', 'revoked_at'])
         .where('order_id', '=', order.id)
         .orderBy('issued_at', 'desc')
         .executeTakeFirst();
       const evidence = await db.selectFrom('order_fulfilment_evidence')
-        .select(['id', 'actor_id', 'evidence_type', 'reference', 'evidence_url', 'note', 'occurred_at'])
+        .select([
+          'id',
+          'actor_id',
+          'evidence_type',
+          'reference',
+          'evidence_url',
+          'note',
+          'occurred_at'
+        ])
         .where('order_id', '=', order.id)
         .orderBy('occurred_at', 'asc')
         .orderBy('id', 'asc')
@@ -157,6 +201,7 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
       const paymentPassed = order.status !== 'pending';
       const maySeeShippingAddress = role === 'buyer' || paymentPassed;
       const maySeePickupAddress = role === 'seller' || paymentPassed;
+
       return reply.send({
         orderId: order.id,
         role,
@@ -189,7 +234,10 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           buyerConfirmedAt: fulfilment.buyer_confirmed_at
         } : null,
         pickupProof: proof ? {
-          active: proof.verified_at === null && proof.revoked_at === null && new Date(proof.expires_at) > new Date(),
+          active:
+            proof.verified_at === null &&
+            proof.revoked_at === null &&
+            new Date(proof.expires_at) > new Date(),
           expiresAt: proof.expires_at,
           verifiedAt: proof.verified_at
         } : null,
@@ -204,7 +252,9 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
         }))
       });
     } catch (error) {
-      if (error instanceof OrderDeliveryError) return reply.code(error.statusCode).send({ error: error.code });
+      if (error instanceof OrderDeliveryError) {
+        return reply.code(error.statusCode).send({ error: error.code });
+      }
       throw error;
     }
   });
@@ -220,16 +270,24 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
       const result = await db.transaction().execute(async (transaction) => {
         const { order, role } = await participantOrder(transaction, params.orderId, accountId);
         if (role !== 'buyer') throw new OrderDeliveryError(403, 'buyer_required');
-        if (order.status !== 'pending') throw new OrderDeliveryError(409, 'delivery_locked_after_payment');
+        if (order.status !== 'pending') {
+          throw new OrderDeliveryError(409, 'delivery_locked_after_payment');
+        }
 
         const intent = await transaction.selectFrom('payment_intents')
           .select(['id', 'status'])
           .where('transaction_id', '=', order.id)
           .executeTakeFirst();
-        if (!intent || intent.status !== 'created') throw new OrderDeliveryError(409, 'payment_collection_already_started');
+        if (!intent || intent.status !== 'created') {
+          throw new OrderDeliveryError(409, 'payment_collection_already_started');
+        }
         const session = await transaction.selectFrom('payment_collection_sessions')
-          .select(['id']).where('payment_intent_id', '=', intent.id).executeTakeFirst();
-        if (session) throw new OrderDeliveryError(409, 'payment_collection_already_started');
+          .select(['id'])
+          .where('payment_intent_id', '=', intent.id)
+          .executeTakeFirst();
+        if (session) {
+          throw new OrderDeliveryError(409, 'payment_collection_already_started');
+        }
 
         const listing = await transaction.selectFrom('listings')
           .select(['id', 'allow_pickup', 'allow_delivery', 'currency_code'])
@@ -237,8 +295,15 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           .executeTakeFirst();
         if (!listing) throw new OrderDeliveryError(404, 'listing_not_found');
 
+        const fulfilment = await fulfilmentForOrder(transaction, order.id);
+        if (!fulfilment) {
+          throw new OrderDeliveryError(409, 'fulfilment_context_unavailable');
+        }
+
         const existing = await transaction.selectFrom('order_fulfilment_details')
-          .selectAll().where('order_id', '=', order.id).executeTakeFirst();
+          .selectAll()
+          .where('order_id', '=', order.id)
+          .executeTakeFirst();
         const now = new Date();
         let values: Record<string, any>;
         let shippingAmount = 0;
@@ -246,30 +311,34 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
         let eventDetails: Record<string, unknown>;
 
         if (body.mode === 'shipping') {
-          if (!listing.allow_delivery) throw new OrderDeliveryError(422, 'delivery_not_allowed');
+          if (!listing.allow_delivery) {
+            throw new OrderDeliveryError(422, 'delivery_not_allowed');
+          }
           const option = await transaction.selectFrom('listing_shipping_options')
             .selectAll()
             .where('id', '=', body.shippingOptionId)
             .where('listing_id', '=', listing.id)
             .where('is_active', '=', true)
             .executeTakeFirst();
-          if (!option) throw new OrderDeliveryError(422, 'shipping_option_unavailable');
-          if (String(option.currency_code).toUpperCase() !== String(order.currency_code).toUpperCase()) {
+          if (!option) {
+            throw new OrderDeliveryError(422, 'shipping_option_unavailable');
+          }
+          if (
+            String(option.currency_code).toUpperCase() !==
+            String(order.currency_code).toUpperCase()
+          ) {
             throw new OrderDeliveryError(409, 'shipping_currency_mismatch');
           }
           shippingAmount = Number(option.amount);
           values = {
             order_id: order.id,
-            fulfilment_id: (await transaction.selectFrom('fulfilments')
-              .innerJoin('payment_intents', 'payment_intents.id', 'fulfilments.payment_intent_id')
-              .select('fulfilments.id as id')
-              .where('payment_intents.transaction_id', '=', order.id).executeTakeFirstOrThrow()).id,
+            fulfilment_id: fulfilment.id,
             mode: 'shipping',
             shipping_option_id: option.id,
             shipping_method_label: option.label,
             shipping_carrier: option.carrier,
             shipping_service_code: option.service_code,
-            shipping_amount: Number(option.amount).toFixed(2),
+            shipping_amount: shippingAmount.toFixed(2),
             currency_code: order.currency_code,
             recipient_name: body.recipientName,
             address_line1: body.address.line1,
@@ -289,13 +358,15 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
             updated_at: now
           };
           eventType = 'delivery_selected';
-          eventDetails = { mode: 'shipping', shippingMethodLabel: option.label, shippingAmount: option.amount };
+          eventDetails = {
+            mode: 'shipping',
+            shippingMethodLabel: option.label,
+            shippingAmount: option.amount
+          };
         } else {
-          if (!listing.allow_pickup) throw new OrderDeliveryError(422, 'pickup_not_allowed');
-          const fulfilment = await transaction.selectFrom('fulfilments')
-            .innerJoin('payment_intents', 'payment_intents.id', 'fulfilments.payment_intent_id')
-            .select('fulfilments.id as id')
-            .where('payment_intents.transaction_id', '=', order.id).executeTakeFirstOrThrow();
+          if (!listing.allow_pickup) {
+            throw new OrderDeliveryError(422, 'pickup_not_allowed');
+          }
           values = {
             order_id: order.id,
             fulfilment_id: fulfilment.id,
@@ -351,12 +422,17 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           postal_code: values.postal_code,
           country_code: values.country_code
         });
+
         if (existingComparable === nextComparable) {
-          return { unchanged: true, totalAmount: order.amount, shippingAmount: order.shipping_amount, mode: existing!.mode };
+          return {
+            unchanged: true,
+            totalAmount: order.amount,
+            shippingAmount: order.shipping_amount,
+            mode: existing!.mode
+          };
         }
 
-        const itemAmount = Number(order.item_amount);
-        const totalAmount = itemAmount + shippingAmount;
+        const totalAmount = Number(order.item_amount) + shippingAmount;
         await transaction.updateTable('transactions').set({
           shipping_amount: shippingAmount.toFixed(2),
           amount: totalAmount.toFixed(2),
@@ -364,11 +440,16 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
         }).where('id', '=', order.id).execute();
 
         if (existing) {
-          await transaction.updateTable('order_fulfilment_details').set(values)
-            .where('id', '=', existing.id).execute();
+          await transaction.updateTable('order_fulfilment_details')
+            .set(values)
+            .where('id', '=', existing.id)
+            .execute();
         } else {
-          await transaction.insertInto('order_fulfilment_details').values({ ...values, created_at: now }).execute();
+          await transaction.insertInto('order_fulfilment_details')
+            .values({ ...values, created_at: now })
+            .execute();
         }
+
         await appendTimeline(transaction, {
           orderId: order.id,
           actorId: accountId,
@@ -376,7 +457,13 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           details: eventDetails,
           occurredAt: now
         });
-        return { unchanged: false, totalAmount: totalAmount.toFixed(2), shippingAmount: shippingAmount.toFixed(2), mode: body.mode };
+
+        return {
+          unchanged: false,
+          totalAmount: totalAmount.toFixed(2),
+          shippingAmount: shippingAmount.toFixed(2),
+          mode: body.mode
+        };
       });
 
       writeSecurityAudit(app.log, {
@@ -386,11 +473,17 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
         targetId: params.orderId,
         ip: request.ip,
         reasonCodes: [result.unchanged ? 'idempotent' : 'buyer_selected_fulfilment'],
-        metadata: { mode: result.mode, shippingAmount: result.shippingAmount, unchanged: result.unchanged }
+        metadata: {
+          mode: result.mode,
+          shippingAmount: result.shippingAmount,
+          unchanged: result.unchanged
+        }
       });
       return reply.send({ accepted: true, orderId: params.orderId, ...result });
     } catch (error) {
-      if (error instanceof OrderDeliveryError) return reply.code(error.statusCode).send({ error: error.code });
+      if (error instanceof OrderDeliveryError) {
+        return reply.code(error.statusCode).send({ error: error.code });
+      }
       throw error;
     }
   });
@@ -401,17 +494,28 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const params = orderParams.parse(request.params);
     const body = pickupDetailsBody.parse(request.body);
     if (!enforceLimit(request, reply, accountId, 'order.pickup.details', 30)) return;
+
     try {
       await db.transaction().execute(async (transaction) => {
         const { order, role } = await participantOrder(transaction, params.orderId, accountId);
         if (role !== 'seller') throw new OrderDeliveryError(403, 'seller_required');
         if (order.status !== 'paid') throw new OrderDeliveryError(409, 'paid_order_required');
-        const details = await transaction.selectFrom('order_fulfilment_details').selectAll()
-          .where('order_id', '=', order.id).executeTakeFirst();
-        if (!details || details.mode !== 'pickup') throw new OrderDeliveryError(409, 'pickup_not_selected');
-        const fulfilment = await transaction.selectFrom('fulfilments').select(['id', 'status'])
-          .where('id', '=', details.fulfilment_id).executeTakeFirstOrThrow();
-        if (fulfilment.status !== 'not_started') throw new OrderDeliveryError(409, 'pickup_details_locked');
+
+        const details = await transaction.selectFrom('order_fulfilment_details')
+          .selectAll()
+          .where('order_id', '=', order.id)
+          .executeTakeFirst();
+        if (!details || details.mode !== 'pickup') {
+          throw new OrderDeliveryError(409, 'pickup_not_selected');
+        }
+        const fulfilment = await transaction.selectFrom('fulfilments')
+          .select(['id', 'status'])
+          .where('id', '=', details.fulfilment_id)
+          .executeTakeFirstOrThrow();
+        if (fulfilment.status !== 'not_started') {
+          throw new OrderDeliveryError(409, 'pickup_details_locked');
+        }
+
         const now = new Date();
         await transaction.updateTable('order_fulfilment_details').set({
           pickup_address_line1: body.address.line1,
@@ -424,21 +528,32 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           updated_by: accountId,
           updated_at: now
         }).where('id', '=', details.id).execute();
+
         await appendTimeline(transaction, {
           orderId: order.id,
           actorId: accountId,
           eventType: 'pickup_details_set',
-          details: { locality: body.address.locality, region: body.address.region },
+          details: {
+            locality: body.address.locality,
+            region: body.address.region
+          },
           occurredAt: now
         });
       });
+
       writeSecurityAudit(app.log, {
-        action: 'order.pickup.details', decision: 'allow', actorId: accountId,
-        targetId: params.orderId, ip: request.ip, reasonCodes: ['seller_disclosed_after_payment']
+        action: 'order.pickup.details',
+        decision: 'allow',
+        actorId: accountId,
+        targetId: params.orderId,
+        ip: request.ip,
+        reasonCodes: ['seller_disclosed_after_payment']
       });
       return reply.send({ accepted: true, orderId: params.orderId });
     } catch (error) {
-      if (error instanceof OrderDeliveryError) return reply.code(error.statusCode).send({ error: error.code });
+      if (error instanceof OrderDeliveryError) {
+        return reply.code(error.statusCode).send({ error: error.code });
+      }
       throw error;
     }
   });
@@ -448,22 +563,33 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const accountId = authRequest.user.sub;
     const params = orderParams.parse(request.params);
     if (!enforceLimit(request, reply, accountId, 'order.pickup.proof.issue', 10)) return;
+
     try {
       const result = await db.transaction().execute(async (transaction) => {
         const { order, role } = await participantOrder(transaction, params.orderId, accountId);
         if (role !== 'buyer') throw new OrderDeliveryError(403, 'buyer_required');
         if (order.status !== 'paid') throw new OrderDeliveryError(409, 'paid_order_required');
-        const details = await transaction.selectFrom('order_fulfilment_details').selectAll()
-          .where('order_id', '=', order.id).executeTakeFirst();
-        if (!details || details.mode !== 'pickup') throw new OrderDeliveryError(409, 'pickup_not_selected');
-        const fulfilment = await transaction.selectFrom('fulfilments').select(['id', 'status'])
-          .where('id', '=', details.fulfilment_id).executeTakeFirstOrThrow();
-        if (fulfilment.status !== 'ready_for_pickup') throw new OrderDeliveryError(409, 'pickup_not_ready');
+
+        const details = await transaction.selectFrom('order_fulfilment_details')
+          .selectAll()
+          .where('order_id', '=', order.id)
+          .executeTakeFirst();
+        if (!details || details.mode !== 'pickup') {
+          throw new OrderDeliveryError(409, 'pickup_not_selected');
+        }
+        const fulfilment = await transaction.selectFrom('fulfilments')
+          .select(['id', 'status'])
+          .where('id', '=', details.fulfilment_id)
+          .executeTakeFirstOrThrow();
+        if (fulfilment.status !== 'ready_for_pickup') {
+          throw new OrderDeliveryError(409, 'pickup_not_ready');
+        }
 
         const code = pickupCode();
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-        await transaction.updateTable('pickup_proofs').set({ revoked_at: now })
+        await transaction.updateTable('pickup_proofs')
+          .set({ revoked_at: now })
           .where('order_id', '=', order.id)
           .where('verified_at', 'is', null)
           .where('revoked_at', 'is', null)
@@ -486,9 +612,19 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
         });
         return { code, expiresAt };
       });
-      return reply.send({ accepted: true, orderId: params.orderId, pickupProof: { code: result.code, expiresAt: result.expiresAt } });
+
+      return reply.send({
+        accepted: true,
+        orderId: params.orderId,
+        pickupProof: {
+          code: result.code,
+          expiresAt: result.expiresAt
+        }
+      });
     } catch (error) {
-      if (error instanceof OrderDeliveryError) return reply.code(error.statusCode).send({ error: error.code });
+      if (error instanceof OrderDeliveryError) {
+        return reply.code(error.statusCode).send({ error: error.code });
+      }
       throw error;
     }
   });
@@ -499,42 +635,86 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const params = orderParams.parse(request.params);
     const body = pickupProofBody.parse(request.body);
     if (!enforceLimit(request, reply, accountId, 'order.pickup.proof.verify', 20)) return;
+
     try {
       const result = await db.transaction().execute(async (transaction) => {
         const { order, role } = await participantOrder(transaction, params.orderId, accountId);
         if (role !== 'seller') throw new OrderDeliveryError(403, 'seller_required');
         if (order.status !== 'paid') throw new OrderDeliveryError(409, 'paid_order_required');
-        const details = await transaction.selectFrom('order_fulfilment_details').selectAll()
-          .where('order_id', '=', order.id).executeTakeFirst();
-        if (!details || details.mode !== 'pickup') throw new OrderDeliveryError(409, 'pickup_not_selected');
-        const fulfilment = await transaction.selectFrom('fulfilments').select(['id', 'status'])
-          .where('id', '=', details.fulfilment_id).executeTakeFirstOrThrow();
-        if (fulfilment.status === 'delivered' || fulfilment.status === 'received_confirmed') {
-          return { unchanged: true, status: fulfilment.status };
+
+        const details = await transaction.selectFrom('order_fulfilment_details')
+          .selectAll()
+          .where('order_id', '=', order.id)
+          .executeTakeFirst();
+        if (!details || details.mode !== 'pickup') {
+          throw new OrderDeliveryError(409, 'pickup_not_selected');
         }
-        if (fulfilment.status !== 'ready_for_pickup') throw new OrderDeliveryError(409, 'pickup_not_ready');
-        const proof = await transaction.selectFrom('pickup_proofs').selectAll()
+        const fulfilment = await transaction.selectFrom('fulfilments')
+          .select(['id', 'status'])
+          .where('id', '=', details.fulfilment_id)
+          .executeTakeFirstOrThrow();
+
+        if (
+          fulfilment.status === 'delivered' ||
+          fulfilment.status === 'received_confirmed'
+        ) {
+          return {
+            unchanged: true,
+            status: fulfilment.status,
+            invalid: false
+          };
+        }
+        if (fulfilment.status !== 'ready_for_pickup') {
+          throw new OrderDeliveryError(409, 'pickup_not_ready');
+        }
+
+        const proof = await transaction.selectFrom('pickup_proofs')
+          .selectAll()
           .where('order_id', '=', order.id)
           .where('verified_at', 'is', null)
           .where('revoked_at', 'is', null)
           .orderBy('issued_at', 'desc')
           .executeTakeFirst();
-        if (!proof || new Date(proof.expires_at) <= new Date()) throw new OrderDeliveryError(409, 'pickup_proof_unavailable');
-        if (Number(proof.attempt_count) >= 10) throw new OrderDeliveryError(409, 'pickup_proof_locked');
+        if (!proof || new Date(proof.expires_at) <= new Date()) {
+          throw new OrderDeliveryError(409, 'pickup_proof_unavailable');
+        }
+        if (Number(proof.attempt_count) >= 10) {
+          throw new OrderDeliveryError(409, 'pickup_proof_locked');
+        }
 
         const candidate = pickupHash(body.code);
         const expected = storedHash(String(proof.code_hash));
-        if (candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) {
-          await transaction.updateTable('pickup_proofs').set({ attempt_count: Number(proof.attempt_count) + 1 })
-            .where('id', '=', proof.id).execute();
-          throw new OrderDeliveryError(403, 'pickup_proof_invalid');
+        if (
+          candidate.length !== expected.length ||
+          !timingSafeEqual(candidate, expected)
+        ) {
+          const attemptCount = Number(proof.attempt_count) + 1;
+          await transaction.updateTable('pickup_proofs')
+            .set({ attempt_count: attemptCount })
+            .where('id', '=', proof.id)
+            .execute();
+          return {
+            unchanged: true,
+            status: fulfilment.status,
+            invalid: true,
+            attemptCount
+          };
         }
 
         const now = new Date();
-        await transaction.updateTable('pickup_proofs').set({ verified_at: now, verified_by: accountId })
-          .where('id', '=', proof.id).execute();
-        await transaction.updateTable('fulfilments').set({ status: 'delivered', delivered_at: now, updated_at: now })
-          .where('id', '=', fulfilment.id).where('status', '=', 'ready_for_pickup').execute();
+        await transaction.updateTable('pickup_proofs')
+          .set({ verified_at: now, verified_by: accountId })
+          .where('id', '=', proof.id)
+          .execute();
+        await transaction.updateTable('fulfilments')
+          .set({
+            status: 'delivered',
+            delivered_at: now,
+            updated_at: now
+          })
+          .where('id', '=', fulfilment.id)
+          .where('status', '=', 'ready_for_pickup')
+          .execute();
         await transaction.insertInto('order_fulfilment_evidence').values({
           order_id: order.id,
           fulfilment_id: fulfilment.id,
@@ -553,15 +733,53 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           details: { proofVerified: true },
           occurredAt: now
         });
-        return { unchanged: false, status: 'delivered' };
+
+        return {
+          unchanged: false,
+          status: 'delivered',
+          invalid: false
+        };
       });
+
+      if (result.invalid) {
+        writeSecurityAudit(app.log, {
+          action: 'order.pickup.proof.verify',
+          decision: 'reject',
+          actorId: accountId,
+          targetId: params.orderId,
+          ip: request.ip,
+          reasonCodes: [
+            result.attemptCount >= 10
+              ? 'pickup_proof_locked'
+              : 'pickup_proof_invalid'
+          ],
+          metadata: { attemptCount: result.attemptCount }
+        });
+        return reply.code(403).send({
+          error: result.attemptCount >= 10
+            ? 'pickup_proof_locked'
+            : 'pickup_proof_invalid'
+        });
+      }
+
       writeSecurityAudit(app.log, {
-        action: 'order.pickup.proof.verify', decision: 'allow', actorId: accountId,
-        targetId: params.orderId, ip: request.ip, reasonCodes: [result.unchanged ? 'idempotent' : 'pickup_proof_verified']
+        action: 'order.pickup.proof.verify',
+        decision: 'allow',
+        actorId: accountId,
+        targetId: params.orderId,
+        ip: request.ip,
+        reasonCodes: [result.unchanged ? 'idempotent' : 'pickup_proof_verified']
       });
-      return reply.send({ accepted: true, orderId: params.orderId, ...result });
+      return reply.send({
+        accepted: true,
+        orderId: params.orderId,
+        unchanged: result.unchanged,
+        status: result.status
+      });
     } catch (error) {
-      if (error instanceof OrderDeliveryError) return reply.code(error.statusCode).send({ error: error.code });
+      if (error instanceof OrderDeliveryError) {
+        return reply.code(error.statusCode).send({ error: error.code });
+      }
       throw error;
     }
   });
@@ -573,23 +791,44 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const body = deliveryEvidenceBody.parse(request.body);
     const evidenceUrl = safeHttpsUrl(body.evidenceUrl);
     if (!enforceLimit(request, reply, accountId, 'order.delivery.evidence', 30)) return;
+
     try {
       const result = await db.transaction().execute(async (transaction) => {
         const { order, role } = await participantOrder(transaction, params.orderId, accountId);
         if (role !== 'seller') throw new OrderDeliveryError(403, 'seller_required');
         if (order.status !== 'paid') throw new OrderDeliveryError(409, 'paid_order_required');
-        const details = await transaction.selectFrom('order_fulfilment_details').selectAll()
-          .where('order_id', '=', order.id).executeTakeFirst();
-        if (!details || details.mode !== 'shipping') throw new OrderDeliveryError(409, 'shipping_not_selected');
-        const fulfilment = await transaction.selectFrom('fulfilments').selectAll()
-          .where('id', '=', details.fulfilment_id).executeTakeFirstOrThrow();
-        if (fulfilment.status === 'delivered' || fulfilment.status === 'received_confirmed') {
+
+        const details = await transaction.selectFrom('order_fulfilment_details')
+          .selectAll()
+          .where('order_id', '=', order.id)
+          .executeTakeFirst();
+        if (!details || details.mode !== 'shipping') {
+          throw new OrderDeliveryError(409, 'shipping_not_selected');
+        }
+        const fulfilment = await transaction.selectFrom('fulfilments')
+          .selectAll()
+          .where('id', '=', details.fulfilment_id)
+          .executeTakeFirstOrThrow();
+        if (
+          fulfilment.status === 'delivered' ||
+          fulfilment.status === 'received_confirmed'
+        ) {
           return { unchanged: true, status: fulfilment.status };
         }
-        if (fulfilment.status !== 'shipped') throw new OrderDeliveryError(409, 'shipment_not_started');
+        if (fulfilment.status !== 'shipped') {
+          throw new OrderDeliveryError(409, 'shipment_not_started');
+        }
+
         const now = new Date();
-        await transaction.updateTable('fulfilments').set({ status: 'delivered', delivered_at: now, updated_at: now })
-          .where('id', '=', fulfilment.id).where('status', '=', 'shipped').execute();
+        await transaction.updateTable('fulfilments')
+          .set({
+            status: 'delivered',
+            delivered_at: now,
+            updated_at: now
+          })
+          .where('id', '=', fulfilment.id)
+          .where('status', '=', 'shipped')
+          .execute();
         await transaction.insertInto('order_fulfilment_evidence').values({
           order_id: order.id,
           fulfilment_id: fulfilment.id,
@@ -605,18 +844,29 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
           orderId: order.id,
           actorId: accountId,
           eventType: 'delivered',
-          details: { evidenceRecorded: true, carrier: fulfilment.carrier ?? null },
+          details: {
+            evidenceRecorded: true,
+            carrier: fulfilment.carrier ?? null
+          },
           occurredAt: now
         });
+
         return { unchanged: false, status: 'delivered' };
       });
+
       writeSecurityAudit(app.log, {
-        action: 'order.delivery.evidence', decision: 'allow', actorId: accountId,
-        targetId: params.orderId, ip: request.ip, reasonCodes: [result.unchanged ? 'idempotent' : 'seller_delivery_evidence']
+        action: 'order.delivery.evidence',
+        decision: 'allow',
+        actorId: accountId,
+        targetId: params.orderId,
+        ip: request.ip,
+        reasonCodes: [result.unchanged ? 'idempotent' : 'seller_delivery_evidence']
       });
       return reply.send({ accepted: true, orderId: params.orderId, ...result });
     } catch (error) {
-      if (error instanceof OrderDeliveryError) return reply.code(error.statusCode).send({ error: error.code });
+      if (error instanceof OrderDeliveryError) {
+        return reply.code(error.statusCode).send({ error: error.code });
+      }
       throw error;
     }
   });
@@ -643,7 +893,9 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
         }))
       });
     } catch (error) {
-      if (error instanceof OrderDeliveryError) return reply.code(error.statusCode).send({ error: error.code });
+      if (error instanceof OrderDeliveryError) {
+        return reply.code(error.statusCode).send({ error: error.code });
+      }
       throw error;
     }
   });
