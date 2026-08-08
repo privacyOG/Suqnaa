@@ -13,6 +13,7 @@ const routePermissions: readonly {
   permission: AdministrativePermission;
 }[] = [
   { method: 'GET', pattern: /^\/v1\/operations\/health(?:\?.*)?$/, permission: 'operations.access' },
+  { method: 'GET', pattern: /^\/v1\/operations\/dashboard(?:\?.*)?$/, permission: 'operations.access' },
   { method: 'GET', pattern: /^\/v1\/operations\/queue(?:\?.*)?$/, permission: 'moderation.queue.read' },
   { method: 'GET', pattern: /^\/v1\/operations\/queue\/[0-9a-fA-F-]+\/conversation-context(?:\?.*)?$/, permission: 'moderation.queue.read' },
   { method: 'POST', pattern: /^\/v1\/operations\/queue\/[0-9a-fA-F-]+\/complete(?:\?.*)?$/, permission: 'moderation.queue.resolve' },
