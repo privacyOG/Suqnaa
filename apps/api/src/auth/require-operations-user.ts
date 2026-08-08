@@ -25,7 +25,12 @@ const routePermissions: readonly {
   { method: 'POST', pattern: /^\/v1\/operations\/payments\/[0-9a-fA-F-]+\/request(?:\?.*)?$/, permission: 'payments.request' },
   { method: 'POST', pattern: /^\/v1\/operations\/payment-operations\/[0-9a-fA-F-]+\/decision(?:\?.*)?$/, permission: 'payments.approve' },
   { method: 'GET', pattern: /^\/v1\/operations\/settlements(?:\?.*)?$/, permission: 'settlements.read' },
-  { method: 'POST', pattern: /^\/v1\/operations\/settlements\/run(?:\?.*)?$/, permission: 'settlements.run' }
+  { method: 'POST', pattern: /^\/v1\/operations\/settlements\/run(?:\?.*)?$/, permission: 'settlements.run' },
+  { method: 'GET', pattern: /^\/v1\/operations\/disputes(?:\?.*)?$/, permission: 'disputes.read' },
+  { method: 'GET', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+(?:\?.*)?$/, permission: 'disputes.read' },
+  { method: 'POST', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+\/review(?:\?.*)?$/, permission: 'disputes.review' },
+  { method: 'POST', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+\/resolve(?:\?.*)?$/, permission: 'disputes.resolve' },
+  { method: 'POST', pattern: /^\/v1\/operations\/disputes\/[0-9a-fA-F-]+\/appeal-decision(?:\?.*)?$/, permission: 'disputes.resolve' }
 ];
 
 export function permissionForOperationsRequest(method: string, url: string): AdministrativePermission | null {
