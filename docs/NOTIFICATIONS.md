@@ -22,13 +22,13 @@ Authenticated routes:
 - `POST /v1/notifications/push-targets` registers or refreshes an owned provider push destination.
 - `DELETE /v1/notifications/push-targets/:targetId` revokes an owned push destination.
 
-In-app delivery is mandatory and is not disabled by outbound preferences.
+In-app delivery is mandatory and is not disabled by outbound preferences. A muted conversation therefore still produces the durable in-app `message.received` record so notification history remains coherent, but it does not enqueue email or push delivery for that message.
 
 ## Default outbound policy
 
-Email and push are requested for messages, offers, orders, payments, and fulfilment events. Dispute and account-security events also request SMS. User preferences default to email enabled, push enabled, and SMS disabled; SMS therefore requires an explicit opt-in before any queued SMS delivery is created.
+Email and push are requested for unmuted messages, offers, orders, payments, and fulfilment events. Dispute and account-security events also request SMS. User preferences default to email enabled, push enabled, and SMS disabled; SMS therefore requires an explicit opt-in before any queued SMS delivery is created.
 
-Outbound rows are only created when a usable destination exists. Email and SMS require a currently verified contact. Push requires an active registered push target.
+Outbound rows are only created when a usable destination exists. Email and SMS require a currently verified contact. Push requires an active registered push target. Conversation mutes take precedence over message email/push preferences.
 
 ## Provider contract
 
@@ -82,6 +82,7 @@ Worker controls:
 - Push targets cannot be silently transferred between accounts when a provider/destination pair already belongs to another user.
 - Full email, phone, and push destinations are retained only where delivery requires them; they are never returned by the in-app notification API.
 - Contact destinations are snapshotted only after contact verification.
+- Conversation mutes suppress message email/push fan-out without deleting or hiding the recipient's in-app notification history.
 - Outbound provider failures do not expose provider response bodies to users.
 - Account-security notifications are derived from durable security audit records, keeping notification creation in the same database transaction as the audited action when that action writes its audit record transactionally.
 - Dispute trigger coverage is present even while buyer/seller dispute submission remains quarantined; when the later dispute workflow writes the existing dispute tables, delivery semantics are already durable.
