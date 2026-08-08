@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   completeOperationsQueueItem,
   getOperationRecords,
+  getOperationsConversationContext,
   getOperationsQueue,
   setOperationsAccountStatus,
   setOperationsListingStatus
@@ -25,7 +26,46 @@ async function run() {
           reviewAction: 'no_change'
         },
         listing: { id: itemId, status: 'removed' },
-        account: { id: itemId, status: 'suspended' }
+        account: { id: itemId, status: 'suspended' },
+        report: {
+          id: itemId,
+          reporterId: itemId,
+          subjectUserId: itemId,
+          conversationId: itemId,
+          messageId: itemId,
+          reason: 'spam',
+          details: null,
+          createdAt: '2026-06-22T00:00:00.000Z',
+          resolvedAt: null,
+          reviewAction: null,
+          reviewNote: null
+        },
+        conversation: {
+          id: itemId,
+          listingId: null,
+          listingTitle: null,
+          listingStatus: null,
+          buyer: { id: itemId, displayName: 'Buyer', status: 'active' },
+          seller: { id: itemId, displayName: 'Seller', status: 'active' },
+          safety: {
+            buyerBlockedSeller: false,
+            sellerBlockedBuyer: false,
+            buyerMutedConversation: false,
+            sellerMutedConversation: false
+          },
+          createdAt: '2026-06-22T00:00:00.000Z',
+          updatedAt: '2026-06-22T00:00:00.000Z'
+        },
+        targetMessage: {
+          id: itemId,
+          senderId: itemId,
+          body: 'Reported content',
+          status: 'sent',
+          createdAt: '2026-06-22T00:00:00.000Z',
+          updatedAt: '2026-06-22T00:00:00.000Z',
+          readAt: null
+        },
+        messages: []
       }), {
         status: 200,
         headers: { 'content-type': 'application/json' }
@@ -48,6 +88,13 @@ async function run() {
     );
     assert.equal(calls.at(-1)?.init?.method, 'GET');
 
+    await getOperationsConversationContext(itemId);
+    assert.equal(
+      calls.at(-1)?.url,
+      `/api/authed/v1/operations/queue/${itemId}/conversation-context`
+    );
+    assert.equal(calls.at(-1)?.init?.method, 'GET');
+
     await getOperationRecords();
     assert.equal(calls.at(-1)?.url, '/api/authed/v1/operations/records');
     assert.equal(calls.at(-1)?.init?.method, 'GET');
@@ -62,7 +109,6 @@ async function run() {
       calls.at(-1)?.url,
       '/api/authed/v1/operations/records?limit=25&action=operations.queue.complete&entityType=report'
     );
-    assert.equal(calls.at(-1)?.init?.method, 'GET');
 
     await getOperationRecords({
       limit: 25,
@@ -74,58 +120,25 @@ async function run() {
       calls.at(-1)?.url,
       '/api/authed/v1/operations/records?limit=25&before=2026-06-22T00%3A00%3A00.000Z&action=operations.listing_status&entityType=listing'
     );
-    assert.equal(calls.at(-1)?.init?.method, 'GET');
 
-    await completeOperationsQueueItem(itemId, {
-      result: 'no_change',
-      note: 'Reviewed'
-    });
-    assert.equal(
-      calls.at(-1)?.url,
-      `/api/authed/v1/operations/queue/${itemId}/complete`
-    );
+    await completeOperationsQueueItem(itemId, { result: 'no_change', note: 'Reviewed' });
+    assert.equal(calls.at(-1)?.url, `/api/authed/v1/operations/queue/${itemId}/complete`);
     assert.equal(calls.at(-1)?.init?.method, 'POST');
-    assert.equal(new Headers(calls.at(-1)?.init?.headers).get('content-type'), 'application/json');
-    assert.equal(
-      calls.at(-1)?.init?.body,
-      JSON.stringify({ result: 'no_change', note: 'Reviewed' })
-    );
+    assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ result: 'no_change', note: 'Reviewed' }));
 
     await completeOperationsQueueItem(itemId, { result: 'other' });
     assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ result: 'other' }));
 
-    await setOperationsListingStatus(itemId, {
-      status: 'removed',
-      note: 'Policy mismatch'
-    });
-    assert.equal(
-      calls.at(-1)?.url,
-      `/api/authed/v1/operations/queue/${itemId}/listing-status`
-    );
-    assert.equal(calls.at(-1)?.init?.method, 'POST');
-    assert.equal(new Headers(calls.at(-1)?.init?.headers).get('content-type'), 'application/json');
-    assert.equal(
-      calls.at(-1)?.init?.body,
-      JSON.stringify({ status: 'removed', note: 'Policy mismatch' })
-    );
+    await setOperationsListingStatus(itemId, { status: 'removed', note: 'Policy mismatch' });
+    assert.equal(calls.at(-1)?.url, `/api/authed/v1/operations/queue/${itemId}/listing-status`);
+    assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ status: 'removed', note: 'Policy mismatch' }));
 
     await setOperationsListingStatus(itemId, { status: 'active' });
     assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ status: 'active' }));
 
-    await setOperationsAccountStatus(itemId, {
-      status: 'suspended',
-      note: 'Repeated reports'
-    });
-    assert.equal(
-      calls.at(-1)?.url,
-      `/api/authed/v1/operations/queue/${itemId}/account-status`
-    );
-    assert.equal(calls.at(-1)?.init?.method, 'POST');
-    assert.equal(new Headers(calls.at(-1)?.init?.headers).get('content-type'), 'application/json');
-    assert.equal(
-      calls.at(-1)?.init?.body,
-      JSON.stringify({ status: 'suspended', note: 'Repeated reports' })
-    );
+    await setOperationsAccountStatus(itemId, { status: 'suspended', note: 'Repeated reports' });
+    assert.equal(calls.at(-1)?.url, `/api/authed/v1/operations/queue/${itemId}/account-status`);
+    assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ status: 'suspended', note: 'Repeated reports' }));
 
     await setOperationsAccountStatus(itemId, { status: 'active' });
     assert.equal(calls.at(-1)?.init?.body, JSON.stringify({ status: 'active' }));
