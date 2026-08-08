@@ -73,6 +73,9 @@ export type SavedSearchFilterInput = Pick<
   | 'city'
   | 'suburb'
   | 'fulfilment'
+  | 'nearLat'
+  | 'nearLon'
+  | 'radiusKm'
 >;
 
 function listingPath(listingId: string): string {
