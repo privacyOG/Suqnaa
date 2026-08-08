@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ListingBuyerActions } from '../../../../components/listing-buyer-actions';
+import { ListingDiscoveryActions } from '../../../../components/listing-discovery-actions';
 import { ListingReportForm } from '../../../../components/listing-report-form';
 import { SessionRefresh } from '../../../../components/session-refresh';
 import { isLocale } from '../../../../i18n/locales';
@@ -31,13 +32,9 @@ function formatPrice(listing: PublicListingDetail, locale: string): string {
 }
 
 function formatDate(value: string | null, locale: string): string {
-  if (!value) {
-    return '—';
-  }
+  if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-AU' : 'en-AU', {
     dateStyle: 'medium'
   }).format(date);
@@ -88,20 +85,14 @@ export default async function ListingDetailPage({
 }: {
   params: { locale: string; listingId: string };
 }) {
-  if (!isLocale(params.locale) || !uuidPattern.test(params.listingId)) {
-    notFound();
-  }
+  if (!isLocale(params.locale) || !uuidPattern.test(params.listingId)) notFound();
 
   const isArabic = params.locale === 'ar';
   let listing: PublicListingDetail;
-
   try {
     listing = await getPublicListing(params.listingId);
   } catch (caught) {
-    if (caught instanceof PublicListingRequestError && caught.status === 404) {
-      notFound();
-    }
-
+    if (caught instanceof PublicListingRequestError && caught.status === 404) notFound();
     return (
       <main className="page-shell catalog-page">
         <nav className="top-nav">
@@ -110,11 +101,7 @@ export default async function ListingDetailPage({
         </nav>
         <section className="listing-unavailable">
           <h1>{isArabic ? 'تعذر تحميل الإعلان' : 'Listing unavailable'}</h1>
-          <p>
-            {isArabic
-              ? 'الخدمة غير متاحة مؤقتاً. أعد المحاولة بعد قليل.'
-              : 'The service is temporarily unavailable. Try again shortly.'}
-          </p>
+          <p>{isArabic ? 'الخدمة غير متاحة مؤقتاً. أعد المحاولة بعد قليل.' : 'The service is temporarily unavailable. Try again shortly.'}</p>
           <a className="button-primary" href={`/${params.locale}/listings`}>
             {isArabic ? 'العودة إلى السوق' : 'Return to marketplace'}
           </a>
@@ -125,9 +112,7 @@ export default async function ListingDetailPage({
 
   const { user, needsRotation } = await loadAccountSessionState();
   const isSeller = user?.id === listing.seller.id;
-  const location = [listing.suburb, listing.city, listing.region, listing.countryCode]
-    .filter(Boolean)
-    .join(', ');
+  const location = [listing.suburb, listing.city, listing.region, listing.countryCode].filter(Boolean).join(', ');
   const categoryName = listing.category
     ? (isArabic ? listing.category.nameAr ?? listing.category.nameEn : listing.category.nameEn)
     : (isArabic ? 'أخرى' : 'Other');
@@ -149,28 +134,18 @@ export default async function ListingDetailPage({
 
       <div className="listing-breadcrumbs">
         <a href={`/${params.locale}/listings`}>{isArabic ? 'السوق' : 'Marketplace'}</a>
-        <span>›</span>
-        <span>{categoryName}</span>
+        <span>›</span><span>{categoryName}</span>
       </div>
 
       <section className="listing-detail-layout">
         <div className="listing-detail-main">
           {primaryPhoto ? (
             <div className="listing-media-gallery" aria-label={isArabic ? 'صور الإعلان' : 'Listing photos'}>
-              <img
-                className="listing-media-main-photo"
-                src={primaryPhoto.url}
-                alt={primaryPhoto.altText ?? listing.title}
-              />
+              <img className="listing-media-main-photo" src={primaryPhoto.url} alt={primaryPhoto.altText ?? listing.title} />
               {listing.media.length > 1 ? (
                 <div className="listing-media-thumbnails">
                   {listing.media.slice(1).map((media) => (
-                    <img
-                      key={media.id}
-                      src={media.url}
-                      alt={media.altText ?? listing.title}
-                      loading="lazy"
-                    />
+                    <img key={media.id} src={media.url} alt={media.altText ?? listing.title} loading="lazy" />
                   ))}
                 </div>
               ) : null}
@@ -191,68 +166,32 @@ export default async function ListingDetailPage({
             </div>
             <h1>{listing.title}</h1>
             <p className="listing-detail-price">{formatPrice(listing, params.locale)}</p>
-            <p className="listing-detail-location">
-              {location || (isArabic ? 'الموقع غير محدد' : 'Location not specified')}
-            </p>
+            <p className="listing-detail-location">{location || (isArabic ? 'الموقع غير محدد' : 'Location not specified')}</p>
             <div className="listing-description-text">{listing.description}</div>
-
             <dl className="listing-facts">
-              <div>
-                <dt>{isArabic ? 'الحالة' : 'Condition'}</dt>
-                <dd>{conditionLabel(listing.condition, isArabic)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'التوفر' : 'Availability'}</dt>
-                <dd>{quantityLabel(listing, isArabic)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'الصور' : 'Photos'}</dt>
-                <dd>{listing.mediaCount}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'نشر في' : 'Published'}</dt>
-                <dd>{formatDate(listing.publishedAt ?? listing.createdAt, params.locale)}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'الاستلام' : 'Pickup'}</dt>
-                <dd>{listing.allowPickup ? (isArabic ? 'متاح' : 'Available') : (isArabic ? 'غير متاح' : 'Unavailable')}</dd>
-              </div>
-              <div>
-                <dt>{isArabic ? 'التوصيل' : 'Delivery'}</dt>
-                <dd>{listing.allowDelivery ? (isArabic ? 'متاح' : 'Available') : (isArabic ? 'غير متاح' : 'Unavailable')}</dd>
-              </div>
+              <div><dt>{isArabic ? 'الحالة' : 'Condition'}</dt><dd>{conditionLabel(listing.condition, isArabic)}</dd></div>
+              <div><dt>{isArabic ? 'التوفر' : 'Availability'}</dt><dd>{quantityLabel(listing, isArabic)}</dd></div>
+              <div><dt>{isArabic ? 'الصور' : 'Photos'}</dt><dd>{listing.mediaCount}</dd></div>
+              <div><dt>{isArabic ? 'نشر في' : 'Published'}</dt><dd>{formatDate(listing.publishedAt ?? listing.createdAt, params.locale)}</dd></div>
+              <div><dt>{isArabic ? 'الاستلام' : 'Pickup'}</dt><dd>{listing.allowPickup ? (isArabic ? 'متاح' : 'Available') : (isArabic ? 'غير متاح' : 'Unavailable')}</dd></div>
+              <div><dt>{isArabic ? 'التوصيل' : 'Delivery'}</dt><dd>{listing.allowDelivery ? (isArabic ? 'متاح' : 'Available') : (isArabic ? 'غير متاح' : 'Unavailable')}</dd></div>
             </dl>
           </article>
         </div>
 
         <aside className="listing-seller-card">
           <span className="buyer-action-label">{isArabic ? 'البائع' : 'Seller'}</span>
-          <div className="seller-avatar" aria-hidden="true">
-            {sellerDisplayName.slice(0, 1).toUpperCase()}
-          </div>
+          <div className="seller-avatar" aria-hidden="true">{sellerDisplayName.slice(0, 1).toUpperCase()}</div>
           <h2>{sellerDisplayName}</h2>
-          {listing.seller.isBusiness ? (
-            <span className="seller-business-badge">{isArabic ? 'حساب تجاري' : 'Business seller'}</span>
-          ) : null}
+          {listing.seller.isBusiness ? <span className="seller-business-badge">{isArabic ? 'حساب تجاري' : 'Business seller'}</span> : null}
           <dl>
-            <div>
-              <dt>{isArabic ? 'التوثيق' : 'Verification'}</dt>
-              <dd>{verificationLabel(listing.seller.verification.status, isArabic)}</dd>
-            </div>
-            <div>
-              <dt>{isArabic ? 'وسيلة اتصال موثقة' : 'Verified contact'}</dt>
-              <dd>{verifiedContact ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No')}</dd>
-            </div>
-            <div>
-              <dt>{isArabic ? 'درجة الثقة' : 'Trust score'}</dt>
-              <dd>{listing.seller.trustScore}/100</dd>
-            </div>
+            <div><dt>{isArabic ? 'التوثيق' : 'Verification'}</dt><dd>{verificationLabel(listing.seller.verification.status, isArabic)}</dd></div>
+            <div><dt>{isArabic ? 'وسيلة اتصال موثقة' : 'Verified contact'}</dt><dd>{verifiedContact ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No')}</dd></div>
+            <div><dt>{isArabic ? 'درجة الثقة' : 'Trust score'}</dt><dd>{listing.seller.trustScore}/100</dd></div>
           </dl>
-          <p className="seller-safety-note">
-            {isArabic
-              ? 'حافظ على التواصل والدفع داخل سوقنا، ولا ترسل رموز التحقق أو كلمات المرور.'
-              : 'Keep communication and payment inside Suqnaa. Never share verification codes or passwords.'}
-          </p>
+          <p className="seller-safety-note">{isArabic
+            ? 'حافظ على التواصل والدفع داخل سوقنا، ولا ترسل رموز التحقق أو كلمات المرور.'
+            : 'Keep communication and payment inside Suqnaa. Never share verification codes or passwords.'}</p>
         </aside>
       </section>
 
@@ -260,17 +199,12 @@ export default async function ListingDetailPage({
         {isSeller ? (
           <div className="owner-listing-panel">
             <strong>{isArabic ? 'هذا إعلانك' : 'This is your listing'}</strong>
-            <p>
-              {isArabic
-                ? 'يمكنك تحديث حالته من لوحة البائع.'
-                : 'Manage its availability from your seller dashboard.'}
-            </p>
-            <a className="button-primary" href={`/${params.locale}/sell/manage`}>
-              {isArabic ? 'إدارة إعلاناتي' : 'Manage my listings'}
-            </a>
+            <p>{isArabic ? 'يمكنك تحديث حالته من لوحة البائع.' : 'Manage its availability from your seller dashboard.'}</p>
+            <a className="button-primary" href={`/${params.locale}/sell/manage`}>{isArabic ? 'إدارة إعلاناتي' : 'Manage my listings'}</a>
           </div>
         ) : user ? (
           <>
+            <ListingDiscoveryActions locale={params.locale} listingId={listing.id} />
             <ListingBuyerActions
               locale={params.locale}
               listingId={listing.id}
@@ -279,32 +213,19 @@ export default async function ListingDetailPage({
               priceAmount={listing.priceAmount}
               currencyCode={listing.currencyCode}
             />
-            <ListingReportForm
-              locale={params.locale}
-              listingId={listing.id}
-              reportedUserId={listing.seller.id}
-              sellerName={sellerDisplayName}
-            />
+            <ListingReportForm locale={params.locale} listingId={listing.id} reportedUserId={listing.seller.id} sellerName={sellerDisplayName} />
           </>
         ) : needsRotation ? (
-          <div className="buyer-session-panel">
-            <SessionRefresh locale={params.locale} />
-          </div>
+          <div className="buyer-session-panel"><SessionRefresh locale={params.locale} /></div>
         ) : (
           <div className="buyer-session-panel">
             <strong>{isArabic ? 'سجّل الدخول للتواصل أو تقديم عرض' : 'Sign in to contact the seller or make an offer'}</strong>
-            <p>
-              {isArabic
-                ? 'حسابك يحمي المحادثات والعروض ويربطها بالإعلان الصحيح.'
-                : 'Your account protects conversations and offers and ties them to the correct listing.'}
-            </p>
+            <p>{isArabic
+              ? 'حسابك يحمي المحادثات والعروض ويربطها بالإعلان الصحيح.'
+              : 'Your account protects conversations and offers and ties them to the correct listing.'}</p>
             <div className="actions">
-              <a className="button-primary" href={`/${params.locale}/account/sign-in`}>
-                {isArabic ? 'تسجيل الدخول' : 'Sign in'}
-              </a>
-              <a className="button-secondary" href={`/${params.locale}/account/register`}>
-                {isArabic ? 'إنشاء حساب' : 'Create account'}
-              </a>
+              <a className="button-primary" href={`/${params.locale}/account/sign-in`}>{isArabic ? 'تسجيل الدخول' : 'Sign in'}</a>
+              <a className="button-secondary" href={`/${params.locale}/account/register`}>{isArabic ? 'إنشاء حساب' : 'Create account'}</a>
             </div>
           </div>
         )}
