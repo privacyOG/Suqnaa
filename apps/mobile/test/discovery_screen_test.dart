@@ -58,12 +58,20 @@ void main() {
 
     expect(find.text('Saved listings'), findsOneWidget);
     expect(find.text('Watchlist'), findsOneWidget);
+    expect(find.textContaining('Notifications'), findsOneWidget);
+    expect(find.byKey(const Key('discovery-read-all')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Saved searches'),
+      350,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Recently viewed'), findsOneWidget);
     expect(find.text('Saved searches'), findsOneWidget);
-    expect(find.textContaining('Notifications'), findsOneWidget);
     expect(find.text('Camera'), findsWidgets);
     expect(find.text('Sydney camera'), findsWidgets);
-    expect(find.byKey(const Key('discovery-read-all')), findsOneWidget);
   });
 }
 
