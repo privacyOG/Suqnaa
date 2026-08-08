@@ -23,6 +23,7 @@ const rules: readonly RouteRule[] = [
   { method: 'GET', pattern: /^\/v1\/account\/security\/sessions$/, queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/conversations$/, queryKeys: new Set(['limit', 'before']) },
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/messages$`), queryKeys: new Set(['limit', 'before']) },
+  { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/sync$`), queryKeys: new Set(['limit', 'cursor']) },
   { method: 'GET', pattern: new RegExp(`^/v1/conversations/${uuid}/safety$`), queryKeys: new Set() },
   { method: 'GET', pattern: /^\/v1\/messages\/policy$/, queryKeys: new Set() },
   { method: 'GET', pattern: new RegExp(`^/v1/discovery/listings/${uuid}/state$`), queryKeys: new Set() },
@@ -129,7 +130,7 @@ export function resolveProtectedRoute(
 
   const output = new URLSearchParams();
   for (const [key, value] of searchParams.entries()) {
-    if (!rule.queryKeys.has(key) || value.length > 200 || output.has(key)) {
+    if (!rule.queryKeys.has(key) || value.length > 300 || output.has(key)) {
       return null;
     }
     output.set(key, value);
