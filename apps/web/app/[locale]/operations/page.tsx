@@ -15,13 +15,8 @@ type MetricCard = {
   available: boolean;
 };
 
-export default async function OperationsPage({
-  params
-}: {
-  params: { locale: string };
-}) {
+export default async function OperationsPage({ params }: { params: { locale: string } }) {
   if (!isLocale(params.locale)) return null;
-
   const isArabic = params.locale === 'ar';
   const summary = await loadOperationsDashboardSummary();
   const sections = summary?.sections;
@@ -46,7 +41,7 @@ export default async function OperationsPage({
     {
       key: 'categories', titleEn: 'Categories', titleAr: 'الفئات',
       value: number(sections.categories.total), detailEn: 'Configured categories', detailAr: 'الفئات المهيأة',
-      available: sections.categories.available
+      href: `/${params.locale}/operations/categories`, available: sections.categories.available
     },
     {
       key: 'identity', titleEn: 'Identity checks', titleAr: 'التحقق من الهوية',
@@ -61,17 +56,17 @@ export default async function OperationsPage({
     {
       key: 'payments', titleEn: 'Payments', titleAr: 'المدفوعات',
       value: number(sections.payments.awaitingDecision), detailEn: `${number(sections.payments.failed)} failed · awaiting decisions`, detailAr: `${number(sections.payments.failed)} فاشلة · بانتظار القرار`,
-      available: sections.payments.available
+      href: `/${params.locale}/operations/finance`, available: sections.payments.available
     },
     {
       key: 'settlements', titleEn: 'Seller settlements', titleAr: 'تسويات البائعين',
       value: number(sections.settlements.blocked), detailEn: 'Blocked settlements', detailAr: 'تسويات محظورة',
-      available: sections.settlements.available
+      href: `/${params.locale}/operations/finance`, available: sections.settlements.available
     },
     {
       key: 'fulfilment', titleEn: 'Fulfilment & returns', titleAr: 'التسليم والإرجاع',
       value: number(sections.fulfilment.activeReturns), detailEn: `${number(sections.fulfilment.failed)} failed fulfilments`, detailAr: `${number(sections.fulfilment.failed)} عمليات تسليم فاشلة`,
-      available: sections.fulfilment.available
+      href: `/${params.locale}/operations/fulfilment`, available: sections.fulfilment.available
     },
     {
       key: 'fraud', titleEn: 'Fraud signals', titleAr: 'إشارات الاحتيال',
@@ -79,7 +74,7 @@ export default async function OperationsPage({
         ? String((sections.fraudSignals.openFraudReports ?? 0) + (sections.fraudSignals.openChargebacks ?? 0))
         : '—',
       detailEn: 'Existing fraud reports + open chargebacks', detailAr: 'بلاغات الاحتيال الحالية + عمليات رد المبالغ',
-      available: sections.fraudSignals.available
+      href: `/${params.locale}/operations/fraud`, available: sections.fraudSignals.available
     },
     {
       key: 'audit', titleEn: 'Audit review', titleAr: 'مراجعة التدقيق',
@@ -132,7 +127,6 @@ export default async function OperationsPage({
                   <p style={{ fontSize: '2rem', fontWeight: 900, margin: '0.25rem 0' }}>{card.available ? card.value : '—'}</p>
                   <p>{isArabic ? card.detailAr : card.detailEn}</p>
                   {card.href && card.available ? <a className="button-secondary" href={card.href}>{isArabic ? 'فتح' : 'Open'}</a> : null}
-                  {!card.href && card.available ? <small>{isArabic ? 'لوحة متخصصة قيد الإكمال ضمن P0-28.' : 'Specialist panel is being completed in P0-28.'}</small> : null}
                 </article>
               ))}
             </div>
