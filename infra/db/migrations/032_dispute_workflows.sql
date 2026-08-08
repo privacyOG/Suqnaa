@@ -175,3 +175,46 @@ CREATE TABLE dispute_events (
 
 CREATE INDEX dispute_events_case_idx
   ON dispute_events(dispute_id, occurred_at, id);
+
+CREATE OR REPLACE FUNCTION suqnaa_dispute_blocks_settlement()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.status IN ('scheduled', 'processing') AND EXISTS (
+    SELECT 1
+    FROM disputes dispute
+    WHERE dispute.order_id = NEW.order_id
+      AND dispute.status IN ('opened', 'awaiting_buyer', 'awaiting_seller', 'under_review')
+  ) THEN
+    NEW.status := 'blocked';
+    NEW.updated_at := now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER seller_settlement_dispute_guard
+BEFORE INSERT OR UPDATE OF status ON seller_settlements
+FOR EACH ROW
+EXECUTE FUNCTION suqnaa_dispute_blocks_settlement();
+
+CREATE OR REPLACE FUNCTION suqnaa_block_settlement_for_active_dispute()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.status IN ('opened', 'awaiting_buyer', 'awaiting_seller', 'under_review') THEN
+    UPDATE seller_settlements
+    SET status = 'blocked', updated_at = now()
+    WHERE order_id = NEW.order_id
+      AND status IN ('scheduled', 'failed');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER dispute_blocks_existing_settlement
+AFTER INSERT OR UPDATE OF status ON disputes
+FOR EACH ROW
+EXECUTE FUNCTION suqnaa_block_settlement_for_active_dispute();
