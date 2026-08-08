@@ -14,7 +14,6 @@ class MobileShippingOption {
     required this.etaMinDays,
     required this.etaMaxDays,
   });
-
   final String id;
   final String label;
   final String amount;
@@ -55,7 +54,6 @@ class MobileOrderAddress {
     required this.postalCode,
     required this.countryCode,
   });
-
   final String line1;
   final String? line2;
   final String locality;
@@ -100,7 +98,6 @@ class MobileOrderDeliveryContext {
     required this.trackingReference,
     required this.trackingUrl,
   });
-
   final String orderId;
   final String role;
   final String? mode;
@@ -114,7 +111,6 @@ class MobileOrderDeliveryContext {
   final String? fulfilmentStatus;
   final String? trackingReference;
   final Uri? trackingUrl;
-
   bool get configured => mode == 'shipping' || mode == 'pickup';
 
   factory MobileOrderDeliveryContext.fromJson(Map<String, dynamic> json) {
@@ -125,7 +121,6 @@ class MobileOrderDeliveryContext {
       }
       return result;
     }
-
     final orderId = json['orderId'];
     final role = json['role'];
     final pricing = json['pricing'];
@@ -212,8 +207,24 @@ abstract interface class OrderDeliveryGateway {
     required String region,
     required String postalCode,
   });
+  Future<void> setPickupDetails(
+    String accessToken, {
+    required String orderId,
+    required String line1,
+    String? line2,
+    required String locality,
+    required String region,
+    required String postalCode,
+    String? instructions,
+  });
   Future<String> issuePickupProof(String accessToken, {required String orderId});
   Future<void> verifyPickupProof(String accessToken, {required String orderId, required String code});
+  Future<void> submitDeliveryEvidence(
+    String accessToken, {
+    required String orderId,
+    required String note,
+    String? evidenceUrl,
+  });
 }
 
 class OrderDeliveryApi implements OrderDeliveryGateway {
@@ -278,6 +289,30 @@ class OrderDeliveryApi implements OrderDeliveryGateway {
   }
 
   @override
+  Future<void> setPickupDetails(
+    String accessToken, {
+    required String orderId,
+    required String line1,
+    String? line2,
+    required String locality,
+    required String region,
+    required String postalCode,
+    String? instructions,
+  }) async {
+    await _api.post('/v1/market/orders/${_id(orderId)}/pickup-details', accessToken, {
+      'address': {
+        'line1': line1.trim(),
+        if (line2?.trim().isNotEmpty == true) 'line2': line2!.trim(),
+        'locality': locality.trim(),
+        'region': region.trim(),
+        'postalCode': postalCode.trim(),
+        'countryCode': 'AU',
+      },
+      if (instructions?.trim().isNotEmpty == true) 'instructions': instructions!.trim(),
+    });
+  }
+
+  @override
   Future<String> issuePickupProof(String accessToken, {required String orderId}) async {
     final payload = await _api.post('/v1/market/orders/${_id(orderId)}/pickup-proof', accessToken, const {});
     final proof = payload['pickupProof'];
@@ -288,5 +323,18 @@ class OrderDeliveryApi implements OrderDeliveryGateway {
   @override
   Future<void> verifyPickupProof(String accessToken, {required String orderId, required String code}) async {
     await _api.post('/v1/market/orders/${_id(orderId)}/pickup-proof/verify', accessToken, {'code': code.trim()});
+  }
+
+  @override
+  Future<void> submitDeliveryEvidence(
+    String accessToken, {
+    required String orderId,
+    required String note,
+    String? evidenceUrl,
+  }) async {
+    await _api.post('/v1/market/orders/${_id(orderId)}/delivery-evidence', accessToken, {
+      'note': note.trim(),
+      if (evidenceUrl?.trim().isNotEmpty == true) 'evidenceUrl': evidenceUrl!.trim(),
+    });
   }
 }
