@@ -20,7 +20,7 @@ assert.deepEqual(
 assert.equal(optionalApproximateListingLocation(null), null);
 assert.throws(
   () => normalizeApproximateListingLocation({ latitude: -91, longitude: 151.2 }),
-  /less than or equal to 90/
+  /greater than or equal to -90/
 );
 assert.throws(
   () => normalizeApproximateListingLocation({ latitude: -33.8, longitude: 181 }),
