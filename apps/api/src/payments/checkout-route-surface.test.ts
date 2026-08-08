@@ -9,6 +9,11 @@ const routeSource = readFileSync(
 assert.match(routeSource, /orderId:\s*z\.string\(\)\.uuid\(\)/);
 assert.match(routeSource, /\.strict\(\)/);
 assert.match(routeSource, /preHandler:\s*requireUser/);
+assert.match(routeSource, /evaluateInitialLaunchPayment/);
+assert.match(routeSource, /country_code/);
+assert.match(routeSource, /currencyCode:\s*String\(order\.currency_code\)/);
+assert.match(routeSource, /paymentMethod:\s*parsedPaymentMethod\.data/);
+assert.match(routeSource, /outside the initial marketplace payment launch policy/);
 assert.doesNotMatch(routeSource, /buyerId:\s*z\./);
 assert.doesNotMatch(routeSource, /sellerId:\s*z\./);
 assert.doesNotMatch(routeSource, /amount:\s*z\./);
