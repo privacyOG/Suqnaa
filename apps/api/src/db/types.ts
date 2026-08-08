@@ -26,6 +26,27 @@ export type FulfilmentStatus =
   | 'received_confirmed'
   | 'failed';
 export type FulfilmentMode = 'shipping' | 'pickup';
+export type DisputeStatus =
+  | 'opened'
+  | 'awaiting_buyer'
+  | 'awaiting_seller'
+  | 'under_review'
+  | 'resolved'
+  | 'closed';
+export type DisputeOutcome =
+  | 'none'
+  | 'buyer_refund'
+  | 'seller_release'
+  | 'partial_refund'
+  | 'return_required'
+  | 'compliance_escalation';
+export type DisputeCategory =
+  | 'non_delivery'
+  | 'item_condition'
+  | 'damage'
+  | 'pickup_issue'
+  | 'payment_issue'
+  | 'other';
 
 type TableShape = Record<string, any>;
 
@@ -76,6 +97,11 @@ export interface Database {
   pickup_proofs: TableShape;
   order_fulfilment_evidence: TableShape;
   order_timeline_events: TableShape;
+  disputes: TableShape;
+  dispute_evidence: TableShape;
+  dispute_responses: TableShape;
+  dispute_appeals: TableShape;
+  dispute_events: TableShape;
   reports: TableShape;
   audit_logs: TableShape;
 }
