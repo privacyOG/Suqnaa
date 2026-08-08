@@ -14,6 +14,16 @@ import {
   type StripeRefundResult
 } from './stripe-payment-operations.js';
 
+interface RefundWork {
+  operationId: string;
+  kind: RequestedPaymentOperationKind;
+  paymentIntentId: string;
+  internalPaymentIntentId: string;
+  orderId: string;
+  amount: string;
+  currencyCode: string;
+}
+
 function decimal(value: string | number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) throw new PaymentOperationError('invalid_amount');
@@ -31,7 +41,11 @@ async function refundedAmount(executor: any, paymentIntentId: string, excludeId?
   return decimal(row.refunded);
 }
 
-function assertRequestState(kind: RequestedPaymentOperationKind, intentStatus: PaymentStatus, orderStatus: TransactionStatus): void {
+function assertRequestState(
+  kind: RequestedPaymentOperationKind,
+  intentStatus: PaymentStatus,
+  orderStatus: TransactionStatus
+): void {
   if (kind === 'release') {
     if (intentStatus !== 'held' && intentStatus !== 'compliance_hold') {
       throw new PaymentOperationError('release_state_invalid');
@@ -39,6 +53,7 @@ function assertRequestState(kind: RequestedPaymentOperationKind, intentStatus: P
     if (orderStatus !== 'paid') throw new PaymentOperationError('release_order_invalid');
     return;
   }
+
   if (kind === 'compliance_hold') {
     if (intentStatus !== 'held' && intentStatus !== 'released') {
       throw new PaymentOperationError('hold_state_invalid');
@@ -48,6 +63,7 @@ function assertRequestState(kind: RequestedPaymentOperationKind, intentStatus: P
     }
     return;
   }
+
   if (!['held', 'released', 'compliance_hold'].includes(intentStatus)) {
     throw new PaymentOperationError('refund_state_invalid');
   }
@@ -123,7 +139,8 @@ export async function requestPaymentOperation(input: {
       idempotency_key: `payment-operation-v1-${operationId}`,
       requested_at: new Date(),
       updated_at: new Date()
-    }).returning(['id', 'kind', 'status', 'amount', 'currency_code', 'requested_at']).executeTakeFirstOrThrow();
+    }).returning(['id', 'kind', 'status', 'amount', 'currency_code', 'requested_at'])
+      .executeTakeFirstOrThrow();
 
     await trx.insertInto('audit_logs').values({
       actor_user_id: input.requestedBy,
@@ -153,13 +170,25 @@ async function applyInternalOperation(trx: any, operation: any, now: Date): Prom
 
   if (operation.kind === 'release') {
     assertRequestState('release', intent.status as PaymentStatus, order.status as TransactionStatus);
-    await trx.updateTable('payment_intents').set({ status: 'released', updated_at: now }).where('id', '=', intent.id).execute();
-    await trx.updateTable('transactions').set({ status: 'released', updated_at: now }).where('id', '=', order.id).execute();
+    await trx.updateTable('payment_intents')
+      .set({ status: 'released', updated_at: now })
+      .where('id', '=', intent.id)
+      .execute();
+    await trx.updateTable('transactions')
+      .set({ status: 'released', updated_at: now })
+      .where('id', '=', order.id)
+      .execute();
   } else if (operation.kind === 'compliance_hold') {
     assertRequestState('compliance_hold', intent.status as PaymentStatus, order.status as TransactionStatus);
-    await trx.updateTable('payment_intents').set({ status: 'compliance_hold', updated_at: now }).where('id', '=', intent.id).execute();
+    await trx.updateTable('payment_intents')
+      .set({ status: 'compliance_hold', updated_at: now })
+      .where('id', '=', intent.id)
+      .execute();
     if (order.status === 'released') {
-      await trx.updateTable('transactions').set({ status: 'paid', updated_at: now }).where('id', '=', order.id).execute();
+      await trx.updateTable('transactions')
+        .set({ status: 'paid', updated_at: now })
+        .where('id', '=', order.id)
+        .execute();
     }
   } else {
     throw new PaymentOperationError('internal_operation_invalid');
@@ -172,7 +201,12 @@ async function applyInternalOperation(trx: any, operation: any, now: Date): Prom
   }).where('id', '=', operation.id).execute();
 }
 
-async function prepareRefundApproval(trx: any, operation: any, approverId: string, now: Date) {
+async function prepareRefundApproval(
+  trx: any,
+  operation: any,
+  approverId: string,
+  now: Date
+): Promise<RefundWork> {
   const intent = await trx.selectFrom('payment_intents')
     .select(['id', 'status', 'provider', 'provider_reference'])
     .where('id', '=', operation.payment_intent_id)
@@ -184,7 +218,7 @@ async function prepareRefundApproval(trx: any, operation: any, approverId: strin
     .forUpdate()
     .executeTakeFirstOrThrow();
 
-  assertRequestState(operation.kind, intent.status as PaymentStatus, order.status as TransactionStatus);
+  assertRequestState(operation.kind as RequestedPaymentOperationKind, intent.status as PaymentStatus, order.status as TransactionStatus);
   if (
     intent.provider !== 'stripe' ||
     order.payment_provider !== 'stripe' ||
@@ -198,7 +232,9 @@ async function prepareRefundApproval(trx: any, operation: any, approverId: strin
   const remaining = decimal(order.amount) - alreadyRefunded;
   if (remaining <= 0) throw new PaymentOperationError('already_fully_refunded');
   const amount = operation.kind === 'refund_partial' ? decimal(operation.amount) : remaining;
-  if (amount <= 0 || amount > remaining) throw new PaymentOperationError('refund_exceeds_remaining');
+  if (amount <= 0 || amount > remaining) {
+    throw new PaymentOperationError('refund_exceeds_remaining');
+  }
 
   await trx.updateTable('payment_operations').set({
     approved_by: approverId,
@@ -232,7 +268,7 @@ export async function decidePaymentOperation(input: {
     throw new PaymentOperationError('invalid_decision_reason', 400);
   }
 
-  let refundWork: Awaited<ReturnType<typeof prepareRefundApproval>> | null = null;
+  let refundWork: RefundWork | null = null;
   const initial = await db.transaction().execute(async (trx) => {
     const operation = await trx.selectFrom('payment_operations').selectAll()
       .where('id', '=', input.operationId).forUpdate().executeTakeFirst();
@@ -276,56 +312,76 @@ export async function decidePaymentOperation(input: {
       created_at: now
     }).execute();
 
-    return { operationId: String(operation.id), status: input.decision === 'reject' ? 'rejected' : refundWork ? 'processing' : 'succeeded' };
+    return {
+      operationId: String(operation.id),
+      status: input.decision === 'reject' ? 'rejected' : refundWork ? 'processing' : 'succeeded'
+    };
   });
 
-  if (!refundWork || input.decision !== 'approve') return initial;
+  const work = refundWork;
+  if (!work || input.decision !== 'approve') return initial;
 
   let result: StripeRefundResult;
   try {
     result = await input.provider.createRefund({
-      operationId: refundWork.operationId,
-      paymentIntentId: refundWork.paymentIntentId,
-      amount: refundWork.amount,
-      reason: refundWork.kind === 'cancel_after_payment' ? 'requested_by_customer' : 'requested_by_customer'
+      operationId: work.operationId,
+      paymentIntentId: work.paymentIntentId,
+      amount: work.amount,
+      reason: 'requested_by_customer'
     });
   } catch (error) {
     const code = error instanceof StripeProviderError ? error.safeCode : 'provider_unavailable';
-    await db.updateTable('payment_operations').set({ status: 'failed', error_code: code, completed_at: new Date(), updated_at: new Date() })
-      .where('id', '=', refundWork.operationId).where('status', '=', 'processing').execute();
+    await db.updateTable('payment_operations').set({
+      status: 'failed',
+      error_code: code,
+      completed_at: new Date(),
+      updated_at: new Date()
+    }).where('id', '=', work.operationId).where('status', '=', 'processing').execute();
     throw new PaymentOperationError(code, 502);
   }
 
   if (
-    result.paymentIntentId !== refundWork.paymentIntentId ||
-    result.amount !== stripeMinorUnits(refundWork.amount) ||
-    result.currency !== refundWork.currencyCode
+    result.paymentIntentId !== work.paymentIntentId ||
+    result.amount !== stripeMinorUnits(work.amount) ||
+    result.currency !== work.currencyCode
   ) {
-    await db.updateTable('payment_operations').set({ status: 'failed', error_code: 'provider_refund_mismatch', provider_reference: result.id, completed_at: new Date(), updated_at: new Date() })
-      .where('id', '=', refundWork.operationId).execute();
+    await db.updateTable('payment_operations').set({
+      status: 'failed',
+      error_code: 'provider_refund_mismatch',
+      provider_reference: result.id,
+      completed_at: new Date(),
+      updated_at: new Date()
+    }).where('id', '=', work.operationId).execute();
     throw new PaymentOperationError('provider_refund_mismatch', 502);
   }
 
   if (result.status === 'failed' || result.status === 'canceled') {
-    await db.updateTable('payment_operations').set({ status: 'failed', error_code: `refund_${result.status}`, provider_reference: result.id, completed_at: new Date(), updated_at: new Date() })
-      .where('id', '=', refundWork.operationId).execute();
-    return { operationId: refundWork.operationId, status: 'failed', providerReference: result.id };
+    await db.updateTable('payment_operations').set({
+      status: 'failed',
+      error_code: `refund_${result.status}`,
+      provider_reference: result.id,
+      completed_at: new Date(),
+      updated_at: new Date()
+    }).where('id', '=', work.operationId).execute();
+    return { operationId: work.operationId, status: 'failed', providerReference: result.id };
   }
 
   if (result.status !== 'succeeded') {
-    await db.updateTable('payment_operations').set({ provider_reference: result.id, updated_at: new Date() })
-      .where('id', '=', refundWork.operationId).execute();
-    return { operationId: refundWork.operationId, status: 'processing', providerReference: result.id };
+    await db.updateTable('payment_operations').set({
+      provider_reference: result.id,
+      updated_at: new Date()
+    }).where('id', '=', work.operationId).execute();
+    return { operationId: work.operationId, status: 'processing', providerReference: result.id };
   }
 
   await finalizeSuccessfulRefund({
-    operationId: refundWork.operationId,
+    operationId: work.operationId,
     providerReference: result.id,
     providerPaymentIntentId: result.paymentIntentId,
     amountMinor: result.amount,
     currencyCode: result.currency
   });
-  return { operationId: refundWork.operationId, status: 'succeeded', providerReference: result.id };
+  return { operationId: work.operationId, status: 'succeeded', providerReference: result.id };
 }
 
 export async function finalizeSuccessfulRefund(input: {
@@ -349,10 +405,17 @@ export async function finalizeSuccessfulRefund(input: {
       return { duplicate: true, orderId: String(operation.order_id) };
     }
 
-    const intent = await trx.selectFrom('payment_intents').select(['id', 'status', 'provider_reference'])
-      .where('id', '=', operation.payment_intent_id).forUpdate().executeTakeFirstOrThrow();
-    const order = await trx.selectFrom('transactions').select(['id', 'status', 'amount', 'currency_code'])
-      .where('id', '=', operation.order_id).forUpdate().executeTakeFirstOrThrow();
+    const intent = await trx.selectFrom('payment_intents')
+      .select(['id', 'status', 'provider_reference'])
+      .where('id', '=', operation.payment_intent_id)
+      .forUpdate()
+      .executeTakeFirstOrThrow();
+    const order = await trx.selectFrom('transactions')
+      .select(['id', 'status', 'amount', 'currency_code'])
+      .where('id', '=', operation.order_id)
+      .forUpdate()
+      .executeTakeFirstOrThrow();
+
     if (
       intent.provider_reference !== input.providerPaymentIntentId ||
       stripeMinorUnits(operation.amount as string | number) !== input.amountMinor ||
@@ -363,26 +426,28 @@ export async function finalizeSuccessfulRefund(input: {
     }
 
     const previousRefunded = await refundedAmount(trx, String(intent.id), String(operation.id));
-    const totalRefunded = previousRefunded + decimal(operation.amount);
+    const totalRefunded = previousRefunded + decimal(operation.amount as string | number);
     const fullyRefunded = totalRefunded >= decimal(order.amount);
     const now = new Date();
-    const currentIntentStatus = intent.status as PaymentStatus;
 
-    let nextPaymentStatus: PaymentStatus;
-    let nextOrderStatus: TransactionStatus;
-    if (fullyRefunded || operation.kind === 'refund_full') {
-      nextPaymentStatus = 'refunded';
-      nextOrderStatus = 'refunded';
-    } else if (operation.kind === 'cancel_after_payment') {
+    let nextPaymentStatus = intent.status as PaymentStatus;
+    let nextOrderStatus = order.status as TransactionStatus;
+    if (operation.kind === 'cancel_after_payment') {
       nextPaymentStatus = 'refunded';
       nextOrderStatus = 'cancelled';
-    } else {
-      nextPaymentStatus = currentIntentStatus;
-      nextOrderStatus = order.status as TransactionStatus;
+    } else if (fullyRefunded || operation.kind === 'refund_full') {
+      nextPaymentStatus = 'refunded';
+      nextOrderStatus = 'refunded';
     }
 
-    await trx.updateTable('payment_intents').set({ status: nextPaymentStatus, updated_at: now }).where('id', '=', intent.id).execute();
-    await trx.updateTable('transactions').set({ status: nextOrderStatus, updated_at: now }).where('id', '=', order.id).execute();
+    await trx.updateTable('payment_intents')
+      .set({ status: nextPaymentStatus, updated_at: now })
+      .where('id', '=', intent.id)
+      .execute();
+    await trx.updateTable('transactions')
+      .set({ status: nextOrderStatus, updated_at: now })
+      .where('id', '=', order.id)
+      .execute();
     await trx.updateTable('payment_operations').set({
       status: 'succeeded',
       provider_reference: input.providerReference,
@@ -404,25 +469,34 @@ export async function recordProviderChargeback(input: {
 }) {
   return db.transaction().execute(async (trx) => {
     const intent = await trx.selectFrom('payment_intents')
-      .select(['id', 'transaction_id', 'status', 'amount', 'currency_code', 'provider', 'provider_reference'])
+      .select(['id', 'transaction_id', 'currency_code', 'provider', 'provider_reference'])
       .where('provider', '=', 'stripe')
       .where('provider_reference', '=', input.providerPaymentIntentId)
       .forUpdate()
       .executeTakeFirst();
     if (!intent?.transaction_id) throw new PaymentOperationError('payment_context_missing');
-    const order = await trx.selectFrom('transactions').select(['id', 'status'])
-      .where('id', '=', intent.transaction_id).forUpdate().executeTakeFirstOrThrow();
 
-    const existing = await trx.selectFrom('payment_operations').select(['id', 'provider_reference'])
-      .where('idempotency_key', '=', `stripe-dispute-v1-${input.providerEventId}`).executeTakeFirst();
+    const order = await trx.selectFrom('transactions')
+      .select(['id'])
+      .where('id', '=', intent.transaction_id)
+      .forUpdate()
+      .executeTakeFirstOrThrow();
+
+    const existing = await trx.selectFrom('payment_operations')
+      .select(['id', 'provider_reference'])
+      .where('idempotency_key', '=', `stripe-dispute-v1-${input.providerEventId}`)
+      .executeTakeFirst();
     if (existing) {
-      if (existing.provider_reference !== input.disputeId) throw new PaymentOperationError('provider_event_replay_conflict');
+      if (existing.provider_reference !== input.disputeId) {
+        throw new PaymentOperationError('provider_event_replay_conflict');
+      }
       return { duplicate: true, orderId: String(order.id) };
     }
 
     if (String(intent.currency_code).toUpperCase() !== input.currencyCode.toUpperCase()) {
       throw new PaymentOperationError('provider_dispute_mismatch');
     }
+
     const now = new Date();
     const operation = await trx.insertInto('payment_operations').values({
       order_id: order.id,
@@ -442,22 +516,40 @@ export async function recordProviderChargeback(input: {
       updated_at: now
     }).returning(['id']).executeTakeFirstOrThrow();
 
-    await trx.updateTable('payment_intents').set({ status: 'disputed', updated_at: now }).where('id', '=', intent.id).execute();
-    await trx.updateTable('transactions').set({ status: 'disputed', updated_at: now }).where('id', '=', order.id).execute();
+    await trx.updateTable('payment_intents')
+      .set({ status: 'disputed', updated_at: now })
+      .where('id', '=', intent.id)
+      .execute();
+    await trx.updateTable('transactions')
+      .set({ status: 'disputed', updated_at: now })
+      .where('id', '=', order.id)
+      .execute();
     await trx.insertInto('audit_logs').values({
       actor_user_id: null,
       action: 'payments.provider.chargeback',
       entity_type: 'payment_operation',
       entity_id: operation.id,
-      metadata: { provider: 'stripe', providerEventId: input.providerEventId, disputeId: input.disputeId },
+      metadata: {
+        provider: 'stripe',
+        providerEventId: input.providerEventId,
+        disputeId: input.disputeId
+      },
       created_at: now
     }).execute();
+
     return { duplicate: false, orderId: String(order.id) };
   });
 }
 
-export async function listPaymentOperations(input: { orderId?: string; status?: string; limit?: number }) {
-  let query = db.selectFrom('payment_operations').selectAll().orderBy('requested_at', 'desc').limit(input.limit ?? 100);
+export async function listPaymentOperations(input: {
+  orderId?: string;
+  status?: string;
+  limit?: number;
+}) {
+  let query = db.selectFrom('payment_operations')
+    .selectAll()
+    .orderBy('requested_at', 'desc')
+    .limit(input.limit ?? 100);
   if (input.orderId) query = query.where('order_id', '=', input.orderId);
   if (input.status) query = query.where('status', '=', input.status);
   return query.execute();
