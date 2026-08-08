@@ -237,8 +237,13 @@ try {
     occurredAt: now
   })).duplicate, true);
 } finally {
+  const paymentIntentIds = db.selectFrom('payment_intents')
+    .select('id')
+    .where('transaction_id', 'in', createdOrderIds);
   await db.deleteFrom('payment_operations').where('order_id', 'in', createdOrderIds).execute();
-  await db.deleteFrom('payment_receipts').where('payment_intent_id', 'in', db.selectFrom('payment_intents').select('id').where('transaction_id', 'in', createdOrderIds)).execute();
+  await db.deleteFrom('payment_receipts').where('payment_intent_id', 'in', paymentIntentIds).execute();
+  await db.deleteFrom('fulfilments').where('payment_intent_id', 'in', paymentIntentIds).execute();
+  await db.deleteFrom('payment_intents').where('transaction_id', 'in', createdOrderIds).execute();
   await db.deleteFrom('transactions').where('id', 'in', createdOrderIds).execute();
   await db.deleteFrom('listings').where('id', 'in', createdListingIds).execute();
   await db.deleteFrom('users').where('id', 'in', [requesterId, approverId, buyerId, sellerId]).execute();
