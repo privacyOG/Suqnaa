@@ -7,6 +7,7 @@ DECLARE
 BEGIN
   IF NOT (
     NEW.action LIKE 'account.password.%' OR
+    NEW.action LIKE 'account.password_reset.%' OR
     NEW.action LIKE 'account.session.%' OR
     NEW.action LIKE 'account.sessions.%' OR
     NEW.action IN (
