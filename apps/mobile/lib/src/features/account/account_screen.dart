@@ -4,6 +4,7 @@ import '../../brand/brand.dart';
 import '../../session/session_scope.dart';
 import '../conversations/session_conversation_inbox.dart';
 import '../discovery/discovery_screen.dart';
+import '../notifications/notification_screen.dart';
 import '../orders/order_activity_screen.dart';
 import '../orders/order_cancellation_screen.dart';
 import '../orders/order_fulfilment_screen.dart';
@@ -101,6 +102,17 @@ class AccountScreen extends StatelessWidget {
             ),
           ),
           if (signedIn) ...[
+            _AccountTile(
+              key: const Key('notification-account-tile'),
+              icon: Icons.notifications_outlined,
+              title: isArabic ? 'الإشعارات وقنوات التوصيل' : 'Notifications and delivery channels',
+              subtitle: isArabic
+                  ? 'راجع نشاط السوق واضبط البريد وSMS والإشعارات الفورية'
+                  : 'Review marketplace activity and manage email, SMS, and push',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const NotificationScreen()),
+              ),
+            ),
             _AccountTile(
               key: const Key('seller-verification-account-tile'),
               icon: Icons.badge_outlined,
