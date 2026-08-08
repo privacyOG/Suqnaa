@@ -47,8 +47,26 @@ export type DisputeCategory =
   | 'pickup_issue'
   | 'payment_issue'
   | 'other';
+export type ProtectionBeneficiaryRole = 'buyer' | 'seller';
+export type ProtectionClaimType =
+  | 'non_delivery'
+  | 'item_not_as_described'
+  | 'post_payment_cancellation'
+  | 'return_request'
+  | 'return_not_received'
+  | 'returned_item_condition';
+export type ReturnStatus =
+  | 'authorized'
+  | 'awaiting_shipment'
+  | 'in_transit'
+  | 'delivered'
+  | 'received'
+  | 'contested'
+  | 'completed'
+  | 'cancelled'
+  | 'expired';
 
-type TableShape = Record<string, any>;
+ type TableShape = Record<string, any>;
 
 export interface Database {
   users: TableShape;
@@ -102,6 +120,9 @@ export interface Database {
   dispute_responses: TableShape;
   dispute_appeals: TableShape;
   dispute_events: TableShape;
+  order_protection_cases: TableShape;
+  order_returns: TableShape;
+  protection_events: TableShape;
   reports: TableShape;
   audit_logs: TableShape;
 }
