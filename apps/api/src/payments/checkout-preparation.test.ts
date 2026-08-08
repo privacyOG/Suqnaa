@@ -2,6 +2,7 @@ import '../config/payment-collection-config.test.js';
 import './stripe-checkout-provider.test.js';
 import './stripe-webhook.test.js';
 import './payment-collection-service.test.js';
+import './stripe-payment-route-surface.test.js';
 import assert from 'node:assert/strict';
 import {
   checkoutPaymentMethods,
