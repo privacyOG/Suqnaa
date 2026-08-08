@@ -58,7 +58,7 @@ assert.match(sellForm, /each image receives separate verification/i);
 assert.match(sellForm, /href=\{`\/\$\{locale\}\/sell\/media`\}/);
 assert.doesNotMatch(sellForm, /listingMediaUpload/);
 
-assert.match(proxy, /isOwnerMediaDeliveryRoute/);
+assert.match(proxy, /isProtectedBinaryDeliveryRoute/);
 assert.match(proxy, /apiResponse\.arrayBuffer\(\)/);
 assert.match(proxy, /redirect: 'follow'/);
 assert.match(proxy, /private, max-age=60/);

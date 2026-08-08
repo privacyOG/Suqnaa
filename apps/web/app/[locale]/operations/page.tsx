@@ -34,6 +34,9 @@ export default function OperationsPage({
               : 'Internal view for submitted marketplace items.'}
           </p>
           <div className="actions">
+            <a className="button-secondary" href={`/${params.locale}/operations/disputes`}>
+              {isArabic ? 'مراجعة النزاعات' : 'Dispute reviews'}
+            </a>
             <a className="button-secondary" href={`/${params.locale}/operations/verifications`}>
               {isArabic ? 'مراجعات تحقق البائع' : 'Seller verification reviews'}
             </a>
