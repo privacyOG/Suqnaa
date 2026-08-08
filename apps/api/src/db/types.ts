@@ -50,6 +50,8 @@ export interface Database {
   saved_searches: TableShape;
   saved_search_notifications: TableShape;
   conversations: TableShape;
+  conversation_mutes: TableShape;
+  user_blocks: TableShape;
   messages: TableShape;
   offers: TableShape;
   transactions: TableShape;
