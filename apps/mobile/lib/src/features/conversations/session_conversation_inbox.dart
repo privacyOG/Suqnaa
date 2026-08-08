@@ -28,9 +28,7 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final session = SessionScope.of(context);
-    if (identical(session, _session)) {
-      return;
-    }
+    if (identical(session, _session)) return;
 
     _session = session;
     _api = ConversationApi(
@@ -45,9 +43,7 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
   Future<void> _reload() async {
     final api = _api;
     final token = _session?.access.value ?? '';
-    if (api == null || token.isEmpty || _loading) {
-      return;
-    }
+    if (api == null || token.isEmpty || _loading) return;
 
     setState(() {
       _loading = true;
@@ -56,9 +52,7 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
 
     try {
       final response = await api.getConversationPage(token, limit: 20);
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       final page = _parse(response);
       setState(() {
         _items
@@ -68,22 +62,16 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
         _cursor = page.cursor;
       });
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Unable to load conversations.');
-      }
+      if (mounted) setState(() => _error = 'Unable to load conversations.');
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _loadMore() async {
     final api = _api;
     final token = _session?.access.value ?? '';
-    if (api == null || token.isEmpty || !_hasMore || _cursor == null || _loadingMore) {
-      return;
-    }
+    if (api == null || token.isEmpty || !_hasMore || _cursor == null || _loadingMore) return;
 
     setState(() => _loadingMore = true);
 
@@ -93,37 +81,26 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
         limit: 20,
         before: _cursor,
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       final page = _parse(response);
       final ids = _items.map((item) => item['id']?.toString()).toSet();
       setState(() {
-        _items.addAll(
-          page.items.where((item) => !ids.contains(item['id']?.toString())),
-        );
+        _items.addAll(page.items.where((item) => !ids.contains(item['id']?.toString())));
         _hasMore = page.hasMore;
         _cursor = page.cursor;
       });
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Unable to load more conversations.');
-      }
+      if (mounted) setState(() => _error = 'Unable to load more conversations.');
     } finally {
-      if (mounted) {
-        setState(() => _loadingMore = false);
-      }
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
   _ConversationPage _parse(Map<String, dynamic> response) {
     final rawItems = response['conversations'];
     final items = rawItems is List
-        ? rawItems
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
+        ? rawItems.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
         : <Map<String, dynamic>>[];
     final rawPagination = response['pagination'];
     final pagination = rawPagination is Map
@@ -146,9 +123,7 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
     final recipientId = counterpart['id']?.toString();
     final name = counterpart['displayName']?.toString().trim();
 
-    if (conversationId == null || recipientId == null) {
-      return;
-    }
+    if (conversationId == null || recipientId == null) return;
 
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -161,9 +136,7 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
       ),
     );
 
-    if (mounted) {
-      _reload();
-    }
+    if (mounted) _reload();
   }
 
   @override
@@ -203,11 +176,7 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
                                             : const Icon(Icons.expand_more),
                                         label: const Text('Load more'),
                                       )
-                                    : Text(
-                                        _items.isEmpty
-                                            ? 'No conversations yet.'
-                                            : 'You are all caught up.',
-                                      ),
+                                    : Text(_items.isEmpty ? 'No conversations yet.' : 'You are all caught up.'),
                               ),
                             );
                           }
@@ -237,11 +206,22 @@ class _ConversationRow extends StatelessWidget {
     final latest = data['latestMessage'] is Map
         ? Map<String, dynamic>.from(data['latestMessage'] as Map)
         : const <String, dynamic>{};
+    final safety = data['safety'] is Map
+        ? Map<String, dynamic>.from(data['safety'] as Map)
+        : const <String, dynamic>{};
     final name = counterpart['displayName']?.toString().trim();
     final safeName = name?.isNotEmpty == true ? name! : 'Suqnaa user';
     final unread = data['unreadCount'] is num
         ? (data['unreadCount'] as num).toInt()
         : 0;
+    final muted = safety['muted'] == true;
+    final messagingAvailable = safety['messagingAvailable'] != false;
+    final preview = latest['body']?.toString() ?? 'No messages yet';
+    final status = !messagingAvailable
+        ? 'Messaging unavailable'
+        : muted
+            ? 'Muted'
+            : null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -256,14 +236,15 @@ class _ConversationRow extends StatelessWidget {
         ),
         title: Text(
           safeName,
-          style: TextStyle(
-            fontWeight: unread > 0 ? FontWeight.w900 : FontWeight.w700,
-          ),
+          style: TextStyle(fontWeight: unread > 0 ? FontWeight.w900 : FontWeight.w700),
         ),
-        subtitle: Text(
-          latest['body']?.toString() ?? 'No messages yet',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+            if (status != null)
+              Text(status, style: Theme.of(context).textTheme.bodySmall),
+          ],
         ),
         trailing: unread > 0
             ? CircleAvatar(
