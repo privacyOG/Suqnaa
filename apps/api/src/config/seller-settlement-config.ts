@@ -2,6 +2,7 @@ export type SellerSettlementPayoutInterval = 'daily' | 'weekly' | 'monthly';
 
 export interface SellerSettlementConfiguration {
   enabled: boolean;
+  liveApproved: boolean;
   commissionBps: number;
   settlementDelayDays: number;
   payoutInterval: SellerSettlementPayoutInterval;
@@ -21,8 +22,15 @@ function parseInteger(value: string | undefined, name: string, minimum: number, 
   return parsed;
 }
 
+function requireEnabledPolicyValue(value: string | undefined, name: string): string {
+  const normalized = (value ?? '').trim();
+  if (!normalized) throw new Error(`Enabled seller settlement requires ${name}`);
+  return normalized;
+}
+
 export function resolveSellerSettlementConfiguration(input: {
   enabled?: string;
+  liveApproved?: string;
   commissionBps?: string;
   settlementDelayDays?: string;
   payoutInterval?: string;
@@ -32,16 +40,28 @@ export function resolveSellerSettlementConfiguration(input: {
   connectWebhookSecret?: string;
 }): SellerSettlementConfiguration {
   const enabled = input.enabled === 'true';
-  const commissionBps = parseInteger(input.commissionBps ?? '0', 'SELLER_SETTLEMENT_COMMISSION_BPS', 0, 5000);
-  const settlementDelayDays = parseInteger(input.settlementDelayDays ?? '0', 'SELLER_SETTLEMENT_DELAY_DAYS', 0, 31);
+  const commissionInput = enabled
+    ? requireEnabledPolicyValue(input.commissionBps, 'SELLER_SETTLEMENT_COMMISSION_BPS')
+    : (input.commissionBps ?? '0');
+  const delayInput = enabled
+    ? requireEnabledPolicyValue(input.settlementDelayDays, 'SELLER_SETTLEMENT_DELAY_DAYS')
+    : (input.settlementDelayDays ?? '0');
+  const intervalInput = enabled
+    ? requireEnabledPolicyValue(input.payoutInterval, 'SELLER_SETTLEMENT_PAYOUT_INTERVAL')
+    : (input.payoutInterval ?? 'weekly');
+  const commissionBps = parseInteger(commissionInput, 'SELLER_SETTLEMENT_COMMISSION_BPS', 0, 5000);
+  const settlementDelayDays = parseInteger(delayInput, 'SELLER_SETTLEMENT_DELAY_DAYS', 0, 31);
   const workerBatchSize = parseInteger(input.workerBatchSize ?? '50', 'SELLER_SETTLEMENT_WORKER_BATCH_SIZE', 1, 500);
   const workerIntervalMs = parseInteger(input.workerIntervalMs ?? '15000', 'SELLER_SETTLEMENT_WORKER_INTERVAL_MS', 1000, 300000);
-  const payoutInterval = (input.payoutInterval ?? 'weekly').trim().toLowerCase();
+  const payoutInterval = intervalInput.trim().toLowerCase();
   if (!['daily', 'weekly', 'monthly'].includes(payoutInterval)) {
     throw new Error('SELLER_SETTLEMENT_PAYOUT_INTERVAL must be daily, weekly, or monthly');
   }
 
-  const rawAnchor = (input.payoutAnchor ?? (payoutInterval === 'monthly' ? '1' : 'monday')).trim().toLowerCase();
+  const defaultAnchor = payoutInterval === 'daily' ? 'daily' : payoutInterval === 'monthly' ? '1' : 'monday';
+  const rawAnchor = enabled && payoutInterval !== 'daily'
+    ? requireEnabledPolicyValue(input.payoutAnchor, 'SELLER_SETTLEMENT_PAYOUT_ANCHOR').toLowerCase()
+    : (input.payoutAnchor ?? defaultAnchor).trim().toLowerCase();
   let payoutAnchor = rawAnchor;
   if (payoutInterval === 'daily') {
     payoutAnchor = 'daily';
@@ -59,6 +79,7 @@ export function resolveSellerSettlementConfiguration(input: {
 
   return {
     enabled,
+    liveApproved: input.liveApproved === 'true',
     commissionBps,
     settlementDelayDays,
     payoutInterval: payoutInterval as SellerSettlementPayoutInterval,
@@ -72,6 +93,7 @@ export function resolveSellerSettlementConfiguration(input: {
 export function sellerSettlementConfigurationFromEnvironment(): SellerSettlementConfiguration {
   return resolveSellerSettlementConfiguration({
     enabled: process.env.SELLER_SETTLEMENT_ENABLED,
+    liveApproved: process.env.SELLER_SETTLEMENT_LIVE_APPROVED,
     commissionBps: process.env.SELLER_SETTLEMENT_COMMISSION_BPS,
     settlementDelayDays: process.env.SELLER_SETTLEMENT_DELAY_DAYS,
     payoutInterval: process.env.SELLER_SETTLEMENT_PAYOUT_INTERVAL,
