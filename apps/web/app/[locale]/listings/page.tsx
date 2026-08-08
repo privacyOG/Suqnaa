@@ -33,7 +33,7 @@ const availabilityStatuses: PublicListingAvailabilityStatus[] = [
 ];
 
 const fulfilmentOptions: PublicListingFulfilment[] = ['pickup', 'delivery', 'both'];
-const sortOptions: PublicListingSort[] = ['newest', 'price_asc', 'price_desc'];
+const sortOptions: PublicListingSort[] = ['newest', 'price_asc', 'price_desc', 'distance'];
 const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
 
 interface CatalogSearchParams {
@@ -50,6 +50,9 @@ interface CatalogSearchParams {
   city?: string | string[];
   suburb?: string | string[];
   fulfilment?: string | string[];
+  nearLat?: string | string[];
+  nearLon?: string | string[];
+  radiusKm?: string | string[];
   sort?: string | string[];
 }
 
@@ -69,6 +72,24 @@ function numericParam(value: string | string[] | undefined): number | undefined 
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+function boundedNumber(
+  value: string | string[] | undefined,
+  minimum: number,
+  maximum: number
+): number | undefined {
+  const raw = firstParam(value)?.trim();
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= minimum && parsed <= maximum
+    ? parsed
+    : undefined;
+}
+
+function privacyGrid(value: number): number {
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 function catalogOptions(searchParams: CatalogSearchParams): PublicListingsOptions {
   const conditionValue = firstParam(searchParams.condition);
   const availabilityValue = firstParam(searchParams.availabilityStatus);
@@ -77,9 +98,14 @@ function catalogOptions(searchParams: CatalogSearchParams): PublicListingsOption
   const categoryId = trimmedParam(searchParams.categoryId, 36);
   const minimumPrice = numericParam(searchParams.minPrice);
   const maximumPrice = numericParam(searchParams.maxPrice);
-  const sort = sortOptions.includes(sortValue as PublicListingSort)
+  const rawLatitude = boundedNumber(searchParams.nearLat, -90, 90);
+  const rawLongitude = boundedNumber(searchParams.nearLon, -180, 180);
+  const radiusKm = boundedNumber(searchParams.radiusKm, 1, 500);
+  const hasNearby = rawLatitude !== undefined && rawLongitude !== undefined && radiusKm !== undefined;
+  const requestedSort = sortOptions.includes(sortValue as PublicListingSort)
     ? sortValue as PublicListingSort
     : 'newest';
+  const sort = requestedSort === 'distance' && !hasNearby ? 'newest' : requestedSort;
   let currency = trimmedParam(searchParams.currency, 3)?.toUpperCase();
   const country = trimmedParam(searchParams.country, 2)?.toUpperCase();
 
@@ -113,6 +139,13 @@ function catalogOptions(searchParams: CatalogSearchParams): PublicListingsOption
     fulfilment: fulfilmentOptions.includes(fulfilmentValue as PublicListingFulfilment)
       ? fulfilmentValue as PublicListingFulfilment
       : undefined,
+    ...(hasNearby
+      ? {
+          nearLat: privacyGrid(rawLatitude),
+          nearLon: privacyGrid(rawLongitude),
+          radiusKm
+        }
+      : {}),
     sort
   };
 }
@@ -132,6 +165,9 @@ function catalogHref(locale: string, options: PublicListingsOptions, before?: st
   if (options.city) query.set('city', options.city);
   if (options.suburb) query.set('suburb', options.suburb);
   if (options.fulfilment) query.set('fulfilment', options.fulfilment);
+  if (options.nearLat !== undefined) query.set('nearLat', options.nearLat.toFixed(2));
+  if (options.nearLon !== undefined) query.set('nearLon', options.nearLon.toFixed(2));
+  if (options.radiusKm !== undefined) query.set('radiusKm', String(options.radiusKm));
   if (options.sort && options.sort !== 'newest') query.set('sort', options.sort);
   const encoded = query.toString();
   return `/${locale}/listings${encoded ? `?${encoded}` : ''}`;
@@ -142,7 +178,7 @@ function hasActiveFilters(options: PublicListingsOptions): boolean {
     options.q || options.categoryId || options.condition || options.availabilityStatus ||
     options.minPrice !== undefined || options.maxPrice !== undefined || options.currency ||
     options.country || options.region || options.city || options.suburb || options.fulfilment ||
-    (options.sort && options.sort !== 'newest')
+    options.radiusKm !== undefined || (options.sort && options.sort !== 'newest')
   );
 }
 
@@ -183,6 +219,11 @@ function availabilityLabel(status: PublicListingAvailabilityStatus, isArabic: bo
 
 function categoryLabel(category: CategorySummary, isArabic: boolean): string {
   return isArabic ? category.nameAr ?? category.nameEn : category.nameEn;
+}
+
+function distanceLabel(distanceKm: number, isArabic: boolean): string {
+  if (distanceKm <= 0) return isArabic ? 'ضمن نحو 1 كم' : 'Within about 1 km';
+  return isArabic ? `على بُعد نحو ${distanceKm} كم` : `About ${distanceKm} km away`;
 }
 
 export default async function PublicListingsPage({ params, searchParams }: {
@@ -231,7 +272,10 @@ export default async function PublicListingsPage({ params, searchParams }: {
     ...(options.region ? { region: options.region } : {}),
     ...(options.city ? { city: options.city } : {}),
     ...(options.suburb ? { suburb: options.suburb } : {}),
-    ...(options.fulfilment ? { fulfilment: options.fulfilment } : {})
+    ...(options.fulfilment ? { fulfilment: options.fulfilment } : {}),
+    ...(options.nearLat !== undefined ? { nearLat: options.nearLat } : {}),
+    ...(options.nearLon !== undefined ? { nearLon: options.nearLon } : {}),
+    ...(options.radiusKm !== undefined ? { radiusKm: options.radiusKm } : {})
   };
 
   return (
@@ -275,6 +319,7 @@ export default async function PublicListingsPage({ params, searchParams }: {
             <option value="newest">{isArabic ? 'الأحدث أولاً' : 'Newest first'}</option>
             <option value="price_asc">{isArabic ? 'السعر: من الأقل إلى الأعلى' : 'Price: low to high'}</option>
             <option value="price_desc">{isArabic ? 'السعر: من الأعلى إلى الأقل' : 'Price: high to low'}</option>
+            <option value="distance">{isArabic ? 'الأقرب أولاً' : 'Nearest first'}</option>
           </select>
         </label>
         <label>
@@ -298,6 +343,14 @@ export default async function PublicListingsPage({ params, searchParams }: {
         <label><span>{isArabic ? 'الولاية أو المنطقة' : 'State or region'}</span><input name="region" maxLength={120} defaultValue={options.region ?? ''} placeholder={isArabic ? 'نيو ساوث ويلز' : 'NSW'} /></label>
         <label><span>{isArabic ? 'المدينة' : 'City'}</span><input name="city" maxLength={120} defaultValue={options.city ?? ''} placeholder={isArabic ? 'سيدني' : 'Sydney'} /></label>
         <label><span>{isArabic ? 'الحي' : 'Suburb'}</span><input name="suburb" maxLength={120} defaultValue={options.suburb ?? ''} placeholder={isArabic ? 'جريناكر' : 'Greenacre'} /></label>
+        <label><span>{isArabic ? 'خط العرض التقريبي' : 'Approximate latitude'}</span><input type="number" name="nearLat" min="-90" max="90" step="0.01" defaultValue={options.nearLat} placeholder="-33.87" /></label>
+        <label><span>{isArabic ? 'خط الطول التقريبي' : 'Approximate longitude'}</span><input type="number" name="nearLon" min="-180" max="180" step="0.01" defaultValue={options.nearLon} placeholder="151.21" /></label>
+        <label><span>{isArabic ? 'نطاق البحث (كم)' : 'Search radius (km)'}</span><input type="number" name="radiusKm" min="1" max="500" step="1" defaultValue={options.radiusKm} placeholder="20" /></label>
+        <p className="auth-status">
+          {isArabic
+            ? 'البحث القريب يستخدم نقطة تقريبية بدقة نحو 0.01 درجة. لا يعرض سوقنا إحداثيات البائعين، وتظهر المسافة بالكيلومترات التقريبية فقط.'
+            : 'Nearby search uses an approximate 0.01° grid. Seller coordinates are never published; results show only coarse whole-kilometre distance.'}
+        </p>
         <label>
           <span>{isArabic ? 'طريقة الاستلام' : 'Fulfilment'}</span>
           <select name="fulfilment" defaultValue={options.fulfilment ?? ''}>
@@ -353,6 +406,7 @@ export default async function PublicListingsPage({ params, searchParams }: {
                   <h2><a href={`/${params.locale}/listings/${listing.id}`}>{listing.title}</a></h2>
                   <p className="catalog-price">{formatPrice(listing, params.locale)}</p>
                   <p className="catalog-location">{location || (isArabic ? 'الموقع غير محدد' : 'Location not specified')}</p>
+                  {listing.distanceKm !== null ? <p className="catalog-location">{distanceLabel(listing.distanceKm, isArabic)}</p> : null}
                   <div className="catalog-seller-row">
                     <span>{sellerName}</span>
                     <a href={`/${params.locale}/listings/${listing.id}`}>{isArabic ? 'عرض التفاصيل' : 'View details'}</a>
