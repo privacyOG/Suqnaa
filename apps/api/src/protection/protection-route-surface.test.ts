@@ -21,7 +21,7 @@ assert.match(service, /kind,/);
 assert.doesNotMatch(service, /updateTable\('payment_intents'\)/);
 assert.match(service, /status: 'authorized'/);
 assert.match(service, /status: 'in_transit'/);
-assert.match(service, /status: 'contested'/);
+assert.match(service, /input\.condition === 'accepted' \? 'received' : 'contested'/);
 assert.match(service, /status: 'expired'/);
 
 assert.match(participantRoutes, /\/market\/orders\/:orderId\/protection/);
