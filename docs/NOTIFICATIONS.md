@@ -54,7 +54,7 @@ Run the separately supervised process with:
 pnpm --filter suqnaa-api worker:notifications
 ```
 
-The worker claims bounded batches with `FOR UPDATE SKIP LOCKED`, moves rows to `processing`, increments the durable attempt counter, and releases the database transaction before making an external provider call.
+The worker claims bounded batches with `FOR UPDATE SKIP LOCKED`, moves rows to `processing`, increments the durable attempt counter, and releases the database transaction before making an external provider call. It only claims channels whose provider mode is enabled; rows for deliberately disabled channels stay pending without consuming retry attempts or becoming dead letters while provider approval/configuration is outstanding.
 
 Failed attempts use bounded exponential backoff. A stale `processing` lock is reclaimable after `NOTIFICATION_DELIVERY_LOCK_TIMEOUT_MS`, so process death does not strand a delivery forever. Rows become `dead` after `NOTIFICATION_DELIVERY_MAX_ATTEMPTS`; they remain in PostgreSQL for operations review rather than being deleted.
 
@@ -84,7 +84,7 @@ Worker controls:
 - Contact destinations are snapshotted only after contact verification.
 - Conversation mutes suppress message email/push fan-out without deleting or hiding the recipient's in-app notification history.
 - Outbound provider failures do not expose provider response bodies to users.
-- Account-security notifications are derived from durable security audit records, keeping notification creation in the same database transaction as the audited action when that action writes its audit record transactionally.
+- Account-security notifications are derived from durable security audit records, including implemented `account.password.*`, `account.session.*`, `account.sessions.*`, contact-verification completion, and account closure/deletion events.
 - Dispute trigger coverage is present even while buyer/seller dispute submission remains quarantined; when the later dispute workflow writes the existing dispute tables, delivery semantics are already durable.
 
 ## Relationship to P0-20
