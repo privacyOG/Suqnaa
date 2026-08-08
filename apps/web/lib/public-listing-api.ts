@@ -194,9 +194,12 @@ export async function getPublicListing(listingId: string): Promise<PublicListing
     cache: 'no-store',
     headers: { accept: 'application/json' }
   });
-  const payload = await readJson<{ listing: PublicListingDetail }>(
+  const payload = await readJson<{ listing: Omit<PublicListingDetail, 'distanceKm'> & { distanceKm?: null } }>(
     response,
     'Unable to load listing'
   );
-  return withAbsoluteMediaUrls(payload.listing);
+  return withAbsoluteMediaUrls({
+    ...payload.listing,
+    distanceKm: null
+  });
 }
