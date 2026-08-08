@@ -6,6 +6,7 @@ import '../conversations/session_conversation_inbox.dart';
 import '../discovery/discovery_screen.dart';
 import '../notifications/notification_screen.dart';
 import '../orders/delivery_pickup_screen.dart';
+import '../orders/dispute_screen.dart';
 import '../orders/order_activity_screen.dart';
 import '../orders/order_cancellation_screen.dart';
 import '../orders/order_fulfilment_screen.dart';
@@ -196,6 +197,17 @@ class AccountScreen extends StatelessWidget {
             ),
           ),
           _AccountTile(
+            key: const Key('disputes-account-tile'),
+            icon: Icons.gavel_outlined,
+            title: isArabic ? 'النزاعات' : 'Disputes',
+            subtitle: signedIn
+                ? (isArabic ? 'افتح نزاعاً وأرسل الردود والأدلة وتابع المراجعة والاستئناف' : 'Open cases, submit responses and evidence, and track review or appeal')
+                : (isArabic ? 'سجّل الدخول لإدارة النزاعات' : 'Sign in to manage disputes'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => signedIn ? const DisputeScreen() : const AccountLoginScreen()),
+            ),
+          ),
+          _AccountTile(
             key: const Key('delivery-pickup-account-tile'),
             icon: Icons.route_outlined,
             title: isArabic ? 'التسليم والاستلام' : 'Delivery and pickup',
@@ -258,7 +270,7 @@ class AccountScreen extends StatelessWidget {
             icon: Icons.photo_library_outlined,
             title: 'Listing photos',
             subtitle: signedIn
-                ? 'Preview and manage photos for your listings'
+                ? 'Upload and manage listing photos'
                 : 'Sign in to manage listing photos',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -267,17 +279,13 @@ class AccountScreen extends StatelessWidget {
             ),
           ),
           if (signedIn)
-            _AccountTile(
-              icon: Icons.logout,
-              title: 'Sign out',
-              subtitle: 'Revoke and clear this device session',
-              onTap: () async {
-                await session.signOut();
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Signed out')),
-                );
-              },
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: OutlinedButton.icon(
+                onPressed: session.signOut,
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign out'),
+              ),
             ),
         ],
       ),
@@ -286,15 +294,23 @@ class AccountScreen extends StatelessWidget {
 }
 
 class _AccountTile extends StatelessWidget {
-  const _AccountTile({super.key, required this.icon, required this.title, required this.subtitle, this.onTap});
+  const _AccountTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: Icon(icon, color: SuqnaaBrand.blue),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
