@@ -130,7 +130,7 @@ export function resolveProtectedRoute(
 
   const output = new URLSearchParams();
   for (const [key, value] of searchParams.entries()) {
-    if (!rule.queryKeys.has(key) || value.length > 300 || output.has(key)) {
+    if (!rule.queryKeys.has(key) || value.length > 200 || output.has(key)) {
       return null;
     }
     output.set(key, value);
