@@ -3,6 +3,7 @@ import { env } from './config/env.js';
 import { resolveApiErrorResponse } from './config/http-error.js';
 import { resolveApiRequestSizeBytes } from './config/request-size.js';
 import { resolveWebOrigin } from './config/web-origin.js';
+import { interceptLegacyQueueModeration } from './moderation/legacy-queue-moderation-hook.js';
 import { enforceSellerListingPublicationPolicy } from './moderation/listing-publication-hook.js';
 import { accountRoutes } from './routes/account.js';
 import { accountProfileRoutes } from './routes/account-profile.js';
@@ -97,6 +98,7 @@ app.addHook('onRequest', async (request, reply) => {
 });
 
 app.addHook('preHandler', enforceSellerListingPublicationPolicy);
+app.addHook('preHandler', interceptLegacyQueueModeration);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
