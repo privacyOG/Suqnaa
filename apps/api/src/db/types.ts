@@ -149,6 +149,7 @@ export interface Database {
   moderation_notes: TableShape;
   moderation_appeals: TableShape;
   risk_rules: TableShape;
+  risk_event_observations: TableShape;
   risk_signals: TableShape;
   risk_identity_links: TableShape;
   audit_logs: TableShape;
