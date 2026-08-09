@@ -1,12 +1,20 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:suqnaa/l10n/app_localizations.dart';
 import 'package:suqnaa/src/features/safety/contextual_safety_guidance.dart';
 
 Widget _host(SafetyDecisionPoint point, Locale locale) {
   return MaterialApp(
     locale: locale,
-    supportedLocales: const [Locale('en'), Locale('ar')],
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: SingleChildScrollView(
         child: ContextualSafetyGuidance(decisionPoint: point),
