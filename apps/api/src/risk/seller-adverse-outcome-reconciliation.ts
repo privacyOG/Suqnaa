@@ -1,5 +1,5 @@
 import { db } from '../db/index.js';
-import { recordMarketplaceRiskObservation } from './marketplace-risk-service.js';
+import { observeMarketplaceRiskEvent } from './marketplace-risk-service.js';
 
 export async function reconcileSellerAdverseOutcomes() {
   const disputes = await db.selectFrom('disputes')
@@ -38,7 +38,7 @@ export async function reconcileSellerAdverseOutcomes() {
     .execute();
 
   for (const dispute of disputes) {
-    await recordMarketplaceRiskObservation({
+    await observeMarketplaceRiskEvent({
       eventType: 'seller.adverse_outcome',
       sourceEventId: `dispute:${dispute.id}`,
       userId: String(dispute.seller_id),
@@ -49,7 +49,7 @@ export async function reconcileSellerAdverseOutcomes() {
   }
 
   for (const event of protectionEvents) {
-    await recordMarketplaceRiskObservation({
+    await observeMarketplaceRiskEvent({
       eventType: 'seller.adverse_outcome',
       sourceEventId: `protection-event:${event.id}`,
       userId: String(event.seller_id),
@@ -60,7 +60,7 @@ export async function reconcileSellerAdverseOutcomes() {
   }
 
   for (const event of payoutEvents) {
-    await recordMarketplaceRiskObservation({
+    await observeMarketplaceRiskEvent({
       eventType: 'seller.adverse_outcome',
       sourceEventId: `payout-event:${event.id}`,
       userId: String(event.seller_id),
