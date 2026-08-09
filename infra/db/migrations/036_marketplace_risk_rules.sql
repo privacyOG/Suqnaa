@@ -25,9 +25,10 @@ CREATE TABLE risk_rules (
   threshold_count integer,
   threshold_amount numeric(18,2),
   configuration jsonb NOT NULL DEFAULT '{}'::jsonb,
+  source text NOT NULL DEFAULT 'operator',
   is_active boolean NOT NULL DEFAULT true,
-  created_by uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  updated_by uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_by uuid REFERENCES users(id) ON DELETE RESTRICT,
+  updated_by uuid REFERENCES users(id) ON DELETE RESTRICT,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT risk_rules_key_check CHECK (rule_key ~ '^[a-z][a-z0-9_.-]{2,119}$'),
@@ -40,10 +41,56 @@ CREATE TABLE risk_rules (
   CONSTRAINT risk_rules_window_check CHECK (window_seconds IS NULL OR window_seconds BETWEEN 60 AND 2592000),
   CONSTRAINT risk_rules_count_check CHECK (threshold_count IS NULL OR threshold_count BETWEEN 1 AND 1000000),
   CONSTRAINT risk_rules_amount_check CHECK (threshold_amount IS NULL OR threshold_amount >= 0),
-  CONSTRAINT risk_rules_config_check CHECK (jsonb_typeof(configuration) = 'object')
+  CONSTRAINT risk_rules_config_check CHECK (jsonb_typeof(configuration) = 'object'),
+  CONSTRAINT risk_rules_source_check CHECK (source IN ('system', 'operator')),
+  CONSTRAINT risk_rules_actor_check CHECK (
+    (source = 'system' AND created_by IS NULL AND updated_by IS NULL) OR
+    (source = 'operator' AND created_by IS NOT NULL AND updated_by IS NOT NULL)
+  )
 );
 
 CREATE INDEX risk_rules_active_category_idx ON risk_rules(category, severity, updated_at DESC) WHERE is_active;
+
+INSERT INTO risk_rules(
+  rule_key, category, title, description, severity, score,
+  window_seconds, threshold_count, threshold_amount, configuration, source
+) VALUES
+  (
+    'account.failed_login_velocity', 'account_abuse', 'Repeated failed sign-in attempts',
+    'Flags a burst of failed sign-in attempts associated with the same account.',
+    'medium', 55, 300, 8, NULL,
+    '{"eventTypes":["account.login_failed"],"metric":"event_count"}'::jsonb, 'system'
+  ),
+  (
+    'account.takeover_challenge_failures', 'account_takeover', 'Account takeover challenge failures',
+    'Flags repeated security-challenge failures during sensitive account access.',
+    'high', 80, 900, 3, NULL,
+    '{"eventTypes":["account.challenge_failed"],"metric":"event_count"}'::jsonb, 'system'
+  ),
+  (
+    'offer.buyer_velocity', 'velocity_anomaly', 'High buyer offer velocity',
+    'Flags unusually rapid offer creation by one buyer account.',
+    'medium', 60, 300, 8, NULL,
+    '{"eventTypes":["offer.created"],"metric":"event_count"}'::jsonb, 'system'
+  ),
+  (
+    'payment.failure_velocity', 'offer_payment_fraud', 'Repeated payment collection failures',
+    'Flags repeated failed payment collection activity associated with an account or order.',
+    'high', 75, 900, 5, NULL,
+    '{"eventTypes":["payment.collection_failed"],"metric":"event_count"}'::jsonb, 'system'
+  ),
+  (
+    'identity.shared_identifier', 'duplicate_identity', 'Identity identifier shared across accounts',
+    'Flags a protected identity correlation value observed on multiple user accounts.',
+    'critical', 90, 2592000, 2, NULL,
+    '{"eventTypes":["identity.link_observed"],"metric":"distinct_accounts"}'::jsonb, 'system'
+  ),
+  (
+    'seller.adverse_outcome_velocity', 'suspicious_seller', 'Repeated adverse seller outcomes',
+    'Flags repeated chargeback, dispute, or protection outcomes associated with one seller.',
+    'high', 80, 2592000, 3, NULL,
+    '{"eventTypes":["seller.adverse_outcome"],"metric":"event_count"}'::jsonb, 'system'
+  );
 
 CREATE TABLE risk_signals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
