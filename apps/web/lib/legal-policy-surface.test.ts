@@ -55,7 +55,10 @@ assert.match(detailPage, /alternates: \{ canonical:/);
 assert.match(detailPage, /page\.canonicalSlug/);
 
 for (const slug of required) {
-  assert.match(footer, new RegExp(`policyBase\\}/\\${slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  assert.ok(
+    footer.includes('${policyBase}/' + slug),
+    `footer must link to canonical /policy/${slug} surface`
+  );
 }
 assert.match(footer, /Policy centre/);
 assert.match(footer, /مركز السياسات/);
