@@ -37,6 +37,7 @@ export async function serveRiskFraudDashboard(request: FastifyRequest, reply: Fa
   reply.send({
     source: 'persisted_risk_signals',
     automatedRiskRules: true,
+    permissions: [...permissions].filter((permission) => permission.startsWith('risk.')).sort(),
     signals: signals.map((row) => ({
       id: row.id,
       ruleKey: row.rule_key,
