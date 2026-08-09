@@ -6,9 +6,12 @@ Required files:
 
 - `postgres_password`
 - `redis_password`
+- `queue_password`
 - `object_storage_root_user`
 - `object_storage_root_password`
 
 Use a separate secret directory for each environment and point Compose at it with `SUQNAA_SECRET_DIR`. Restrict the directory to the deployment account and do not copy these values into `.env.production`, image build arguments, CI logs, or repository files.
+
+The general Redis credential and durable queue credential must be distinct. Queue storage uses a separate Redis instance so cache/state memory policy cannot evict background work.
 
 Application credentials should use least-privilege identities distinct from infrastructure root/bootstrap credentials. The root object-storage credentials in this directory are for bootstrap/administration only; application S3 access keys must be provisioned separately before production rollout.
