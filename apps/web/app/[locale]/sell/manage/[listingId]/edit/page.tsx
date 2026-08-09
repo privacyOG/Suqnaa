@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { ContextualSafetyGuidance } from '../../../../../../components/contextual-safety-guidance';
 import { EditListingForm } from '../../../../../../components/edit-listing-form';
 import { ListingLocationForm } from '../../../../../../components/listing-location-form';
 import { ListingShippingOptionsForm } from '../../../../../../components/listing-shipping-options-form';
@@ -46,6 +47,7 @@ export default async function EditListingPage({
 
       {user ? (
         <>
+          <ContextualSafetyGuidance locale={params.locale} point="listing" />
           <EditListingForm locale={params.locale} listingId={params.listingId} />
           <ListingLocationForm locale={params.locale} listingId={params.listingId} />
           <ListingShippingOptionsForm locale={params.locale} listingId={params.listingId} />
