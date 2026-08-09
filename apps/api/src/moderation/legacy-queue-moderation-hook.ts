@@ -5,7 +5,8 @@ import { recordQueueAudit } from '../operations/queue-audit.js';
 import {
   ModerationPolicyError,
   applyAccountModerationAction,
-  applyListingModerationAction
+  applyListingModerationAction,
+  evaluateListingModerationPolicy
 } from './moderation-policy-service.js';
 
 const uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
@@ -105,6 +106,29 @@ export async function interceptLegacyQueueModeration(
           allowedStatuses: ['active', 'removed']
         });
         return;
+      }
+
+      if (bodyStatus === 'active') {
+        const listing = await db.selectFrom('listings')
+          .select(['category_id', 'title', 'description'])
+          .where('id', '=', report.listing_id)
+          .executeTakeFirst();
+        if (!listing) {
+          reply.code(404).send({ error: 'Linked listing not found' });
+          return;
+        }
+        const policy = await evaluateListingModerationPolicy({
+          categoryId: listing.category_id ? String(listing.category_id) : null,
+          title: String(listing.title),
+          description: String(listing.description)
+        });
+        if (policy.decision === 'block') {
+          reply.code(409).send({
+            error: 'Listing cannot be approved while a hard moderation policy block is active',
+            code: 'listing_policy_blocked'
+          });
+          return;
+        }
       }
 
       const action = bodyStatus === 'active' ? 'approve' : 'takedown';
