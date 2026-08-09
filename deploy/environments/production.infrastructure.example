@@ -1,0 +1,14 @@
+# Non-secret production infrastructure configuration.
+# Replace example domains before deployment and keep the populated file outside source control.
+
+SUQNAA_POSTGRES_DB=suqnaa
+SUQNAA_POSTGRES_USER=suqnaa
+SUQNAA_APPLICATION_NETWORK=suqnaa-production-application
+SUQNAA_EDGE_NETWORK=suqnaa-production-edge
+SUQNAA_SECRET_DIR=/etc/suqnaa/production/secrets
+
+SUQNAA_WEB_DOMAIN=market.example.invalid
+SUQNAA_API_DOMAIN=api.example.invalid
+SUQNAA_ACME_EMAIL=ops@example.invalid
+SUQNAA_WEB_UPSTREAM=web:3000
+SUQNAA_API_UPSTREAM=api:4000
