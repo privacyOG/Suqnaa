@@ -50,10 +50,11 @@ CREATE TABLE moderation_actions (
   listing_id uuid REFERENCES listings(id) ON DELETE RESTRICT,
   user_id uuid REFERENCES users(id) ON DELETE RESTRICT,
   action_type text NOT NULL,
+  source text NOT NULL DEFAULT 'moderator',
   reason_code text NOT NULL,
   reason text NOT NULL,
   status text NOT NULL DEFAULT 'active',
-  acted_by uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  acted_by uuid REFERENCES users(id) ON DELETE RESTRICT,
   reversed_by uuid REFERENCES users(id) ON DELETE RESTRICT,
   reversed_at timestamptz,
   reversal_reason text,
@@ -65,7 +66,15 @@ CREATE TABLE moderation_actions (
     (listing_id IS NULL AND user_id IS NOT NULL)
   ),
   CONSTRAINT moderation_actions_type_check CHECK (
-    action_type IN ('listing_approve', 'listing_takedown', 'account_suspend', 'account_close', 'no_action')
+    action_type IN (
+      'listing_review_pending', 'listing_approve', 'listing_takedown',
+      'account_suspend', 'account_close', 'no_action'
+    )
+  ),
+  CONSTRAINT moderation_actions_source_check CHECK (source IN ('policy', 'moderator')),
+  CONSTRAINT moderation_actions_actor_check CHECK (
+    (source = 'policy' AND acted_by IS NULL) OR
+    (source = 'moderator' AND acted_by IS NOT NULL)
   ),
   CONSTRAINT moderation_actions_status_check CHECK (status IN ('active', 'reversed', 'superseded')),
   CONSTRAINT moderation_actions_reason_code_check CHECK (reason_code ~ '^[a-z][a-z0-9_.-]{2,79}$'),
@@ -81,6 +90,9 @@ CREATE INDEX moderation_actions_listing_idx ON moderation_actions(listing_id, cr
 CREATE INDEX moderation_actions_user_idx ON moderation_actions(user_id, created_at DESC) WHERE user_id IS NOT NULL;
 CREATE INDEX moderation_actions_report_idx ON moderation_actions(report_id, created_at DESC) WHERE report_id IS NOT NULL;
 CREATE INDEX moderation_actions_retention_idx ON moderation_actions(evidence_retain_until, status);
+CREATE UNIQUE INDEX moderation_actions_listing_review_pending_unique
+  ON moderation_actions(listing_id)
+  WHERE action_type = 'listing_review_pending' AND status = 'active';
 
 CREATE TABLE moderation_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
