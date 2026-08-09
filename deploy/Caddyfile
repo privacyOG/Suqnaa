@@ -1,0 +1,20 @@
+{
+  admin off
+  email {$SUQNAA_ACME_EMAIL}
+}
+
+{$SUQNAA_WEB_DOMAIN} {
+  encode zstd gzip
+  header {
+    -Server
+  }
+  reverse_proxy {$SUQNAA_WEB_UPSTREAM}
+}
+
+{$SUQNAA_API_DOMAIN} {
+  encode zstd gzip
+  header {
+    -Server
+  }
+  reverse_proxy {$SUQNAA_API_UPSTREAM}
+}
