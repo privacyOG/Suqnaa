@@ -137,7 +137,7 @@ async function persistRiskSignal(match: RiskRuleMatch, event: MarketplaceRiskEve
 
   if (event.sourceEventId) {
     const existingSource = await db.selectFrom('risk_signals')
-      .select(['id', 'status', 'occurrence_count'])
+      .select(['id', 'status'])
       .where('rule_key', '=', match.rule.ruleKey)
       .where('source_event_type', '=', event.eventType)
       .where('source_event_id', '=', event.sourceEventId)
@@ -217,12 +217,7 @@ async function persistRiskSignal(match: RiskRuleMatch, event: MarketplaceRiskEve
   };
 }
 
-export async function evaluateMarketplaceRiskEvent(event: MarketplaceRiskEvent) {
-  const rules = await loadActiveRiskRules();
-  const matches = rules
-    .map((rule) => evaluateRiskRule(rule, event))
-    .filter((match): match is RiskRuleMatch => Boolean(match));
-
+async function persistMatches(matches: RiskRuleMatch[], event: MarketplaceRiskEvent) {
   const signals = [];
   for (const match of matches) {
     signals.push({
@@ -233,8 +228,73 @@ export async function evaluateMarketplaceRiskEvent(event: MarketplaceRiskEvent) 
       ...(await persistRiskSignal(match, event))
     });
   }
-
   return { matched: matches.length > 0, signals };
+}
+
+export async function evaluateMarketplaceRiskEvent(event: MarketplaceRiskEvent) {
+  const rules = await loadActiveRiskRules();
+  const matches = rules
+    .map((rule) => evaluateRiskRule(rule, event))
+    .filter((match): match is RiskRuleMatch => Boolean(match));
+  return persistMatches(matches, event);
+}
+
+async function countObservedEvents(rule: RiskRuleDefinition, event: MarketplaceRiskEvent): Promise<number> {
+  const since = new Date(Date.now() - (rule.windowSeconds ?? 60) * 1000);
+  let query = db.selectFrom('risk_event_observations')
+    .select((expression) => expression.fn.countAll<number>().as('count'))
+    .where('event_type', '=', event.eventType)
+    .where('observed_at', '>=', since);
+
+  if (event.userId) query = query.where('user_id', '=', event.userId);
+  else if (event.orderId) query = query.where('order_id', '=', event.orderId);
+  else if (event.paymentIntentId) query = query.where('payment_intent_id', '=', event.paymentIntentId);
+  else return 1;
+
+  const row = await query.executeTakeFirst();
+  return Number(row?.count ?? 0);
+}
+
+export async function observeMarketplaceRiskEvent(event: MarketplaceRiskEvent) {
+  const now = new Date();
+  if (event.sourceEventId) {
+    const existing = await db.selectFrom('risk_event_observations')
+      .select(['id'])
+      .where('event_type', '=', event.eventType)
+      .where('source_event_id', '=', event.sourceEventId)
+      .executeTakeFirst();
+    if (existing) return { duplicateObservation: true, matched: false, signals: [] };
+  }
+
+  const inserted = await db.insertInto('risk_event_observations').values({
+    event_type: event.eventType,
+    source_event_id: event.sourceEventId ?? null,
+    user_id: event.userId ?? null,
+    listing_id: event.listingId ?? null,
+    offer_id: event.offerId ?? null,
+    order_id: event.orderId ?? null,
+    payment_intent_id: event.paymentIntentId ?? null,
+    amount: typeof event.amount === 'number' ? event.amount.toFixed(2) : null,
+    metadata: event.evidence ?? {},
+    observed_at: now,
+    retain_until: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  }).onConflict((conflict) => conflict.doNothing())
+    .returning(['id'])
+    .executeTakeFirst();
+  if (!inserted) return { duplicateObservation: true, matched: false, signals: [] };
+
+  const rules = (await loadActiveRiskRules()).filter((rule) => configuredEventTypes(rule).includes(event.eventType));
+  const matches: RiskRuleMatch[] = [];
+  for (const rule of rules) {
+    const metric = configuredMetric(rule);
+    const evaluatedEvent = metric === 'event_count'
+      ? { ...event, eventCount: await countObservedEvents(rule, event) }
+      : event;
+    const match = evaluateRiskRule(rule, evaluatedEvent);
+    if (match) matches.push(match);
+  }
+
+  return { duplicateObservation: false, ...(await persistMatches(matches, event)) };
 }
 
 export async function observeHashedRiskIdentity(input: {
@@ -262,7 +322,7 @@ export async function observeHashedRiskIdentity(input: {
     await db.updateTable('risk_identity_links').set({
       last_seen_at: now,
       source: input.source,
-      metadata: input.metadata ?? {},
+      metadata: input.metadata ?? {}
     }).where('id', '=', existing.id).execute();
   } else {
     await db.insertInto('risk_identity_links').values({
