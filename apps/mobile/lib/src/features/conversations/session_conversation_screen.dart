@@ -7,6 +7,7 @@ import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
+import '../safety/contextual_safety_guidance.dart';
 
 class SessionConversationScreen extends StatefulWidget {
   const SessionConversationScreen({
@@ -452,6 +453,10 @@ class _SessionConversationScreenState extends State<SessionConversationScreen> {
       ),
       body: Column(
         children: [
+          const ContextualSafetyGuidance(
+            decisionPoint: SafetyDecisionPoint.messaging,
+            margin: EdgeInsets.fromLTRB(12, 8, 12, 4),
+          ),
           if (_error != null)
             MaterialBanner(
               content: Text(_error!),

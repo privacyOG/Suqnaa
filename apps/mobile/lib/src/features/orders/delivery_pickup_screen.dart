@@ -8,6 +8,7 @@ import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
+import '../safety/contextual_safety_guidance.dart';
 
 class DeliveryPickupScreen extends StatefulWidget {
   const DeliveryPickupScreen({
@@ -114,6 +115,14 @@ class _DeliveryPickupScreenState extends State<DeliveryPickupScreen> {
             Text(isArabic
                 ? 'اختر الشحن أو الاستلام قبل الدفع. العنوان الكامل يبقى داخل الطلب المحمي فقط.'
                 : 'Choose shipping or pickup before payment. Full addresses remain inside the protected order only.'),
+            const ContextualSafetyGuidance(
+              decisionPoint: SafetyDecisionPoint.shipping,
+              margin: EdgeInsets.only(top: 12, bottom: 4),
+            ),
+            const ContextualSafetyGuidance(
+              decisionPoint: SafetyDecisionPoint.pickup,
+              margin: EdgeInsets.only(top: 4, bottom: 12),
+            ),
             if (_loading) const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
             if (_failed) Padding(
               padding: const EdgeInsets.only(top: 16),

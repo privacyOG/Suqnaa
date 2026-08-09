@@ -8,6 +8,7 @@ import '../../config/mobile_environment.dart';
 import '../../navigation/secure_web_handoff.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
+import '../safety/contextual_safety_guidance.dart';
 
 class EditListingScreen extends StatefulWidget {
   const EditListingScreen({
@@ -382,6 +383,10 @@ class _EditListingScreenState extends State<EditListingScreen> {
                   Text(_isArabic
                       ? 'الحالة: ${_status ?? '—'} · النسخة: ${_version ?? '—'}'
                       : 'Status: ${_status ?? '—'} · Version: ${_version ?? '—'}'),
+                  const ContextualSafetyGuidance(
+                    decisionPoint: SafetyDecisionPoint.listing,
+                    margin: EdgeInsets.only(top: 12, bottom: 4),
+                  ),
                   if (!_editable) ...[
                     const SizedBox(height: 14),
                     Text(
