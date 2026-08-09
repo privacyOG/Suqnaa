@@ -8,6 +8,8 @@ export type AdministrativePermission =
   | 'moderation.queue.resolve'
   | 'moderation.listing.manage'
   | 'moderation.account.manage'
+  | 'moderation.policy.manage'
+  | 'moderation.appeal.review'
   | 'verification.read'
   | 'verification.review'
   | 'audit.read'
