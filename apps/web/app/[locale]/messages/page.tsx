@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { ContextualSafetyGuidance } from '../../../components/contextual-safety-guidance';
 import { ConversationInboxPanel } from '../../../components/conversation-inbox-panel';
 import { SessionRefresh } from '../../../components/session-refresh';
 import { isLocale } from '../../../i18n/locales';
@@ -42,10 +43,13 @@ export default async function MessagesPage({ params }: { params: { locale: strin
       </header>
 
       {user ? (
-        <ConversationInboxPanel
-          locale={params.locale}
-          currentUserId={user.id}
-        />
+        <>
+          <ContextualSafetyGuidance locale={params.locale} point="messaging" />
+          <ConversationInboxPanel
+            locale={params.locale}
+            currentUserId={user.id}
+          />
+        </>
       ) : needsRotation ? (
         <div className="seller-session-panel">
           <SessionRefresh locale={params.locale} />
