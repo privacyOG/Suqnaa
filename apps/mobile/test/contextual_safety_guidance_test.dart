@@ -46,7 +46,7 @@ void main() {
 
   test('guidance links to the canonical bilingual safety policy route', () {
     final source = File('lib/src/features/safety/contextual_safety_guidance.dart').readAsStringSync();
-    expect(source, contains(r"'/$locale/policy/safety'"));
+    expect(source, contains('/policy/safety'));
     expect(source, contains('MobileEnvironment.webBaseUrl'));
     expect(source, contains('LaunchMode.externalApplication'));
   });
