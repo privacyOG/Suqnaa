@@ -6,7 +6,8 @@ import {
   evaluateListingModerationPolicy
 } from './moderation-policy-service.js';
 
-const sellerStatusPath = /^\/v1\/listings\/([0-9a-fA-F-]{36})\/status(?:\?.*)?$/;
+const uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const sellerStatusPath = new RegExp(`^/v1/listings/(${uuid})/status(?:\\?.*)?$`);
 
 export async function enforceSellerListingPublicationPolicy(
   request: FastifyRequest,
