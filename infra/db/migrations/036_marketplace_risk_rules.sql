@@ -74,10 +74,10 @@ INSERT INTO risk_rules(
     '{"eventTypes":["offer.created"],"metric":"event_count"}'::jsonb, 'system'
   ),
   (
-    'payment.failure_velocity', 'offer_payment_fraud', 'Repeated payment collection failures',
-    'Flags repeated failed payment collection activity associated with an account or order.',
-    'high', 75, 900, 5, NULL,
-    '{"eventTypes":["payment.collection_failed"],"metric":"event_count"}'::jsonb, 'system'
+    'payment.chargeback_velocity', 'offer_payment_fraud', 'Repeated verified chargebacks',
+    'Flags repeated verified payment chargebacks associated with a marketplace participant.',
+    'high', 80, 2592000, 2, NULL,
+    '{"eventTypes":["payment.chargeback_created"],"metric":"event_count"}'::jsonb, 'system'
   ),
   (
     'identity.shared_identifier', 'duplicate_identity', 'Identity identifier shared across accounts',
@@ -91,6 +91,37 @@ INSERT INTO risk_rules(
     'high', 80, 2592000, 3, NULL,
     '{"eventTypes":["seller.adverse_outcome"],"metric":"event_count"}'::jsonb, 'system'
   );
+
+CREATE TABLE risk_event_observations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type text NOT NULL,
+  source_event_id text,
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  listing_id uuid REFERENCES listings(id) ON DELETE CASCADE,
+  offer_id uuid REFERENCES offers(id) ON DELETE CASCADE,
+  order_id uuid REFERENCES transactions(id) ON DELETE CASCADE,
+  payment_intent_id uuid REFERENCES payment_intents(id) ON DELETE CASCADE,
+  amount numeric(18,2),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  observed_at timestamptz NOT NULL DEFAULT now(),
+  retain_until timestamptz NOT NULL DEFAULT (now() + interval '30 days'),
+  CONSTRAINT risk_event_observations_type_check CHECK (char_length(btrim(event_type)) BETWEEN 3 AND 120),
+  CONSTRAINT risk_event_observations_amount_check CHECK (amount IS NULL OR amount >= 0),
+  CONSTRAINT risk_event_observations_metadata_check CHECK (jsonb_typeof(metadata) = 'object'),
+  CONSTRAINT risk_event_observations_retention_check CHECK (retain_until > observed_at)
+);
+
+CREATE UNIQUE INDEX risk_event_observations_source_unique
+  ON risk_event_observations(event_type, source_event_id)
+  WHERE source_event_id IS NOT NULL;
+CREATE INDEX risk_event_observations_user_window_idx
+  ON risk_event_observations(user_id, event_type, observed_at DESC)
+  WHERE user_id IS NOT NULL;
+CREATE INDEX risk_event_observations_order_idx
+  ON risk_event_observations(order_id, event_type, observed_at DESC)
+  WHERE order_id IS NOT NULL;
+CREATE INDEX risk_event_observations_retention_idx
+  ON risk_event_observations(retain_until);
 
 CREATE TABLE risk_signals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
