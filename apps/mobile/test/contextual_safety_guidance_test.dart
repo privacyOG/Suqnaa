@@ -44,8 +44,14 @@ void main() {
     expect(dispute, contains('SafetyDecisionPoint.dispute'));
   });
 
-  test('guidance links to the canonical bilingual safety policy route', () {
+  test('guidance keeps representative fraud and evidence warnings', () {
     final source = File('lib/src/features/safety/contextual_safety_guidance.dart').readAsStringSync();
+    expect(source, contains('Never send passwords, sign-in codes or card details'));
+    expect(source, contains('Pay only through protected checkout'));
+    expect(source, contains('Preserve original evidence'));
+    expect(source, contains('لا ترسل كلمات المرور أو رموز الدخول أو بيانات البطاقة'));
+    expect(source, contains('ادفع فقط عبر المسار المحمي'));
+    expect(source, contains('احتفظ بالأدلة الأصلية'));
     expect(source, contains('/policy/safety'));
     expect(source, contains('MobileEnvironment.webBaseUrl'));
     expect(source, contains('LaunchMode.externalApplication'));
