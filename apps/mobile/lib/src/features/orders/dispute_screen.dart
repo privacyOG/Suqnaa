@@ -8,6 +8,7 @@ import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
+import '../safety/contextual_safety_guidance.dart';
 import 'order_protection_panel.dart';
 
 class DisputeScreen extends StatefulWidget {
@@ -79,11 +80,17 @@ class _DisputeScreenState extends State<DisputeScreen> {
     final reason = TextEditingController();
     final accepted = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
       title: Text(ar ? 'فتح نزاع' : 'Open dispute'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: category, items: disputeCategories.map((value) => DropdownMenuItem(value: value, child: Text(_category(value, ar)))).toList(), onChanged: (value) { if (value != null) setDialogState(() => category = value); }),
-        const SizedBox(height: 12),
-        TextField(controller: reason, minLines: 3, maxLines: 6, maxLength: 4000, decoration: InputDecoration(labelText: ar ? 'اشرح المشكلة (20 حرفاً على الأقل)' : 'Describe the problem (at least 20 characters)')),
-      ]),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const ContextualSafetyGuidance(
+            decisionPoint: SafetyDecisionPoint.dispute,
+            margin: EdgeInsets.only(bottom: 12),
+          ),
+          DropdownButtonFormField<String>(value: category, items: disputeCategories.map((value) => DropdownMenuItem(value: value, child: Text(_category(value, ar)))).toList(), onChanged: (value) { if (value != null) setDialogState(() => category = value); }),
+          const SizedBox(height: 12),
+          TextField(controller: reason, minLines: 3, maxLines: 6, maxLength: 4000, decoration: InputDecoration(labelText: ar ? 'اشرح المشكلة (20 حرفاً على الأقل)' : 'Describe the problem (at least 20 characters)')),
+        ]),
+      ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: Text(ar ? 'إلغاء' : 'Cancel')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(ar ? 'فتح' : 'Open')),
@@ -126,6 +133,10 @@ class _DisputeScreenState extends State<DisputeScreen> {
         Text(ar ? 'حماية المعاملة' : 'Transaction protection', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: SuqnaaBrand.blue)),
         const SizedBox(height: 8),
         Text(ar ? 'النزاع النشط يوقف تسوية البائع. الاسترداد أو تحرير الأموال يحتاجان إلى موافقة دفع منفصلة.' : 'An active dispute blocks seller settlement. Refunds or fund release still require separate payment approval.'),
+        const ContextualSafetyGuidance(
+          decisionPoint: SafetyDecisionPoint.dispute,
+          margin: EdgeInsets.only(top: 12, bottom: 4),
+        ),
         if (_loading) const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator())),
         if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
         if (_cases.isNotEmpty) ...[
@@ -191,6 +202,10 @@ class _DisputeDetailScreenState extends State<_DisputeDetailScreen> {
       Text(dispute.category.replaceAll('_', ' '), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
       Text('${dispute.status.replaceAll('_', ' ')} · ${dispute.outcome.replaceAll('_', ' ')}'),
       const SizedBox(height: 12), Text(dispute.reason),
+      const ContextualSafetyGuidance(
+        decisionPoint: SafetyDecisionPoint.dispute,
+        margin: EdgeInsets.only(top: 12, bottom: 4),
+      ),
       const SizedBox(height: 12), Text('${ar ? 'مهلة الرد' : 'Response due'}: ${dispute.responseDueAt.toLocal()}'),
       if (_detail.paymentOperationStatus != null) Text('${ar ? 'إجراء الدفع' : 'Payment operation'}: ${_detail.paymentOperationStatus}'),
       OrderProtectionPanel(orderId: dispute.orderId),
