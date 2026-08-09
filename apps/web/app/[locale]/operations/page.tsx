@@ -103,6 +103,7 @@ export default async function OperationsPage({ params }: { params: { locale: str
               : 'A permission-aware view of moderation, trust, payment, fulfilment, risk, and audit workload.'}
           </p>
           <div className="actions">
+            <a className="button-secondary" href={`/${params.locale}/operations/moderation`}>{isArabic ? 'مركز الإشراف' : 'Moderation centre'}</a>
             <a className="button-secondary" href={`/${params.locale}/operations/disputes`}>{isArabic ? 'النزاعات' : 'Disputes'}</a>
             <a className="button-secondary" href={`/${params.locale}/operations/verifications`}>{isArabic ? 'التحقق' : 'Identity checks'}</a>
             <a className="button-secondary" href={`/${params.locale}/operations/access`}>{isArabic ? 'الأدوار والصلاحيات' : 'Roles and permissions'}</a>
