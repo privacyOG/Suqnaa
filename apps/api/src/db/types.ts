@@ -75,6 +75,16 @@ export type ModerationActionType =
   | 'no_action';
 export type ModerationActionStatus = 'active' | 'reversed' | 'superseded';
 export type ModerationAppealStatus = 'open' | 'upheld' | 'overturned' | 'dismissed';
+export type RiskCategory =
+  | 'account_abuse'
+  | 'offer_payment_fraud'
+  | 'account_takeover'
+  | 'velocity_anomaly'
+  | 'duplicate_identity'
+  | 'suspicious_seller';
+export type RiskSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type RiskSignalStatus = 'open' | 'reviewed' | 'dismissed' | 'escalated';
+export type RiskReviewDisposition = 'confirmed' | 'false_positive' | 'monitor' | 'escalated';
 
  type TableShape = Record<string, any>;
 
@@ -138,5 +148,8 @@ export interface Database {
   moderation_actions: TableShape;
   moderation_notes: TableShape;
   moderation_appeals: TableShape;
+  risk_rules: TableShape;
+  risk_signals: TableShape;
+  risk_identity_links: TableShape;
   audit_logs: TableShape;
 }
