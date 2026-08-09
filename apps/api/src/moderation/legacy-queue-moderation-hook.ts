@@ -8,8 +8,9 @@ import {
   applyListingModerationAction
 } from './moderation-policy-service.js';
 
-const listingQueuePath = /^\/v1\/operations\/queue\/([0-9a-fA-F-]{36})\/listing-status(?:\?.*)?$/;
-const accountQueuePath = /^\/v1\/operations\/queue\/([0-9a-fA-F-]{36})\/account-status(?:\?.*)?$/;
+const uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const listingQueuePath = new RegExp(`^/v1/operations/queue/(${uuid})/listing-status(?:\\?.*)?$`);
+const accountQueuePath = new RegExp(`^/v1/operations/queue/(${uuid})/account-status(?:\\?.*)?$`);
 
 function noteFromBody(request: FastifyRequest): string | null {
   const value = (request.body as { note?: unknown } | undefined)?.note;
