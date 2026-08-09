@@ -56,7 +56,7 @@ CREATE TABLE risk_signals (
   user_id uuid REFERENCES users(id) ON DELETE RESTRICT,
   listing_id uuid REFERENCES listings(id) ON DELETE RESTRICT,
   offer_id uuid REFERENCES offers(id) ON DELETE RESTRICT,
-  order_id uuid REFERENCES orders(id) ON DELETE RESTRICT,
+  order_id uuid REFERENCES transactions(id) ON DELETE RESTRICT,
   payment_intent_id uuid REFERENCES payment_intents(id) ON DELETE RESTRICT,
   report_id uuid REFERENCES reports(id) ON DELETE SET NULL,
   source_event_type text NOT NULL,
