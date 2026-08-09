@@ -6,6 +6,7 @@ import { resolveWebOrigin } from './config/web-origin.js';
 import { interceptLegacyQueueModeration } from './moderation/legacy-queue-moderation-hook.js';
 import { enforceSellerListingPublicationPolicy } from './moderation/listing-publication-hook.js';
 import { enforceModeratorListingApprovalPolicy } from './moderation/moderator-listing-approval-hook.js';
+import { recordMarketplaceRiskResponse } from './risk/marketplace-risk-event-hook.js';
 import { accountRoutes } from './routes/account.js';
 import { accountProfileRoutes } from './routes/account-profile.js';
 import { accountVerificationRoutes } from './routes/account-verification.js';
@@ -101,6 +102,10 @@ app.addHook('onRequest', async (request, reply) => {
 app.addHook('preHandler', enforceSellerListingPublicationPolicy);
 app.addHook('preHandler', enforceModeratorListingApprovalPolicy);
 app.addHook('preHandler', interceptLegacyQueueModeration);
+app.addHook('onSend', async (request, reply, payload) => {
+  await recordMarketplaceRiskResponse(request, reply, payload);
+  return payload;
+});
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
