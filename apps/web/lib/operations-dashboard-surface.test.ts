@@ -52,7 +52,8 @@ assert.match(financeApi, /payment-operations\/\$\{encodeURIComponent\(operationI
 assert.match(financeApi, /\/v1\/operations\/settlements\/run/);
 assert.match(fulfilmentPage, /Fulfilment & returns/);
 assert.match(fulfilmentPage, /without bypassing dispute or payment authorisation workflows/);
-assert.match(fraudPage, /Fraud signals/);
-assert.match(fraudPage, /P0-30/);
+assert.match(fraudPage, /Risk and fraud signals/);
+assert.match(fraudPage, /Persisted risk signals/);
+assert.match(fraudPage, /never directly suspends an account, removes a listing, or moves money/);
 
 console.log('Administration dashboard web surface passed.');
