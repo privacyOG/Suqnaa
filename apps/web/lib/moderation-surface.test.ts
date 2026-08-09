@@ -5,6 +5,10 @@ import { resolveProtectedRoute } from './protected-route-policy';
 const page = readFileSync(new URL('../app/[locale]/operations/moderation/page.tsx', import.meta.url), 'utf8');
 const panel = readFileSync(new URL('../components/operations-moderation-panel.tsx', import.meta.url), 'utf8');
 const dashboard = readFileSync(new URL('../app/[locale]/operations/page.tsx', import.meta.url), 'utf8');
+const accountPage = readFileSync(new URL('../app/[locale]/account/page.tsx', import.meta.url), 'utf8');
+const participantPage = readFileSync(new URL('../app/[locale]/account/moderation/page.tsx', import.meta.url), 'utf8');
+const participantPanel = readFileSync(new URL('../components/moderation-appeals-panel.tsx', import.meta.url), 'utf8');
+const participantServer = readFileSync(new URL('./moderation-participant-server.ts', import.meta.url), 'utf8');
 
 const id = '123e4567-e89b-42d3-a456-426614174000';
 
@@ -37,5 +41,14 @@ assert.match(panel, /Close account/);
 assert.match(panel, /reconcile-retention/);
 assert.match(panel, /policy-rules/);
 assert.match(panel, /appeals\/\$\{appeal\.id\}\/decision/);
+
+assert.match(accountPage, /account\/moderation/);
+assert.match(participantPage, /Moderation actions and appeals/);
+assert.match(participantPage, /loadParticipantModerationActions/);
+assert.match(participantPanel, /Submit appeal/);
+assert.match(participantPanel, /\/api\/authed\/v1\/market\/moderation\/actions\/\$\{actionId\}\/appeal/);
+assert.match(participantPanel, /reason\.length < 8/);
+assert.match(participantServer, /\/v1\/market\/moderation\/actions/);
+assert.match(participantServer, /cache: 'no-store'/);
 
 console.log('Moderation web surface passed.');
