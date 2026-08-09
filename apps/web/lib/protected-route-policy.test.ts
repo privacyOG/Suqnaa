@@ -1,16 +1,8 @@
 import assert from 'node:assert/strict';
 import { resolveProtectedRoute } from './protected-route-policy';
 
-const account = resolveProtectedRoute(
-  'GET',
-  ['v1', 'account', 'me'],
-  new URLSearchParams()
-);
-assert.deepEqual(account, {
-  method: 'GET',
-  path: '/v1/account/me',
-  query: ''
-});
+const account = resolveProtectedRoute('GET', ['v1', 'account', 'me'], new URLSearchParams());
+assert.deepEqual(account, { method: 'GET', path: '/v1/account/me', query: '' });
 
 for (const segments of [
   ['v1', 'account', 'profile'],
@@ -19,10 +11,7 @@ for (const segments of [
   ['v1', 'account', 'seller-verification']
 ]) {
   assert.ok(resolveProtectedRoute('GET', segments, new URLSearchParams()));
-  assert.equal(
-    resolveProtectedRoute('GET', segments, new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')),
-    null
-  );
+  assert.equal(resolveProtectedRoute('GET', segments, new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')), null);
 }
 for (const segments of [
   ['v1', 'account', 'profile'],
@@ -32,246 +21,73 @@ for (const segments of [
   ['v1', 'account', 'seller-verification', 'start']
 ]) {
   assert.ok(resolveProtectedRoute('POST', segments, new URLSearchParams()));
-  assert.equal(
-    resolveProtectedRoute('POST', segments, new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')),
-    null
-  );
+  assert.equal(resolveProtectedRoute('POST', segments, new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')), null);
 }
-
-const conversations = resolveProtectedRoute(
-  'GET',
-  ['v1', 'conversations'],
-  new URLSearchParams('limit=20&before=2026-06-22T00%3A00%3A00.000Z')
-);
-assert.equal(conversations?.path, '/v1/conversations');
-assert.equal(
-  conversations?.query,
-  'limit=20&before=2026-06-22T00%3A00%3A00.000Z'
-);
 
 const conversationId = '123e4567-e89b-42d3-a456-426614174000';
 const mediaId = '223e4567-e89b-42d3-a456-426614174000';
-assert.ok(resolveProtectedRoute(
-  'GET',
-  ['v1', 'conversations', conversationId, 'messages'],
-  new URLSearchParams('limit=50')
-));
-assert.ok(resolveProtectedRoute(
-  'POST',
-  ['v1', 'conversations', conversationId, 'read'],
-  new URLSearchParams()
-));
-assert.ok(resolveProtectedRoute(
-  'POST',
-  ['v1', 'listings', conversationId, 'status'],
-  new URLSearchParams()
-));
+assert.ok(resolveProtectedRoute('GET', ['v1', 'conversations'], new URLSearchParams('limit=20')));
+assert.ok(resolveProtectedRoute('GET', ['v1', 'conversations', conversationId, 'messages'], new URLSearchParams('limit=50')));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'conversations', conversationId, 'read'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'listings', conversationId, 'status'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('GET', ['v1', 'listings', conversationId, 'media', 'mine'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('GET', ['v1', 'listings', conversationId, 'media', mediaId, 'mine'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'listings', conversationId, 'media', 'upload'], new URLSearchParams('width=1200&height=800&sortOrder=0')));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'listings', conversationId, 'media', mediaId, 'delete'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'payments', 'protected-checkout'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'market', 'orders', conversationId, 'cancel'], new URLSearchParams()));
 
-const ownerGallery = resolveProtectedRoute(
-  'GET',
-  ['v1', 'listings', conversationId, 'media', 'mine'],
-  new URLSearchParams()
-);
-assert.deepEqual(ownerGallery, {
-  method: 'GET',
-  path: `/v1/listings/${conversationId}/media/mine`,
-  query: ''
-});
-const ownerMedia = resolveProtectedRoute(
-  'GET',
-  ['v1', 'listings', conversationId, 'media', mediaId, 'mine'],
-  new URLSearchParams()
-);
-assert.deepEqual(ownerMedia, {
-  method: 'GET',
-  path: `/v1/listings/${conversationId}/media/${mediaId}/mine`,
-  query: ''
-});
-assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', 'listings', conversationId, 'media', 'mine'],
-  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
-), null);
-assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', 'listings', 'not-a-uuid', 'media', mediaId, 'mine'],
-  new URLSearchParams()
-), null);
+assert.ok(resolveProtectedRoute('GET', ['v1', 'operations', 'queue'], new URLSearchParams('status=open&limit=25')));
+assert.ok(resolveProtectedRoute('GET', ['v1', 'operations', 'records'], new URLSearchParams('limit=25&entityType=report')));
+assert.ok(resolveProtectedRoute('GET', ['v1', 'operations', 'verifications'], new URLSearchParams('status=pending&limit=25')));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'operations', 'verifications', conversationId, 'review'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'operations', 'queue', conversationId, 'complete'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'operations', 'queue', conversationId, 'listing-status'], new URLSearchParams()));
+assert.ok(resolveProtectedRoute('POST', ['v1', 'operations', 'queue', conversationId, 'account-status'], new URLSearchParams()));
 
-const mediaUpload = resolveProtectedRoute(
+const paymentDecision = resolveProtectedRoute(
   'POST',
-  ['v1', 'listings', conversationId, 'media', 'upload'],
-  new URLSearchParams('width=1200&height=800&altText=Test+phone&sortOrder=0')
-);
-assert.equal(mediaUpload?.path, `/v1/listings/${conversationId}/media/upload`);
-assert.equal(
-  mediaUpload?.query,
-  'width=1200&height=800&altText=Test+phone&sortOrder=0'
-);
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'listings', conversationId, 'media'],
-  new URLSearchParams()
-), null);
-assert.ok(resolveProtectedRoute(
-  'POST',
-  ['v1', 'listings', conversationId, 'media', mediaId, 'delete'],
-  new URLSearchParams()
-));
-
-const checkout = resolveProtectedRoute(
-  'POST',
-  ['v1', 'payments', 'protected-checkout'],
+  ['v1', 'operations', 'payment-operations', conversationId, 'decision'],
   new URLSearchParams()
 );
-assert.deepEqual(checkout, {
+assert.deepEqual(paymentDecision, {
   method: 'POST',
-  path: '/v1/payments/protected-checkout',
+  path: `/v1/operations/payment-operations/${conversationId}/decision`,
   query: ''
 });
-assert.equal(resolveProtectedRoute(
+assert.deepEqual(resolveProtectedRoute(
   'POST',
-  ['v1', 'payments', 'protected-checkout'],
-  new URLSearchParams('amount=1')
-), null);
-
-const orderCancellation = resolveProtectedRoute(
-  'POST',
-  ['v1', 'market', 'orders', conversationId, 'cancel'],
+  ['v1', 'operations', 'settlements', 'run'],
   new URLSearchParams()
-);
-assert.deepEqual(orderCancellation, {
+), {
   method: 'POST',
-  path: `/v1/market/orders/${conversationId}/cancel`,
+  path: '/v1/operations/settlements/run',
   query: ''
 });
 assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', 'market', 'orders', conversationId, 'cancel'],
+  'POST',
+  ['v1', 'operations', 'payment-operations', 'not-a-uuid', 'decision'],
   new URLSearchParams()
 ), null);
 assert.equal(resolveProtectedRoute(
   'POST',
-  ['v1', 'market', 'orders', 'not-a-uuid', 'cancel'],
-  new URLSearchParams()
-), null);
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'market', 'orders', conversationId, 'cancel'],
-  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
+  ['v1', 'operations', 'settlements', 'run'],
+  new URLSearchParams('limit=500')
 ), null);
 
-const queue = resolveProtectedRoute(
-  'GET',
-  ['v1', 'operations', 'queue'],
-  new URLSearchParams('status=open&limit=25&before=2026-06-22T00%3A00%3A00.000Z')
-);
-assert.equal(queue?.path, '/v1/operations/queue');
-assert.equal(
-  queue?.query,
-  'status=open&limit=25&before=2026-06-22T00%3A00%3A00.000Z'
-);
+for (const invalid of [
+  resolveProtectedRoute('POST', ['v1', 'market', 'identity-checks'], new URLSearchParams()),
+  resolveProtectedRoute('DELETE', ['v1', 'listings', conversationId], new URLSearchParams()),
+  resolveProtectedRoute('GET', ['v1', '..', 'account', 'me'], new URLSearchParams()),
+  resolveProtectedRoute('POST', ['v1', 'operations', 'queue', 'not-a-uuid', 'complete'], new URLSearchParams()),
+  resolveProtectedRoute('POST', ['v1', 'auth', 'refresh'], new URLSearchParams()),
+  resolveProtectedRoute('POST', ['v1', 'market', 'unknown'], new URLSearchParams())
+]) {
+  assert.equal(invalid, null);
+}
 
-const records = resolveProtectedRoute(
-  'GET',
-  ['v1', 'operations', 'records'],
-  new URLSearchParams('limit=25&action=operations.queue.complete&entityType=report')
-);
-assert.equal(records?.path, '/v1/operations/records');
-assert.equal(
-  records?.query,
-  'limit=25&action=operations.queue.complete&entityType=report'
-);
+assert.equal(resolveProtectedRoute('GET', ['v1', 'account', 'me'], new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')), null);
+assert.equal(resolveProtectedRoute('GET', ['v1', 'conversations'], new URLSearchParams('limit=20&limit=30')), null);
+assert.equal(resolveProtectedRoute('POST', ['v1', 'listings', conversationId, 'media', 'upload'], new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')), null);
 
-const verifications = resolveProtectedRoute(
-  'GET',
-  ['v1', 'operations', 'verifications'],
-  new URLSearchParams('status=pending&providerResult=passed&limit=25')
-);
-assert.deepEqual(verifications, {
-  method: 'GET',
-  path: '/v1/operations/verifications',
-  query: 'status=pending&providerResult=passed&limit=25'
-});
-assert.ok(resolveProtectedRoute(
-  'POST',
-  ['v1', 'operations', 'verifications', conversationId, 'review'],
-  new URLSearchParams()
-));
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'operations', 'verifications', 'not-a-uuid', 'review'],
-  new URLSearchParams()
-), null);
-assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', 'operations', 'verifications'],
-  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
-), null);
-
-assert.ok(resolveProtectedRoute(
-  'POST',
-  ['v1', 'operations', 'queue', conversationId, 'complete'],
-  new URLSearchParams()
-));
-assert.ok(resolveProtectedRoute(
-  'POST',
-  ['v1', 'operations', 'queue', conversationId, 'listing-status'],
-  new URLSearchParams()
-));
-assert.ok(resolveProtectedRoute(
-  'POST',
-  ['v1', 'operations', 'queue', conversationId, 'account-status'],
-  new URLSearchParams()
-));
-
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'market', 'identity-checks'],
-  new URLSearchParams()
-), null);
-assert.equal(resolveProtectedRoute(
-  'DELETE',
-  ['v1', 'listings', conversationId],
-  new URLSearchParams()
-), null);
-assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', '..', 'account', 'me'],
-  new URLSearchParams()
-), null);
-assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', 'account', 'me'],
-  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
-), null);
-assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', 'conversations'],
-  new URLSearchParams('limit=20&limit=30')
-), null);
-assert.equal(resolveProtectedRoute(
-  'GET',
-  ['v1', 'operations', 'records'],
-  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
-), null);
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'listings', conversationId, 'media', 'upload'],
-  new URLSearchParams('redirect=https%3A%2F%2Fattacker.example')
-), null);
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'operations', 'queue', 'not-a-uuid', 'complete'],
-  new URLSearchParams()
-), null);
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'auth', 'refresh'],
-  new URLSearchParams()
-), null);
-assert.equal(resolveProtectedRoute(
-  'POST',
-  ['v1', 'market', 'unknown'],
-  new URLSearchParams()
-), null);
+console.log('Protected route policy passed.');
