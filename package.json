@@ -12,11 +12,12 @@
     "db:migrate": "node scripts/migrate-database.mjs",
     "db:migrate:adopt": "node scripts/adopt-existing-migrations.mjs",
     "db:migrations:validate": "bash scripts/validate-database-migrations.sh",
+    "containers:validate": "node scripts/validate-production-containers.mjs",
     "policy": "node scripts/repository-policy.mjs",
     "typecheck": "pnpm -r typecheck",
     "test:api": "pnpm --filter suqnaa-api test:security",
     "test:web": "pnpm --filter suqnaa-web test:session",
-    "test": "pnpm test:api && pnpm test:web",
+    "test": "pnpm test:api && pnpm test:web && pnpm containers:validate",
     "ci": "pnpm policy && pnpm typecheck && pnpm test"
   }
 }

@@ -1,0 +1,93 @@
+name: suqnaa
+
+x-runtime: &runtime
+  env_file:
+    - ${SUQNAA_ENV_FILE:-../.env.production}
+  restart: unless-stopped
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  networks:
+    - application
+  stop_grace_period: 30s
+
+x-worker: &worker
+  <<: *runtime
+  image: ${SUQNAA_WORKER_IMAGE:-suqnaa-worker:local}
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+    target: worker
+
+services:
+  api:
+    <<: *runtime
+    image: ${SUQNAA_API_IMAGE:-suqnaa-api:local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: api
+    expose:
+      - "4000"
+
+  web:
+    <<: *runtime
+    image: ${SUQNAA_WEB_IMAGE:-suqnaa-web:local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL is required at web build time}
+        NEXT_PUBLIC_CHALLENGE_SCRIPT_URL: ${NEXT_PUBLIC_CHALLENGE_SCRIPT_URL:-}
+    expose:
+      - "3000"
+
+  worker-listings:
+    <<: *worker
+    command: ["node", "apps/api/dist/workers/listing-lifecycle-worker.js"]
+
+  worker-discovery:
+    <<: *worker
+    command: ["node", "apps/api/dist/workers/discovery-notification-worker.js"]
+
+  worker-notifications:
+    <<: *worker
+    command: ["node", "apps/api/dist/workers/notification-delivery-worker.js"]
+
+  worker-settlements:
+    <<: *worker
+    command: ["node", "apps/api/dist/workers/seller-settlement-worker.js"]
+
+  worker-disputes:
+    <<: *worker
+    command: ["node", "apps/api/dist/workers/dispute-deadline-worker.js"]
+
+  worker-returns:
+    <<: *worker
+    command: ["node", "apps/api/dist/workers/return-deadline-worker.js"]
+
+  migrate:
+    env_file:
+      - ${SUQNAA_ENV_FILE:-../.env.production}
+    image: ${SUQNAA_MIGRATE_IMAGE:-suqnaa-migrate:local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: migrate
+    init: true
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - application
+    profiles:
+      - migrate
+
+networks:
+  application:
+    driver: bridge

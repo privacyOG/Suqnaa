@@ -94,6 +94,35 @@ jobs:
           NODE_ENV: production
         run: pnpm build:web
 
+  containers:
+    name: Production containers
+    needs: policy
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_BASE_URL: https://api.example.invalid
+      NEXT_PUBLIC_CHALLENGE_SCRIPT_URL: ""
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate container topology
+        run: node scripts/validate-production-containers.mjs
+      - name: Validate production Compose configuration
+        shell: bash
+        run: |
+          cp .env.example .env.production
+          docker compose -f deploy/compose.production.yml config >/dev/null
+      - name: Build API image
+        run: docker build -f deploy/Dockerfile --target api -t suqnaa-api:ci .
+      - name: Build worker image
+        run: docker build -f deploy/Dockerfile --target worker -t suqnaa-worker:ci .
+      - name: Build web image
+        run: >-
+          docker build -f deploy/Dockerfile --target web
+          --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL"
+          --build-arg NEXT_PUBLIC_CHALLENGE_SCRIPT_URL="$NEXT_PUBLIC_CHALLENGE_SCRIPT_URL"
+          -t suqnaa-web:ci .
+      - name: Build migration image
+        run: docker build -f deploy/Dockerfile --target migrate -t suqnaa-migrate:ci .
+
   mobile:
     name: Mobile analysis and tests
     needs: policy
@@ -119,6 +148,7 @@ jobs:
     needs:
       - policy
       - database-and-node
+      - containers
       - mobile
     runs-on: ubuntu-latest
     steps:
@@ -126,9 +156,11 @@ jobs:
         env:
           POLICY_RESULT: ${{ needs.policy.result }}
           NODE_RESULT: ${{ needs.database-and-node.result }}
+          CONTAINER_RESULT: ${{ needs.containers.result }}
           MOBILE_RESULT: ${{ needs.mobile.result }}
         shell: bash
         run: |
           [[ "$POLICY_RESULT" == "success" ]]
           [[ "$NODE_RESULT" == "success" ]]
+          [[ "$CONTAINER_RESULT" == "success" ]]
           [[ "$MOBILE_RESULT" == "success" ]]
