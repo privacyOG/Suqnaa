@@ -65,6 +65,16 @@ export type ReturnStatus =
   | 'completed'
   | 'cancelled'
   | 'expired';
+export type ModerationPolicyAction = 'block' | 'manual_review';
+export type ModerationActionType =
+  | 'listing_review_pending'
+  | 'listing_approve'
+  | 'listing_takedown'
+  | 'account_suspend'
+  | 'account_close'
+  | 'no_action';
+export type ModerationActionStatus = 'active' | 'reversed' | 'superseded';
+export type ModerationAppealStatus = 'open' | 'upheld' | 'overturned' | 'dismissed';
 
  type TableShape = Record<string, any>;
 
@@ -124,5 +134,9 @@ export interface Database {
   order_returns: TableShape;
   protection_events: TableShape;
   reports: TableShape;
+  moderation_policy_rules: TableShape;
+  moderation_actions: TableShape;
+  moderation_notes: TableShape;
+  moderation_appeals: TableShape;
   audit_logs: TableShape;
 }

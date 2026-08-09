@@ -3,6 +3,9 @@ import { env } from './config/env.js';
 import { resolveApiErrorResponse } from './config/http-error.js';
 import { resolveApiRequestSizeBytes } from './config/request-size.js';
 import { resolveWebOrigin } from './config/web-origin.js';
+import { interceptLegacyQueueModeration } from './moderation/legacy-queue-moderation-hook.js';
+import { enforceSellerListingPublicationPolicy } from './moderation/listing-publication-hook.js';
+import { enforceModeratorListingApprovalPolicy } from './moderation/moderator-listing-approval-hook.js';
 import { accountRoutes } from './routes/account.js';
 import { accountProfileRoutes } from './routes/account-profile.js';
 import { accountVerificationRoutes } from './routes/account-verification.js';
@@ -24,6 +27,8 @@ import { listingShippingOptionRoutes } from './routes/listing-shipping-options.j
 import { listingRoutes } from './routes/listings.js';
 import { marketActionRoutes } from './routes/market-actions.js';
 import { messageRoutes } from './routes/messages.js';
+import { moderationParticipantRoutes } from './routes/moderation-participant.js';
+import { moderationRoutes } from './routes/moderation.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { offerWorkflowRoutes } from './routes/offer-workflow.js';
 import { operationRecordRoutes } from './routes/operation-records.js';
@@ -93,6 +98,10 @@ app.addHook('onRequest', async (request, reply) => {
   }
 });
 
+app.addHook('preHandler', enforceSellerListingPublicationPolicy);
+app.addHook('preHandler', enforceModeratorListingApprovalPolicy);
+app.addHook('preHandler', interceptLegacyQueueModeration);
+
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
 
@@ -140,6 +149,8 @@ await app.register(operationsPaymentRoutes, { prefix: '/v1' });
 await app.register(operationsSettlementRoutes, { prefix: '/v1' });
 await app.register(operationsDisputeRoutes, { prefix: '/v1' });
 await app.register(operationRecordRoutes, { prefix: '/v1' });
+await app.register(moderationRoutes, { prefix: '/v1' });
+await app.register(moderationParticipantRoutes, { prefix: '/v1' });
 await app.register(orderActivityRoutes, { prefix: '/v1' });
 await app.register(orderCancellationRoutes, { prefix: '/v1' });
 await app.register(orderDeliveryRoutes, { prefix: '/v1' });
