@@ -24,6 +24,7 @@ const routePermissions: readonly {
   { method: 'POST', pattern: /^\/v1\/operations\/risk\/rules\/[0-9a-fA-F-]+\/status(?:\?.*)?$/, permission: 'risk.manage' },
   { method: 'GET', pattern: /^\/v1\/operations\/risk\/signals(?:\?.*)?$/, permission: 'risk.read' },
   { method: 'POST', pattern: /^\/v1\/operations\/risk\/signals\/[0-9a-fA-F-]+\/review(?:\?.*)?$/, permission: 'risk.review' },
+  { method: 'POST', pattern: /^\/v1\/operations\/risk\/reconcile-sources(?:\?.*)?$/, permission: 'risk.manage' },
   { method: 'POST', pattern: /^\/v1\/operations\/risk\/reconcile-observations(?:\?.*)?$/, permission: 'risk.manage' },
   { method: 'GET', pattern: /^\/v1\/operations\/queue(?:\?.*)?$/, permission: 'moderation.queue.read' },
   { method: 'GET', pattern: /^\/v1\/operations\/queue\/[0-9a-fA-F-]+\/conversation-context(?:\?.*)?$/, permission: 'moderation.queue.read' },
