@@ -105,6 +105,8 @@ const rules: readonly RouteRule[] = [
   { method: 'POST', pattern: new RegExp(`^/v1/operations/disputes/${uuid}/resolve$`), queryKeys: new Set() },
   { method: 'POST', pattern: new RegExp(`^/v1/operations/disputes/${uuid}/appeal-decision$`), queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/operations\/disputes\/reconcile-deadlines$/, queryKeys: new Set() },
+  { method: 'POST', pattern: new RegExp(`^/v1/operations/payment-operations/${uuid}/decision$`), queryKeys: new Set() },
+  { method: 'POST', pattern: /^\/v1\/operations\/settlements\/run$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/reports$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/timed-sale$/, queryKeys: new Set() },
   { method: 'POST', pattern: /^\/v1\/market\/offers$/, queryKeys: new Set() },
