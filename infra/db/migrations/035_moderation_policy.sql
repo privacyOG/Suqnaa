@@ -95,6 +95,9 @@ CREATE TABLE moderation_actions (
 CREATE INDEX moderation_actions_listing_idx ON moderation_actions(listing_id, created_at DESC) WHERE listing_id IS NOT NULL;
 CREATE INDEX moderation_actions_user_idx ON moderation_actions(user_id, created_at DESC) WHERE user_id IS NOT NULL;
 CREATE INDEX moderation_actions_report_idx ON moderation_actions(report_id, created_at DESC) WHERE report_id IS NOT NULL;
+CREATE UNIQUE INDEX moderation_actions_report_unique
+  ON moderation_actions(report_id)
+  WHERE report_id IS NOT NULL;
 CREATE INDEX moderation_actions_retention_idx ON moderation_actions(evidence_retain_until, evidence_purged_at);
 CREATE UNIQUE INDEX moderation_actions_listing_review_pending_unique
   ON moderation_actions(listing_id)
