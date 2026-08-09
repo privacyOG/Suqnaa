@@ -3,6 +3,7 @@ import { env } from './config/env.js';
 import { resolveApiErrorResponse } from './config/http-error.js';
 import { resolveApiRequestSizeBytes } from './config/request-size.js';
 import { resolveWebOrigin } from './config/web-origin.js';
+import { enforceSellerListingPublicationPolicy } from './moderation/listing-publication-hook.js';
 import { accountRoutes } from './routes/account.js';
 import { accountProfileRoutes } from './routes/account-profile.js';
 import { accountVerificationRoutes } from './routes/account-verification.js';
@@ -94,6 +95,8 @@ app.addHook('onRequest', async (request, reply) => {
     return reply.code(204).send();
   }
 });
+
+app.addHook('preHandler', enforceSellerListingPublicationPolicy);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
