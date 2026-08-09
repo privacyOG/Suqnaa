@@ -58,7 +58,10 @@ CREATE TABLE moderation_actions (
   reversed_by uuid REFERENCES users(id) ON DELETE RESTRICT,
   reversed_at timestamptz,
   reversal_reason text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  evidence_snapshot jsonb,
   evidence_retain_until timestamptz NOT NULL,
+  evidence_purged_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT moderation_actions_subject_check CHECK (
@@ -83,13 +86,16 @@ CREATE TABLE moderation_actions (
     (status = 'reversed' AND reversed_by IS NOT NULL AND reversed_at IS NOT NULL AND reversal_reason IS NOT NULL) OR
     (status <> 'reversed' AND reversed_by IS NULL AND reversed_at IS NULL AND reversal_reason IS NULL)
   ),
+  CONSTRAINT moderation_actions_metadata_check CHECK (jsonb_typeof(metadata) = 'object'),
+  CONSTRAINT moderation_actions_evidence_check CHECK (evidence_snapshot IS NULL OR jsonb_typeof(evidence_snapshot) = 'object'),
+  CONSTRAINT moderation_actions_purge_check CHECK (evidence_purged_at IS NULL OR evidence_snapshot IS NULL),
   CONSTRAINT moderation_actions_retention_check CHECK (evidence_retain_until > created_at)
 );
 
 CREATE INDEX moderation_actions_listing_idx ON moderation_actions(listing_id, created_at DESC) WHERE listing_id IS NOT NULL;
 CREATE INDEX moderation_actions_user_idx ON moderation_actions(user_id, created_at DESC) WHERE user_id IS NOT NULL;
 CREATE INDEX moderation_actions_report_idx ON moderation_actions(report_id, created_at DESC) WHERE report_id IS NOT NULL;
-CREATE INDEX moderation_actions_retention_idx ON moderation_actions(evidence_retain_until, status);
+CREATE INDEX moderation_actions_retention_idx ON moderation_actions(evidence_retain_until, evidence_purged_at);
 CREATE UNIQUE INDEX moderation_actions_listing_review_pending_unique
   ON moderation_actions(listing_id)
   WHERE action_type = 'listing_review_pending' AND status = 'active';
