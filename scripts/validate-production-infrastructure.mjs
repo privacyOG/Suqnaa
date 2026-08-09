@@ -30,7 +30,7 @@ for (const secret of [
   'object_storage_root_password'
 ]) {
   assert.match(infrastructure, new RegExp(`^  ${secret}:`, 'm'), `missing external secret: ${secret}`);
-  assert.match(secretContract, new RegExp(`\\`${secret}\\``), `secret contract does not document ${secret}`);
+  assert.ok(secretContract.includes(`\`${secret}\``), `secret contract does not document ${secret}`);
 }
 
 const postgresBlock = infrastructure.match(/^  postgres:[\s\S]*?(?=^  redis:)/m)?.[0] ?? '';
