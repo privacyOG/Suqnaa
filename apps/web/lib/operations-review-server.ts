@@ -94,9 +94,32 @@ export interface OperationsReturnRow {
   updatedAt: string;
 }
 
+export interface OperationsRiskSignalRow {
+  id: string;
+  ruleKey: string;
+  category: string;
+  severity: string;
+  score: number;
+  status: string;
+  userId: string | null;
+  listingId: string | null;
+  offerId: string | null;
+  orderId: string | null;
+  paymentIntentId: string | null;
+  reportId: string | null;
+  sourceEventType: string;
+  summary: string;
+  detectedAt: string;
+  lastObservedAt: string;
+  occurrenceCount: number;
+  reviewDisposition: string | null;
+  reviewedAt: string | null;
+}
+
 export interface OperationsFraudReview {
   source: string;
   automatedRiskRules: boolean;
+  signals: OperationsRiskSignalRow[];
   reports: Array<{
     id: string;
     listingId: string | null;
