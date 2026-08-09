@@ -1,4 +1,5 @@
 import { isLocale } from '../../../../i18n/locales';
+import { OperationsRiskPanel } from '../../../../components/operations-risk-panel';
 import { loadOperationsFraud } from '../../../../lib/operations-review-server';
 
 export default async function OperationsFraudPage({ params }: { params: { locale: string } }) {
@@ -26,6 +27,7 @@ export default async function OperationsFraudPage({ params }: { params: { locale
             <td><code>{row.ruleKey}</code></td><td>{row.category}</td><td>{row.severity}</td><td>{row.score}</td><td>{row.status}{row.reviewDisposition ? ` · ${row.reviewDisposition}` : ''}</td><td>{row.occurrenceCount}</td><td>{row.summary}</td><td>{new Date(row.lastObservedAt).toLocaleString(ar ? 'ar-AU' : 'en-AU')}</td>
           </tr>)}</tbody></table></div>}
         </section>
+        <OperationsRiskPanel locale={params.locale} />
         <section className="seller-session-panel">
           <h2>{ar ? 'بلاغات احتيال مفتوحة' : 'Open fraud-labelled reports'}</h2>
           {data.reports.length === 0 ? <p>{ar ? 'لا توجد بلاغات حالية أو لا توجد صلاحية.' : 'No current reports, or report access is not authorised.'}</p> : <ul>{data.reports.map((row) => <li key={row.id}>
