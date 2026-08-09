@@ -90,4 +90,5 @@ services:
 
 networks:
   application:
-    driver: bridge
+    external: true
+    name: ${SUQNAA_APPLICATION_NETWORK:-suqnaa-application}
