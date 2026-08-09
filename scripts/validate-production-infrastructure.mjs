@@ -7,22 +7,25 @@ const caddy = readFileSync(new URL('../deploy/Caddyfile', import.meta.url), 'utf
 const gitignore = readFileSync(new URL('../.gitignore', import.meta.url), 'utf8');
 const secretContract = readFileSync(new URL('../deploy/secrets/README.md', import.meta.url), 'utf8');
 
-for (const service of ['postgres', 'redis', 'object-storage', 'edge']) {
+for (const service of ['postgres', 'redis', 'queue', 'object-storage', 'edge']) {
   assert.match(infrastructure, new RegExp(`^  ${service}:`, 'm'), `missing infrastructure service: ${service}`);
 }
 
 assert.match(infrastructure, /postgis\/postgis:/);
 assert.match(infrastructure, /POSTGRES_PASSWORD_FILE:\s*\/run\/secrets\/postgres_password/);
 assert.match(infrastructure, /redis-server[\s\S]+--appendonly yes[\s\S]+--requirepass/);
+assert.match(infrastructure, /^  queue:[\s\S]*?--appendfsync always[\s\S]*?--maxmemory-policy noeviction/m);
 assert.match(infrastructure, /minio\/minio:/);
 assert.match(infrastructure, /object_storage_data:\/data/);
 assert.match(infrastructure, /postgres_data:\/var\/lib\/postgresql\/data/);
 assert.match(infrastructure, /redis_data:\/data/);
+assert.match(infrastructure, /queue_data:\/data/);
 assert.match(infrastructure, /no-new-privileges:true/g);
 
 for (const secret of [
   'postgres_password',
   'redis_password',
+  'queue_password',
   'object_storage_root_user',
   'object_storage_root_password'
 ]) {
@@ -31,11 +34,13 @@ for (const secret of [
 }
 
 const postgresBlock = infrastructure.match(/^  postgres:[\s\S]*?(?=^  redis:)/m)?.[0] ?? '';
-const redisBlock = infrastructure.match(/^  redis:[\s\S]*?(?=^  object-storage:)/m)?.[0] ?? '';
+const redisBlock = infrastructure.match(/^  redis:[\s\S]*?(?=^  queue:)/m)?.[0] ?? '';
+const queueBlock = infrastructure.match(/^  queue:[\s\S]*?(?=^  object-storage:)/m)?.[0] ?? '';
 const storageBlock = infrastructure.match(/^  object-storage:[\s\S]*?(?=^  edge:)/m)?.[0] ?? '';
 for (const [name, block] of [
   ['postgres', postgresBlock],
   ['redis', redisBlock],
+  ['queue', queueBlock],
   ['object-storage', storageBlock]
 ]) {
   assert.ok(block, `unable to inspect ${name} service block`);
@@ -55,6 +60,7 @@ assert.match(caddy, /reverse_proxy \{\$SUQNAA_API_UPSTREAM\}/);
 assert.match(gitignore, /^deploy\/secrets\/\*$/m);
 assert.match(gitignore, /^!deploy\/secrets\/README\.md$/m);
 assert.match(secretContract, /Actual secret values are ignored by Git/);
+assert.match(secretContract, /general Redis credential and durable queue credential must be distinct/);
 assert.match(secretContract, /least-privilege identities/);
 
 console.log('Production infrastructure topology surface passed.');
