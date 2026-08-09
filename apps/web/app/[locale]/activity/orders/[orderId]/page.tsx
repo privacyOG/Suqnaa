@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { ContextualSafetyGuidance } from '../../../../../components/contextual-safety-guidance';
 import { OrderActivityDetail } from '../../../../../components/order-activity-panel';
 import { OrderCancellationAction } from '../../../../../components/order-cancellation-action';
 import { OrderCheckoutPreparation } from '../../../../../components/order-checkout-preparation';
@@ -51,10 +52,15 @@ export default async function OrderDetailPage({
       {user ? (
         <>
           <OrderActivityDetail locale={params.locale} orderId={params.orderId} />
+          <ContextualSafetyGuidance locale={params.locale} point="shipping" compact />
+          <ContextualSafetyGuidance locale={params.locale} point="pickup" compact />
           <OrderDeliveryPanel locale={params.locale} orderId={params.orderId} />
           <OrderFulfilmentAction locale={params.locale} orderId={params.orderId} />
+          <ContextualSafetyGuidance locale={params.locale} point="checkout" compact />
+          <ContextualSafetyGuidance locale={params.locale} point="payment" compact />
           <OrderCheckoutPreparation locale={params.locale} orderId={params.orderId} />
           <OrderCancellationAction locale={params.locale} orderId={params.orderId} />
+          <ContextualSafetyGuidance locale={params.locale} point="dispute" compact />
           <OrderDisputePanel locale={params.locale} orderId={params.orderId} />
           <OrderProtectionPanel locale={params.locale} orderId={params.orderId} userId={user.id} />
         </>
