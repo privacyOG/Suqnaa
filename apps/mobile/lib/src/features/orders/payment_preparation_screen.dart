@@ -11,6 +11,7 @@ import '../../brand/brand.dart';
 import '../../config/mobile_environment.dart';
 import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
+import '../safety/contextual_safety_guidance.dart';
 import 'order_labels.dart';
 
 class PaymentPreparationScreen extends StatefulWidget {
@@ -252,6 +253,10 @@ class _PaymentPreparationScreenState extends State<PaymentPreparationScreen> {
               ),
               const SizedBox(height: 12),
               Text(text.noPaymentSent),
+              const ContextualSafetyGuidance(
+                decisionPoint: SafetyDecisionPoint.payment,
+                margin: EdgeInsets.only(top: 12),
+              ),
             ],
           ),
           actions: [
@@ -341,6 +346,10 @@ class _PaymentPreparationScreenState extends State<PaymentPreparationScreen> {
               text.paymentPreparationSubtitle,
               style: const TextStyle(fontSize: 16),
             ),
+          ),
+          const ContextualSafetyGuidance(
+            decisionPoint: SafetyDecisionPoint.checkout,
+            margin: EdgeInsets.fromLTRB(16, 4, 16, 8),
           ),
           if (blocked)
             _SecurityNotice(
