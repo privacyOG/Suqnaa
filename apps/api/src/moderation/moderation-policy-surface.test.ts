@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const migration = readFileSync(new URL('../../../infra/db/migrations/035_moderation_policy.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../../../../infra/db/migrations/035_moderation_policy.sql', import.meta.url), 'utf8');
 const service = readFileSync(new URL('./moderation-policy-service.ts', import.meta.url), 'utf8');
 const routes = readFileSync(new URL('../routes/moderation.ts', import.meta.url), 'utf8');
 const guard = readFileSync(new URL('../auth/require-operations-user.ts', import.meta.url), 'utf8');
