@@ -25,6 +25,7 @@ FROM source AS api-build
 RUN pnpm --filter suqnaa-api build
 
 FROM source AS web-build
+ENV NODE_ENV=production
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_CHALLENGE_SCRIPT_URL
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL} \
