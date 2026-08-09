@@ -1,3 +1,4 @@
+import { OperationsFinanceActions } from '../../../../components/operations-finance-actions';
 import { isLocale } from '../../../../i18n/locales';
 import { loadOperationsFinance } from '../../../../lib/operations-review-server';
 
@@ -26,6 +27,7 @@ export default async function OperationsFinancePage({ params }: { params: { loca
         <p>{ar ? 'يعرض طلبات عمليات الدفع والتسويات الحالية. الموافقات المالية تظل خاضعة لصلاحيات الدفع المنفصلة.' : 'Review payment-operation requests and seller settlements. Financial approvals remain governed by separate payment permissions.'}</p>
       </div></section>
       {!data ? <p>{ar ? 'غير متاح أو لا توجد صلاحية.' : 'Unavailable or not authorised.'}</p> : <>
+        <OperationsFinanceActions locale={params.locale} operations={data.operations} />
         <section className="seller-session-panel">
           <h2>{ar ? 'عمليات الدفع الأخيرة' : 'Recent payment operations'}</h2>
           <div style={{ overflowX: 'auto' }}><table><thead><tr>
