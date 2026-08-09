@@ -123,10 +123,11 @@ jobs:
           mkdir -p secrets
           printf '%s' 'ci-postgres-password' > secrets/postgres_password
           printf '%s' 'ci-redis-password' > secrets/redis_password
+          printf '%s' 'ci-queue-password' > secrets/queue_password
           printf '%s' 'ci-object-admin' > secrets/object_storage_root_user
           printf '%s' 'ci-object-password' > secrets/object_storage_root_password
           docker compose -f compose.infrastructure.yml config >/dev/null
-          rm -f secrets/postgres_password secrets/redis_password secrets/object_storage_root_user secrets/object_storage_root_password
+          rm -f secrets/postgres_password secrets/redis_password secrets/queue_password secrets/object_storage_root_user secrets/object_storage_root_password
       - name: Build API image
         run: docker build -f deploy/Dockerfile --target api -t suqnaa-api:ci .
       - name: Build worker image
