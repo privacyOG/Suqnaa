@@ -24,6 +24,7 @@ import { listingShippingOptionRoutes } from './routes/listing-shipping-options.j
 import { listingRoutes } from './routes/listings.js';
 import { marketActionRoutes } from './routes/market-actions.js';
 import { messageRoutes } from './routes/messages.js';
+import { moderationRoutes } from './routes/moderation.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { offerWorkflowRoutes } from './routes/offer-workflow.js';
 import { operationRecordRoutes } from './routes/operation-records.js';
@@ -140,6 +141,7 @@ await app.register(operationsPaymentRoutes, { prefix: '/v1' });
 await app.register(operationsSettlementRoutes, { prefix: '/v1' });
 await app.register(operationsDisputeRoutes, { prefix: '/v1' });
 await app.register(operationRecordRoutes, { prefix: '/v1' });
+await app.register(moderationRoutes, { prefix: '/v1' });
 await app.register(orderActivityRoutes, { prefix: '/v1' });
 await app.register(orderCancellationRoutes, { prefix: '/v1' });
 await app.register(orderDeliveryRoutes, { prefix: '/v1' });
