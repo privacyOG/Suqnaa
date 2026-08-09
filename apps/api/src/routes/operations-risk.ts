@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOperationsUser, type OperationsRequest } from '../auth/require-operations-user.js';
 import { db } from '../db/index.js';
+import { reconcileRiskIdentitySources } from '../risk/risk-identity-reconciliation.js';
+import { reconcileSellerAdverseOutcomes } from '../risk/seller-adverse-outcome-reconciliation.js';
 
 const riskCategory = z.enum([
   'account_abuse',
@@ -202,6 +204,24 @@ export async function operationsRiskRoutes(app: FastifyInstance): Promise<void> 
       created_at: now
     }).execute();
     return reply.send({ signal: riskSignalResponse(updated) });
+  });
+
+  app.post('/operations/risk/reconcile-sources', { preHandler: requireOperationsUser }, async (request, reply) => {
+    const auth = request as OperationsRequest;
+    const [identity, sellerOutcomes] = await Promise.all([
+      reconcileRiskIdentitySources(),
+      reconcileSellerAdverseOutcomes()
+    ]);
+    const now = new Date();
+    await db.insertInto('audit_logs').values({
+      actor_user_id: auth.operationsUserId,
+      action: 'risk.source_reconcile',
+      entity_type: 'risk_observation',
+      entity_id: null,
+      metadata: { identity, sellerOutcomes },
+      created_at: now
+    }).execute();
+    return reply.send({ reconciledAt: now.toISOString(), identity, sellerOutcomes });
   });
 
   app.post('/operations/risk/reconcile-observations', { preHandler: requireOperationsUser }, async (request, reply) => {
