@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { createAccessToken } from '../auth/access.js';
 import { normalizePhoneE164 } from '../auth/phone.js';
 import { daysFromNow, newSessionToken, sessionTokenHash } from '../auth/session-token.js';
 import { db } from '../db/index.js';
+import { observeMarketplaceRiskEvent } from '../risk/marketplace-risk-service.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import {
   checkHumanProtectionWithChallenge,
@@ -197,7 +199,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const valid = await verifyPassword(user.password_hash, body.password);
-    if (!valid || !canIssueSession(user.status)) {
+    if (!valid) {
+      void observeMarketplaceRiskEvent({
+        eventType: 'account.login_failed',
+        sourceEventId: `login-failed:${randomUUID()}`,
+        userId: String(user.id),
+        summary: 'Failed password verification for an existing account.',
+        evidence: { source: 'password_verification' }
+      }).catch((error) => app.log.warn({ err: error, userId: user.id }, 'risk_login_failure_observation_failed'));
+      return reply.code(401).send({ error: 'Invalid credentials' });
+    }
+    if (!canIssueSession(user.status)) {
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
 
