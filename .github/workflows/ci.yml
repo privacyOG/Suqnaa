@@ -101,15 +101,33 @@ jobs:
     env:
       NEXT_PUBLIC_API_BASE_URL: https://api.example.invalid
       NEXT_PUBLIC_CHALLENGE_SCRIPT_URL: ""
+      SUQNAA_WEB_DOMAIN: web.example.invalid
+      SUQNAA_API_DOMAIN: api.example.invalid
+      SUQNAA_ACME_EMAIL: ops@example.invalid
+      SUQNAA_SECRET_DIR: ./secrets
     steps:
       - uses: actions/checkout@v4
       - name: Validate container topology
         run: node scripts/validate-production-containers.mjs
+      - name: Validate infrastructure topology
+        run: node scripts/validate-production-infrastructure.mjs
       - name: Validate production Compose configuration
         shell: bash
         run: |
           cp .env.example .env.production
           docker compose -f deploy/compose.production.yml config >/dev/null
+      - name: Validate infrastructure Compose configuration
+        shell: bash
+        working-directory: deploy
+        run: |
+          mkdir -p secrets
+          printf '%s' 'ci-postgres-password' > secrets/postgres_password
+          printf '%s' 'ci-redis-password' > secrets/redis_password
+          printf '%s' 'ci-queue-password' > secrets/queue_password
+          printf '%s' 'ci-object-admin' > secrets/object_storage_root_user
+          printf '%s' 'ci-object-password' > secrets/object_storage_root_password
+          docker compose -f compose.infrastructure.yml config >/dev/null
+          rm -f secrets/postgres_password secrets/redis_password secrets/queue_password secrets/object_storage_root_user secrets/object_storage_root_password
       - name: Build API image
         run: docker build -f deploy/Dockerfile --target api -t suqnaa-api:ci .
       - name: Build worker image

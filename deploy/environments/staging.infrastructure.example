@@ -1,0 +1,14 @@
+# Non-secret staging infrastructure configuration.
+# Copy outside the repository or pass directly with docker compose --env-file.
+
+SUQNAA_POSTGRES_DB=suqnaa_staging
+SUQNAA_POSTGRES_USER=suqnaa
+SUQNAA_APPLICATION_NETWORK=suqnaa-staging-application
+SUQNAA_EDGE_NETWORK=suqnaa-staging-edge
+SUQNAA_SECRET_DIR=/etc/suqnaa/staging/secrets
+
+SUQNAA_WEB_DOMAIN=staging.example.invalid
+SUQNAA_API_DOMAIN=api.staging.example.invalid
+SUQNAA_ACME_EMAIL=ops@example.invalid
+SUQNAA_WEB_UPSTREAM=web:3000
+SUQNAA_API_UPSTREAM=api:4000
