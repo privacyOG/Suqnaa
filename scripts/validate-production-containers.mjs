@@ -11,6 +11,7 @@ for (const target of ['api', 'worker', 'web', 'migrate']) {
 
 assert.match(dockerfile, /pnpm install --frozen-lockfile/);
 assert.match(dockerfile, /pnpm install --frozen-lockfile --prod/);
+assert.match(dockerfile, /FROM source AS web-build\nENV NODE_ENV=production/);
 assert.match(dockerfile, /USER node/g);
 assert.match(dockerfile, /postgresql-client/);
 assert.match(dockerfile, /scripts\/migrate-database\.mjs/);
