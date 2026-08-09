@@ -141,20 +141,22 @@ export async function operationsRiskRoutes(app: FastifyInstance): Promise<void> 
     const auth = request as OperationsRequest;
     const { ruleId } = ruleParams.parse(request.params);
     const body = ruleStatusBody.parse(request.body);
+    const current = await db.selectFrom('risk_rules').select(['id', 'source']).where('id', '=', ruleId).executeTakeFirst();
+    if (!current) return reply.code(404).send({ error: 'Risk rule not found' });
+
     const now = new Date();
     const updated = await db.updateTable('risk_rules').set({
       is_active: body.active,
-      updated_by: auth.operationsUserId,
+      updated_by: current.source === 'operator' ? auth.operationsUserId : null,
       updated_at: now
-    }).where('id', '=', ruleId).returningAll().executeTakeFirst();
-    if (!updated) return reply.code(404).send({ error: 'Risk rule not found' });
+    }).where('id', '=', ruleId).returningAll().executeTakeFirstOrThrow();
 
     await db.insertInto('audit_logs').values({
       actor_user_id: auth.operationsUserId,
       action: body.active ? 'risk.rule_enable' : 'risk.rule_disable',
       entity_type: 'risk_rule',
       entity_id: ruleId,
-      metadata: { ruleKey: updated.rule_key },
+      metadata: { ruleKey: updated.rule_key, ruleSource: updated.source },
       created_at: now
     }).execute();
     return reply.send({ rule: riskRuleResponse(updated) });
@@ -204,20 +206,19 @@ export async function operationsRiskRoutes(app: FastifyInstance): Promise<void> 
 
   app.post('/operations/risk/reconcile-observations', { preHandler: requireOperationsUser }, async (request, reply) => {
     const auth = request as OperationsRequest;
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const now = new Date();
     const removed = await db.deleteFrom('risk_event_observations')
-      .where('observed_at', '<', cutoff)
+      .where('retain_until', '<=', now)
       .returning(['id'])
       .execute();
-    const now = new Date();
     await db.insertInto('audit_logs').values({
       actor_user_id: auth.operationsUserId,
       action: 'risk.observation_retention_reconcile',
       entity_type: 'risk_observation',
       entity_id: null,
-      metadata: { removed: removed.length, cutoff: cutoff.toISOString() },
+      metadata: { removed: removed.length, reconciledAt: now.toISOString() },
       created_at: now
     }).execute();
-    return reply.send({ removed: removed.length, cutoff: cutoff.toISOString() });
+    return reply.send({ removed: removed.length, reconciledAt: now.toISOString() });
   });
 }
