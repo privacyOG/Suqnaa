@@ -38,6 +38,7 @@
     { "id": "0035_dispute_workflows", "file": "032_dispute_workflows.sql" },
     { "id": "0036_buyer_seller_protection", "file": "033_buyer_seller_protection.sql" },
     { "id": "0037_protection_eta_snapshot", "file": "034_protection_eta_snapshot.sql" },
-    { "id": "0038_moderation_policy", "file": "035_moderation_policy.sql" }
+    { "id": "0038_moderation_policy", "file": "035_moderation_policy.sql" },
+    { "id": "0039_marketplace_risk_rules", "file": "036_marketplace_risk_rules.sql" }
   ]
 }
