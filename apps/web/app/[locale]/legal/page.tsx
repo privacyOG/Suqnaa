@@ -36,7 +36,7 @@ export default function LegalPolicyIndexPage({ params }: { params: { locale: str
               <h2>{content.title}</h2>
               <p>{content.summary}</p>
               <p><small>{ar ? 'الإصدار المرشح' : 'Candidate version'}: {policy.version}</small></p>
-              <a href={`/${locale}/legal/${slug}`}>{ar ? 'قراءة السياسة' : 'Read policy'}</a>
+              <a href={`/${locale}/policy/${slug}`}>{ar ? 'قراءة السياسة' : 'Read policy'}</a>
             </article>
           );
         })}
