@@ -103,6 +103,7 @@ export interface Database {
   categories: TableShape;
   listings: TableShape;
   listing_media: TableShape;
+  listing_media_quarantine: TableShape;
   listing_inventory_reservations: TableShape;
   listing_shipping_options: TableShape;
   saved_listings: TableShape;
