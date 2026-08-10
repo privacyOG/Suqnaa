@@ -3,7 +3,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
 
 const orderParams = z.object({ orderId: z.string().uuid() });
@@ -43,14 +44,14 @@ class OrderDeliveryError extends Error {
   }
 }
 
-function enforceLimit(
+async function enforceLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
   group: string,
   limit: number
-): boolean {
-  const result = checkRateLimit({
+): Promise<boolean> {
+  const result = await checkSharedRateLimit({
     group,
     identifiers: [`account:${accountId}`, `ip:${request.ip}`],
     limit,
@@ -264,7 +265,7 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const accountId = authRequest.user.sub;
     const params = orderParams.parse(request.params);
     const body = deliveryBody.parse(request.body);
-    if (!enforceLimit(request, reply, accountId, 'order.delivery.configure', 30)) return;
+    if (!await enforceLimit(request, reply, accountId, 'order.delivery.configure', 30)) return;
 
     try {
       const result = await db.transaction().execute(async (transaction) => {
@@ -493,7 +494,7 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const accountId = authRequest.user.sub;
     const params = orderParams.parse(request.params);
     const body = pickupDetailsBody.parse(request.body);
-    if (!enforceLimit(request, reply, accountId, 'order.pickup.details', 30)) return;
+    if (!await enforceLimit(request, reply, accountId, 'order.pickup.details', 30)) return;
 
     try {
       await db.transaction().execute(async (transaction) => {
@@ -562,7 +563,7 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const accountId = authRequest.user.sub;
     const params = orderParams.parse(request.params);
-    if (!enforceLimit(request, reply, accountId, 'order.pickup.proof.issue', 10)) return;
+    if (!await enforceLimit(request, reply, accountId, 'order.pickup.proof.issue', 10)) return;
 
     try {
       const result = await db.transaction().execute(async (transaction) => {
@@ -634,7 +635,7 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const accountId = authRequest.user.sub;
     const params = orderParams.parse(request.params);
     const body = pickupProofBody.parse(request.body);
-    if (!enforceLimit(request, reply, accountId, 'order.pickup.proof.verify', 20)) return;
+    if (!await enforceLimit(request, reply, accountId, 'order.pickup.proof.verify', 20)) return;
 
     try {
       const result = await db.transaction().execute(async (transaction) => {
@@ -791,7 +792,7 @@ export async function orderDeliveryRoutes(app: FastifyInstance): Promise<void> {
     const params = orderParams.parse(request.params);
     const body = deliveryEvidenceBody.parse(request.body);
     const evidenceUrl = safeHttpsUrl(body.evidenceUrl);
-    if (!enforceLimit(request, reply, accountId, 'order.delivery.evidence', 30)) return;
+    if (!await enforceLimit(request, reply, accountId, 'order.delivery.evidence', 30)) return;
 
     try {
       const result = await db.transaction().execute(async (transaction) => {
