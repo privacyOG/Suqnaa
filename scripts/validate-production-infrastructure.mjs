@@ -17,12 +17,18 @@ const grafanaDashboard = readFileSync(
   new URL('../deploy/observability/grafana/dashboards/suqnaa-api-overview.json', import.meta.url),
   'utf8'
 );
+const backupScript = readFileSync(new URL('../deploy/backup/backup.sh', import.meta.url), 'utf8');
+const restoreScript = readFileSync(new URL('../deploy/backup/restore.sh', import.meta.url), 'utf8');
+const schedulerScript = readFileSync(new URL('../deploy/backup/scheduler.sh', import.meta.url), 'utf8');
+const backupDockerfile = readFileSync(new URL('../deploy/backup/Dockerfile', import.meta.url), 'utf8');
 
 for (const service of [
   'postgres',
   'redis',
   'queue',
   'object-storage',
+  'backup',
+  'restore-drill',
   'prometheus',
   'alertmanager',
   'grafana',
@@ -40,6 +46,7 @@ assert.match(infrastructure, /object_storage_data:\/data/);
 assert.match(infrastructure, /postgres_data:\/var\/lib\/postgresql\/data/);
 assert.match(infrastructure, /redis_data:\/data/);
 assert.match(infrastructure, /queue_data:\/data/);
+assert.match(infrastructure, /backup_data:\/backups/);
 assert.match(infrastructure, /prometheus_data:\/prometheus/);
 assert.match(infrastructure, /alertmanager_data:\/alertmanager/);
 assert.match(infrastructure, /grafana_data:\/var\/lib\/grafana/);
@@ -52,7 +59,15 @@ for (const secret of [
   'object_storage_root_user',
   'object_storage_root_password',
   'observability_metrics_token',
-  'grafana_admin_password'
+  'grafana_admin_password',
+  'backup_database_url',
+  'backup_age_recipient',
+  'backup_object_storage_access_key',
+  'backup_object_storage_secret_key',
+  'backup_age_identity',
+  'restore_database_url',
+  'restore_object_storage_access_key',
+  'restore_object_storage_secret_key'
 ]) {
   assert.match(infrastructure, new RegExp(`^  ${secret}:`, 'm'), `missing external secret: ${secret}`);
   assert.ok(secretContract.includes(`\`${secret}\``), `secret contract does not document ${secret}`);
@@ -63,7 +78,9 @@ assert.match(application, /OBSERVABILITY_METRICS_TOKEN_FILE:\s*\/run\/secrets\/o
 const postgresBlock = infrastructure.match(/^  postgres:[\s\S]*?(?=^  redis:)/m)?.[0] ?? '';
 const redisBlock = infrastructure.match(/^  redis:[\s\S]*?(?=^  queue:)/m)?.[0] ?? '';
 const queueBlock = infrastructure.match(/^  queue:[\s\S]*?(?=^  object-storage:)/m)?.[0] ?? '';
-const storageBlock = infrastructure.match(/^  object-storage:[\s\S]*?(?=^  prometheus:)/m)?.[0] ?? '';
+const storageBlock = infrastructure.match(/^  object-storage:[\s\S]*?(?=^  backup:)/m)?.[0] ?? '';
+const backupBlock = infrastructure.match(/^  backup:[\s\S]*?(?=^  restore-drill:)/m)?.[0] ?? '';
+const restoreBlock = infrastructure.match(/^  restore-drill:[\s\S]*?(?=^  prometheus:)/m)?.[0] ?? '';
 const prometheusBlock = infrastructure.match(/^  prometheus:[\s\S]*?(?=^  alertmanager:)/m)?.[0] ?? '';
 const alertmanagerBlock = infrastructure.match(/^  alertmanager:[\s\S]*?(?=^  grafana:)/m)?.[0] ?? '';
 const grafanaBlock = infrastructure.match(/^  grafana:[\s\S]*?(?=^  edge:)/m)?.[0] ?? '';
@@ -72,6 +89,8 @@ for (const [name, block] of [
   ['redis', redisBlock],
   ['queue', queueBlock],
   ['object-storage', storageBlock],
+  ['backup', backupBlock],
+  ['restore-drill', restoreBlock],
   ['prometheus', prometheusBlock],
   ['alertmanager', alertmanagerBlock]
 ]) {
@@ -80,6 +99,31 @@ for (const [name, block] of [
 }
 assert.match(grafanaBlock, /127\.0\.0\.1:\$\{SUQNAA_GRAFANA_PORT:-3001\}:3000/);
 assert.doesNotMatch(grafanaBlock, /0\.0\.0\.0:/);
+
+assert.match(backupBlock, /backup_database_url/);
+assert.match(backupBlock, /backup_age_recipient/);
+assert.match(backupBlock, /backup_object_storage_access_key/);
+assert.match(backupBlock, /backup_object_storage_secret_key/);
+assert.doesNotMatch(backupBlock, /backup_age_identity/, 'scheduled backup must never mount the decryption identity');
+assert.match(backupBlock, /read_only:\s*true/);
+assert.match(backupBlock, /\/work:size=32m,mode=0700/);
+assert.match(restoreBlock, /profiles:\s*\n\s+- restore-drill/);
+assert.match(restoreBlock, /backup_age_identity/);
+assert.match(restoreBlock, /backup_data:\/backups:ro/);
+assert.match(restoreBlock, /RESTORE_ENVIRONMENT:/);
+assert.match(backupDockerfile, /\bage\b/);
+assert.match(backupDockerfile, /postgresql-client/);
+assert.match(backupDockerfile, /\brclone\b/);
+assert.match(backupScript, /pg_dump[\s\S]*\| age/);
+assert.match(backupScript, /rclone cat[\s\S]*\| age/);
+assert.match(backupScript, /checksums\.sha256/);
+assert.doesNotMatch(backupScript, /backup_age_identity/);
+assert.match(restoreScript, /sha256sum -c checksums\.sha256/);
+assert.match(restoreScript, /age --decrypt[\s\S]*pg_restore/);
+assert.match(restoreScript, /RESTORE_ENVIRONMENT.*staging/);
+assert.match(restoreScript, /I_UNDERSTAND_THIS_DESTROYS_DATA/);
+assert.match(schedulerScript, /BACKUP_INTERVAL_SECONDS/);
+assert.match(schedulerScript, /\/opt\/suqnaa-backup\/backup\.sh/);
 
 assert.match(prometheus, /metrics_path:\s*\/internal\/observability\/metrics/);
 assert.match(prometheus, /credentials_file:\s*\/run\/secrets\/observability_metrics_token/);
@@ -110,5 +154,8 @@ assert.match(secretContract, /general Redis credential and durable queue credent
 assert.match(secretContract, /least-privilege identities/);
 assert.match(secretContract, /observability_metrics_token/);
 assert.match(secretContract, /grafana_admin_password/);
+assert.match(secretContract, /scheduled `backup` service receives this public recipient but \*\*does not receive\*\* `backup_age_identity`/);
+assert.match(secretContract, /dedicated PostgreSQL backup role/);
+assert.match(secretContract, /read\/list-only S3 principal/);
 
 console.log('Production infrastructure topology surface passed.');
