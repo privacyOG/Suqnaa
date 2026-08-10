@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -14,8 +13,11 @@ val releaseSigningConfigured = listOf(
     releaseKeyAlias,
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
+val signingTaskRequested = gradle.startParameter.taskNames.any {
+    it.contains("Release", ignoreCase = true) || it.contains("Staging", ignoreCase = true)
+}
 
-if (gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) } && !releaseSigningConfigured) {
+if (signingTaskRequested && !releaseSigningConfigured) {
     throw GradleException("Release signing credentials must be supplied outside the repository")
 }
 
@@ -29,13 +31,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "co.privacyx.suqnaa"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -77,6 +75,12 @@ android {
                 "proguard-rules.pro"
             )
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
