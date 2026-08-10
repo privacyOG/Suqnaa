@@ -8,21 +8,22 @@ import {
   setConversationMuted
 } from '../messaging/conversation-safety-service.js';
 import { publicMessagePolicy } from '../messaging/message-safety-policy.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const conversationParams = z.object({ conversationId: z.string().uuid() });
 const muteBody = z.object({ muted: z.boolean() }).strict();
 const blockBody = z.object({ blocked: z.boolean() }).strict();
 
-function limitedSafetyMutation(request: FastifyRequest, accountId: string, group: string) {
-  const account = checkRateLimit({
+async function limitedSafetyMutation(request: FastifyRequest, accountId: string, group: string) {
+  const account = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit: 60,
     windowMs: 60 * 60 * 1000
   });
-  const ip = checkRateLimit({
+  const ip = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: 180,
@@ -54,7 +55,7 @@ export async function conversationSafetyRoutes(app: FastifyInstance): Promise<vo
     const authRequest = request as AuthenticatedRequest;
     const params = conversationParams.parse(request.params);
     const body = muteBody.parse(request.body);
-    const limited = limitedSafetyMutation(request, authRequest.user.sub, 'conversation.mute');
+    const limited = await limitedSafetyMutation(request, authRequest.user.sub, 'conversation.mute');
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -87,7 +88,7 @@ export async function conversationSafetyRoutes(app: FastifyInstance): Promise<vo
     const authRequest = request as AuthenticatedRequest;
     const params = conversationParams.parse(request.params);
     const body = blockBody.parse(request.body);
-    const limited = limitedSafetyMutation(request, authRequest.user.sub, 'conversation.block');
+    const limited = await limitedSafetyMutation(request, authRequest.user.sub, 'conversation.block');
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
