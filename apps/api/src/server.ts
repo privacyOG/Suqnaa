@@ -6,6 +6,12 @@ import { resolveWebOrigin } from './config/web-origin.js';
 import { interceptLegacyQueueModeration } from './moderation/legacy-queue-moderation-hook.js';
 import { enforceSellerListingPublicationPolicy } from './moderation/listing-publication-hook.js';
 import { enforceModeratorListingApprovalPolicy } from './moderation/moderator-listing-approval-hook.js';
+import { errorReport, getErrorReporter } from './observability/error-reporter.js';
+import {
+  registerHttpObservability,
+  requestObservabilityContext
+} from './observability/http-observability.js';
+import { apiLoggerOptions } from './observability/logger-config.js';
 import { serveRiskFraudDashboard } from './risk/fraud-dashboard-hook.js';
 import { recordMarketplaceRiskResponse } from './risk/marketplace-risk-event-hook.js';
 import { accountRoutes } from './routes/account.js';
@@ -33,6 +39,7 @@ import { messageRoutes } from './routes/messages.js';
 import { moderationParticipantRoutes } from './routes/moderation-participant.js';
 import { moderationRoutes } from './routes/moderation.js';
 import { notificationRoutes } from './routes/notifications.js';
+import { observabilityRoutes } from './routes/observability.js';
 import { offerWorkflowRoutes } from './routes/offer-workflow.js';
 import { operationRecordRoutes } from './routes/operation-records.js';
 import { operationsAccessRoutes } from './routes/operations-access.js';
@@ -60,11 +67,14 @@ import { stripeConnectEventRoutes } from './routes/stripe-connect-events.js';
 import { stripePaymentEventRoutes } from './routes/stripe-payment-events.js';
 
 const app = Fastify({
-  logger: env.NODE_ENV !== 'test',
+  logger: apiLoggerOptions({ nodeEnv: env.NODE_ENV, logLevel: process.env.LOG_LEVEL }),
+  disableRequestLogging: true,
   bodyLimit: resolveApiRequestSizeBytes({
     value: process.env.API_REQUEST_SIZE_BYTES
   })
 });
+
+registerHttpObservability(app);
 
 const webOrigin = resolveWebOrigin({
   nodeEnv: env.NODE_ENV,
@@ -87,8 +97,9 @@ app.addHook('onRequest', async (request, reply) => {
     reply.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     reply.header(
       'Access-Control-Allow-Headers',
-      'content-type, authorization, x-suqnaa-human-check'
+      'content-type, authorization, x-request-id, traceparent, x-suqnaa-human-check'
     );
+    reply.header('Access-Control-Expose-Headers', 'x-request-id');
     reply.header('Access-Control-Max-Age', '600');
     reply.header('Vary', 'Origin');
   }
@@ -111,8 +122,35 @@ app.addHook('onSend', async (request, reply, payload) => {
   return payload;
 });
 
-app.setErrorHandler((error, _request, reply) => {
-  app.log.error(error);
+app.setErrorHandler(async (error, request, reply) => {
+  const context = requestObservabilityContext(request);
+  const report = errorReport({
+    error,
+    requestId: context?.requestId,
+    traceId: context?.traceId,
+    route: request.routeOptions.url,
+    method: request.method
+  });
+
+  try {
+    await getErrorReporter().capture(report);
+  } catch (reporterError) {
+    app.log.warn({
+      event: 'error_report_delivery_failed',
+      requestId: context?.requestId ?? null,
+      traceId: context?.traceId ?? null,
+      errorName: reporterError instanceof Error ? reporterError.name : 'Error'
+    });
+  }
+
+  app.log.error({
+    event: 'http_request_failed',
+    requestId: context?.requestId ?? null,
+    traceId: context?.traceId ?? null,
+    method: request.method,
+    route: request.routeOptions.url ?? 'unknown',
+    errorName: report.errorName
+  });
 
   const mappedError = resolveApiErrorResponse(error);
   if (mappedError) {
@@ -122,6 +160,7 @@ app.setErrorHandler((error, _request, reply) => {
   return reply.code(500).send({ error: 'Internal server error' });
 });
 
+await app.register(observabilityRoutes, { prefix: '/internal/observability' });
 await app.register(healthRoutes, { prefix: '/v1' });
 await app.register(accountRoutes, { prefix: '/v1' });
 await app.register(accountProfileRoutes, { prefix: '/v1' });
@@ -176,6 +215,12 @@ await app.register(sessionManagementRoutes, { prefix: '/v1' });
 try {
   await app.listen({ host: env.API_HOST, port: env.API_PORT });
 } catch (error) {
-  app.log.error(error);
+  const report = errorReport({ error, route: 'startup', method: 'START' });
+  try {
+    await getErrorReporter().capture(report);
+  } catch {
+    // Startup already failed; keep the final path deterministic and secret-free.
+  }
+  app.log.error({ event: 'api_startup_failed', errorName: report.errorName });
   process.exit(1);
 }
