@@ -16,8 +16,9 @@ import {
   StripeProviderError
 } from '../payments/stripe-checkout-provider.js';
 import { verifyAndParseStripeWebhook } from '../payments/stripe-webhook.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const configuration = paymentCollectionConfigurationFromEnvironment();
 const provider = new StripeCheckoutProvider(configuration);
@@ -26,8 +27,8 @@ function firstHeader(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
 }
 
-function enforceWebhookLimit(request: FastifyRequest, reply: FastifyReply): boolean {
-  const result = checkRateLimit({
+async function enforceWebhookLimit(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  const result = await checkSharedRateLimit({
     group: 'payment.stripe_webhook.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 600,
@@ -61,7 +62,7 @@ export async function stripePaymentEventRoutes(app: FastifyInstance): Promise<vo
     if (!configuration.enabled || configuration.provider !== 'stripe') {
       return reply.code(503).send({ error: 'Payment collection webhook is unavailable' });
     }
-    if (!enforceWebhookLimit(request, reply)) return;
+    if (!await enforceWebhookLimit(request, reply)) return;
     if (!Buffer.isBuffer(request.body)) {
       return reply.code(400).send({ error: 'Payment webhook body is invalid' });
     }
