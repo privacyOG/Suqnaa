@@ -73,7 +73,7 @@ assert.match(iosRelease, /PRODUCT_BUNDLE_IDENTIFIER=co\.privacyx\.suqnaa/);
 assert.match(iosRelease, /#include\? "Signing\.xcconfig"/);
 assert.match(iosProfile, /PRODUCT_BUNDLE_IDENTIFIER=co\.privacyx\.suqnaa\.staging/);
 assert.match(iosDebug, /PRODUCT_BUNDLE_IDENTIFIER=co\.privacyx\.suqnaa\.debug/);
-assert.match(iosProject, /PRODUCT_BUNDLE_IDENTIFIER/);
+assert.match(iosProject, /baseConfigurationReference = B20000000000000000000003 \/\* Release\.xcconfig \*\//);
 assert.match(iosProject, /CODE_SIGN_STYLE = Manual/);
 assert.match(iosProject, /xcode_backend\.sh\\" build/);
 assert.match(iosWorkspace, /Runner\.xcodeproj/);
