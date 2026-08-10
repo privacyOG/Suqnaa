@@ -19,6 +19,13 @@ export function resolveApiErrorResponse(error: unknown): ApiErrorResponse | null
     };
   }
 
+  if (candidate.name === 'RateLimitUnavailableError') {
+    return {
+      statusCode: 503,
+      body: { error: 'Security service temporarily unavailable' }
+    };
+  }
+
   if (candidate.statusCode === 413 || candidate.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
     return {
       statusCode: 413,
