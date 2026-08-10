@@ -9,9 +9,33 @@ assert.equal(
 assert.equal(
   resolveWebOrigin({
     nodeEnv: 'production',
-    webOrigin: 'https://suqnaa.com/path'
+    webOrigin: 'https://suqnaa.com'
   }),
   'https://suqnaa.com'
+);
+
+assert.throws(
+  () => resolveWebOrigin({
+    nodeEnv: 'production',
+    webOrigin: 'https://suqnaa.com/path'
+  }),
+  /exact origin/
+);
+
+assert.throws(
+  () => resolveWebOrigin({
+    nodeEnv: 'production',
+    webOrigin: 'https://suqnaa.com/'
+  }),
+  /exact origin/
+);
+
+assert.throws(
+  () => resolveWebOrigin({
+    nodeEnv: 'production',
+    webOrigin: 'https://user:pass@suqnaa.com'
+  }),
+  /credentials/
 );
 
 assert.throws(
