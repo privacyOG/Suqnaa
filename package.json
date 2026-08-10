@@ -18,7 +18,8 @@
     "typecheck": "pnpm -r typecheck",
     "test:api": "pnpm --filter suqnaa-api test:security",
     "test:web": "pnpm --filter suqnaa-web test:session",
-    "test": "pnpm test:api && pnpm test:web && pnpm containers:validate && pnpm infrastructure:validate",
+    "test:deployment": "pnpm --dir apps/api exec tsx src/deployment/readiness.test.ts",
+    "test": "pnpm test:api && pnpm test:web && pnpm test:deployment && pnpm containers:validate && pnpm infrastructure:validate",
     "ci": "pnpm policy && pnpm typecheck && pnpm test"
   }
 }

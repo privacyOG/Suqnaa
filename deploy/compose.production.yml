@@ -25,6 +25,12 @@ x-worker: &worker
     context: ..
     dockerfile: deploy/Dockerfile
     target: worker
+  healthcheck:
+    test: ["CMD", "node", "-e", "process.kill(1,0)"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 15s
 
 services:
   api:
@@ -40,6 +46,19 @@ services:
       - observability_metrics_token
     expose:
       - "4000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:4000/v1/health/ready')
+          .then(r=>{if(!r.ok)process.exit(1)})
+          .catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
 
   web:
     <<: *runtime
@@ -53,6 +72,19 @@ services:
         NEXT_PUBLIC_CHALLENGE_SCRIPT_URL: ${NEXT_PUBLIC_CHALLENGE_SCRIPT_URL:-}
     expose:
       - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/')
+          .then(r=>{if(!r.ok)process.exit(1)})
+          .catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   worker-listings:
     <<: *worker
