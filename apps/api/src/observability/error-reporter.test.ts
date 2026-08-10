@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { errorReport } from './error-reporter.js';
+import {
+  ErrorReporterConfigurationError,
+  errorReport,
+  resolveErrorReporterConfig,
+  sanitizeTelemetryText
+} from './error-reporter.js';
 
 const report = errorReport({
   error: new Error('database unavailable'),
@@ -29,5 +34,26 @@ const bounded = errorReport({
 assert.equal(bounded.message.length, 500);
 assert.equal(bounded.route.length, 200);
 assert.equal(bounded.method.length, 12);
+
+const redacted = sanitizeTelemetryText(
+  'Bearer abc.def.ghi user@example.com +61 412 345 678 https://alice:secret@example.test/path?token=abcd'
+);
+assert.doesNotMatch(redacted, /user@example\.com|412 345 678|alice:secret|token=abcd/);
+assert.match(redacted, /REDACTED/);
+
+assert.equal(resolveErrorReporterConfig({ nodeEnv: 'production' }), null);
+assert.throws(
+  () => resolveErrorReporterConfig({ nodeEnv: 'production', endpoint: 'http://errors.internal' }),
+  (error: unknown) => error instanceof ErrorReporterConfigurationError
+);
+const config = resolveErrorReporterConfig({
+  nodeEnv: 'production',
+  endpoint: 'https://errors.example.test/v1/events',
+  token: 'secret-token',
+  timeoutMs: '2500'
+});
+assert.equal(config?.endpoint, 'https://errors.example.test/v1/events');
+assert.equal(config?.token, 'secret-token');
+assert.equal(config?.timeoutMs, 2500);
 
 console.log('error reporting minimization ok');
