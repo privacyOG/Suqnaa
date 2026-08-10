@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
 import {
+  ListingImageSafetyError,
+  inspectListingImage
+} from '../media/listing-image-safety.js';
+import {
   detectListingImageMime,
   extensionForListingImage,
   maximumListingImageBytes,
@@ -25,8 +29,6 @@ const listingParams = z.object({
 });
 
 const uploadQuery = z.object({
-  width: z.coerce.number().int().min(1).max(12000).optional(),
-  height: z.coerce.number().int().min(1).max(12000).optional(),
   altText: z.string().trim().max(180).optional(),
   sortOrder: z.coerce.number().int().min(0).max(100).optional()
 });
@@ -153,6 +155,18 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         return reply.code(400).send({ error: 'Unsupported or mismatched image type' });
       }
 
+      let inspection;
+      try {
+        inspection = inspectListingImage(buffer, detectedMimeType);
+      } catch (error) {
+        if (error instanceof ListingImageSafetyError) {
+          return reply
+            .code(error.code === 'pixel_limit_exceeded' ? 413 : 400)
+            .send({ error: error.message, code: error.code });
+        }
+        throw error;
+      }
+
       const mediaId = randomUUID();
       const extension = extensionForListingImage(detectedMimeType);
       const objectKey = `listing-media/${listing.id}/${mediaId}.${extension}`;
@@ -178,8 +192,8 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
             listing_id: listing.id,
             object_key: stored.objectKey,
             mime_type: detectedMimeType,
-            width: query.width ?? null,
-            height: query.height ?? null,
+            width: inspection.width,
+            height: inspection.height,
             size_bytes: buffer.length,
             sort_order: query.sortOrder ?? existingCount,
             alt_text: query.altText || null,
@@ -224,6 +238,11 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         metadata: {
           mediaId: inserted.id,
           mimeType: detectedMimeType,
+          width: inspection.width,
+          height: inspection.height,
+          pixels: inspection.pixels,
+          orientation: inspection.orientation,
+          metadataDetected: inspection.containsMetadata,
           sizeBytes: buffer.length,
           storageDriver: storage.driver,
           transport: 'binary'
