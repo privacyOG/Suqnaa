@@ -1,0 +1,258 @@
+name: Mobile Store Releases
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-releases.yml'
+      - 'scripts/validate-mobile-release-pipelines.mjs'
+      - 'apps/mobile/android/**'
+      - 'apps/mobile/ios/**'
+      - 'docs/MOBILE_PLATFORM_RELEASES.md'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Store artifact to build
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - android
+          - ios
+      version_name:
+        description: Semantic marketing version, for example 1.0.0
+        required: true
+        type: string
+      build_number:
+        description: Positive integer store build number/version code
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-release-${{ github.ref }}-${{ inputs.platform || 'contract' }}
+  cancel-in-progress: false
+
+jobs:
+  release-contract:
+    name: Release pipeline contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate store release pipeline
+        run: node scripts/validate-mobile-release-pipelines.mjs
+
+  android-app-bundle:
+    name: Signed Android App Bundle
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'all' || inputs.platform == 'android')
+    needs: release-contract
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION_NAME: ${{ inputs.version_name }}
+      RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.SUQNAA_ANDROID_KEYSTORE_BASE64 }}
+      SUQNAA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SUQNAA_ANDROID_KEYSTORE_PASSWORD }}
+      SUQNAA_ANDROID_KEY_ALIAS: ${{ secrets.SUQNAA_ANDROID_KEY_ALIAS }}
+      SUQNAA_ANDROID_KEY_PASSWORD: ${{ secrets.SUQNAA_ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          channel: stable
+          cache: true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+      - name: Validate release inputs and Android signing secrets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]] || { echo 'version_name must be a semantic version such as 1.0.0'; exit 1; }
+          [[ "$RELEASE_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo 'build_number must be a positive integer'; exit 1; }
+          for name in ANDROID_KEYSTORE_BASE64 SUQNAA_ANDROID_KEYSTORE_PASSWORD SUQNAA_ANDROID_KEY_ALIAS SUQNAA_ANDROID_KEY_PASSWORD; do
+            [[ -n "${!name:-}" ]] || { echo "Required Android release secret is missing: $name"; exit 1; }
+          done
+      - name: Resolve Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Materialize and verify temporary Android keystore
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          keystore_path="$RUNNER_TEMP/suqnaa-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          keytool -list \
+            -keystore "$keystore_path" \
+            -storepass "$SUQNAA_ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$SUQNAA_ANDROID_KEY_ALIAS" >/dev/null
+          echo "SUQNAA_ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+      - name: Build signed production App Bundle
+        working-directory: apps/mobile
+        run: >-
+          flutter build appbundle --release
+          --build-name "$RELEASE_VERSION_NAME"
+          --build-number "$RELEASE_BUILD_NUMBER"
+      - name: Record Android artifact checksum
+        shell: bash
+        working-directory: apps/mobile
+        run: sha256sum build/app/outputs/bundle/release/app-release.aab > build/app/outputs/bundle/release/app-release.aab.sha256
+      - name: Upload signed Android App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: suqnaa-android-${{ inputs.version_name }}-${{ inputs.build_number }}
+          path: |
+            apps/mobile/build/app/outputs/bundle/release/app-release.aab
+            apps/mobile/build/app/outputs/bundle/release/app-release.aab.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary Android signing material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/suqnaa-release.jks"
+
+  ios-app-store-archive:
+    name: Signed iOS App Store archive
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'all' || inputs.platform == 'ios')
+    needs: release-contract
+    runs-on: macos-latest
+    env:
+      RELEASE_VERSION_NAME: ${{ inputs.version_name }}
+      RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+      IOS_CERTIFICATE_BASE64: ${{ secrets.SUQNAA_IOS_DISTRIBUTION_P12_BASE64 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.SUQNAA_IOS_DISTRIBUTION_P12_PASSWORD }}
+      IOS_PROFILE_BASE64: ${{ secrets.SUQNAA_IOS_APPSTORE_PROFILE_BASE64 }}
+      SUQNAA_IOS_TEAM_ID: ${{ secrets.SUQNAA_IOS_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          channel: stable
+          cache: true
+      - name: Validate release inputs and iOS signing secrets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]] || { echo 'version_name must be a semantic version such as 1.0.0'; exit 1; }
+          [[ "$RELEASE_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo 'build_number must be a positive integer'; exit 1; }
+          [[ "$SUQNAA_IOS_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo 'SUQNAA_IOS_TEAM_ID must be a 10-character Apple team identifier'; exit 1; }
+          for name in IOS_CERTIFICATE_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROFILE_BASE64 SUQNAA_IOS_TEAM_ID; do
+            [[ -n "${!name:-}" ]] || { echo "Required iOS release secret is missing: $name"; exit 1; }
+          done
+      - name: Resolve Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Materialize and verify temporary iOS signing identity
+        id: ios-signing
+        shell: bash
+        working-directory: apps/mobile
+        run: |
+          set -Eeuo pipefail
+          cert_path="$RUNNER_TEMP/suqnaa-distribution.p12"
+          profile_path="$RUNNER_TEMP/suqnaa-appstore.mobileprovision"
+          profile_plist="$RUNNER_TEMP/suqnaa-profile.plist"
+          keychain_path="$RUNNER_TEMP/suqnaa-build.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+
+          printf '%s' "$IOS_CERTIFICATE_BASE64" | base64 --decode > "$cert_path"
+          printf '%s' "$IOS_PROFILE_BASE64" | base64 --decode > "$profile_path"
+          chmod 600 "$cert_path" "$profile_path"
+
+          security cms -D -i "$profile_path" > "$profile_plist"
+          profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$profile_plist")"
+          profile_name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$profile_plist")"
+          profile_team="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$profile_plist")"
+          profile_app_identifier="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$profile_plist")"
+          [[ "$profile_team" == "$SUQNAA_IOS_TEAM_ID" ]] || { echo 'Provisioning profile team does not match SUQNAA_IOS_TEAM_ID'; exit 1; }
+          [[ "$profile_app_identifier" == "$SUQNAA_IOS_TEAM_ID.co.privacyx.suqnaa" ]] || { echo 'Provisioning profile does not target co.privacyx.suqnaa'; exit 1; }
+          if /usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' "$profile_plist" >/dev/null 2>&1; then
+            echo 'Provisioning profile contains device registrations and is not an App Store profile'
+            exit 1
+          fi
+          if /usr/libexec/PlistBuddy -c 'Print :ProvisionsAllDevices' "$profile_plist" >/dev/null 2>&1; then
+            echo 'Enterprise provisioning profiles are not accepted for App Store releases'
+            exit 1
+          fi
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$cert_path" -k "$keychain_path" -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+
+          existing_keychains=()
+          while IFS= read -r existing_keychain; do
+            existing_keychain="${existing_keychain//\"/}"
+            [[ -n "$existing_keychain" ]] && existing_keychains+=("$existing_keychain")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "$keychain_path" "${existing_keychains[@]}"
+          security find-identity -v -p codesigning "$keychain_path" | grep -F 'Apple Distribution' >/dev/null || { echo 'Imported certificate does not expose an Apple Distribution signing identity'; exit 1; }
+
+          profile_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$profile_dir"
+          installed_profile="$profile_dir/$profile_uuid.mobileprovision"
+          cp "$profile_path" "$installed_profile"
+
+          cat > ios/Flutter/Signing.xcconfig <<EOF
+          DEVELOPMENT_TEAM=$SUQNAA_IOS_TEAM_ID
+          CODE_SIGN_IDENTITY=Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER=$profile_name
+          EOF
+          chmod 600 ios/Flutter/Signing.xcconfig
+
+          echo "keychain_path=$keychain_path" >> "$GITHUB_OUTPUT"
+          echo "profile_path=$installed_profile" >> "$GITHUB_OUTPUT"
+      - name: Build signed App Store archive and IPA
+        working-directory: apps/mobile
+        run: >-
+          flutter build ipa --release --export-method app-store
+          --build-name "$RELEASE_VERSION_NAME"
+          --build-number "$RELEASE_BUILD_NUMBER"
+      - name: Record iOS artifact checksums
+        shell: bash
+        working-directory: apps/mobile
+        run: |
+          set -Eeuo pipefail
+          find build/ios/ipa -maxdepth 1 -type f -name '*.ipa' -print0 | xargs -0 shasum -a 256 > build/ios/ipa/SHA256SUMS
+          test -s build/ios/ipa/SHA256SUMS
+      - name: Upload signed iOS archive and IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: suqnaa-ios-${{ inputs.version_name }}-${{ inputs.build_number }}
+          path: |
+            apps/mobile/build/ios/archive/Runner.xcarchive
+            apps/mobile/build/ios/ipa/*.ipa
+            apps/mobile/build/ios/ipa/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary iOS signing material
+        if: always()
+        shell: bash
+        working-directory: apps/mobile
+        run: |
+          rm -f ios/Flutter/Signing.xcconfig
+          rm -f "${{ steps.ios-signing.outputs.profile_path }}"
+          keychain_path="${{ steps.ios-signing.outputs.keychain_path }}"
+          if [[ -n "$keychain_path" ]]; then
+            remaining_keychains=()
+            while IFS= read -r existing_keychain; do
+              existing_keychain="${existing_keychain//\"/}"
+              [[ -n "$existing_keychain" && "$existing_keychain" != "$keychain_path" ]] && remaining_keychains+=("$existing_keychain")
+            done < <(security list-keychains -d user)
+            if (( ${#remaining_keychains[@]} > 0 )); then
+              security list-keychains -d user -s "${remaining_keychains[@]}" || true
+            fi
+            security delete-keychain "$keychain_path" || true
+          fi
+          rm -f "$RUNNER_TEMP/suqnaa-distribution.p12" "$RUNNER_TEMP/suqnaa-appstore.mobileprovision" "$RUNNER_TEMP/suqnaa-profile.plist"
