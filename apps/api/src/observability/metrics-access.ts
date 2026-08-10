@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 const minimumProductionTokenLength = 32;
 
@@ -11,10 +12,27 @@ export function resolveMetricsAccessToken(input: {
   const token = input.token?.trim() || '';
   if (input.nodeEnv === 'production' && token.length < minimumProductionTokenLength) {
     throw new MetricsAccessConfigurationError(
-      `OBSERVABILITY_METRICS_TOKEN must contain at least ${minimumProductionTokenLength} characters in production`
+      `observability metrics token must contain at least ${minimumProductionTokenLength} characters in production`
     );
   }
   return token || null;
+}
+
+export function loadMetricsAccessToken(input: {
+  nodeEnv?: string;
+  token?: string;
+  tokenFile?: string;
+}): string | null {
+  const tokenFile = input.tokenFile?.trim();
+  let token = input.token;
+  if (tokenFile) {
+    try {
+      token = readFileSync(tokenFile, 'utf8');
+    } catch {
+      throw new MetricsAccessConfigurationError('observability metrics token file could not be read');
+    }
+  }
+  return resolveMetricsAccessToken({ nodeEnv: input.nodeEnv, token });
 }
 
 export function metricsAuthorizationAllowed(
