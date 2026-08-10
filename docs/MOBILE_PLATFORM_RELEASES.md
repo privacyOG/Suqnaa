@@ -1,6 +1,6 @@
 # Mobile platform release configuration
 
-P1-09 commits the native Android and iOS project foundations while keeping signing material outside the repository. P1-10 owns signed store artifact automation.
+P1-09 commits the native Android and iOS project foundations while keeping signing material outside the repository. P1-10 adds secret-gated signed store artifact automation without moving signing credentials into source control.
 
 ## Stable application identity
 
@@ -15,12 +15,14 @@ Production uses `co.privacyx.suqnaa` on both Android and iOS. Debug uses `.debug
 - Release enables code shrinking and resource shrinking; cleartext HTTP and application backup are disabled.
 - Flutter's current AGP 9 compatibility flags are explicit in `android/gradle.properties`; remove them only after the Flutter Gradle plugin supports the AGP 9 new DSL and built-in Kotlin path directly.
 
-Expected external values:
+Local release signing expects:
 
 - `SUQNAA_ANDROID_KEYSTORE_PATH`
 - `SUQNAA_ANDROID_KEYSTORE_PASSWORD`
 - `SUQNAA_ANDROID_KEY_ALIAS`
 - `SUQNAA_ANDROID_KEY_PASSWORD`
+
+The CI release workflow stores the keystore itself as base64 in `SUQNAA_ANDROID_KEYSTORE_BASE64`, decodes it only into `$RUNNER_TEMP`, maps the remaining secrets to the existing Gradle signing variables, and deletes the temporary keystore in an `always()` cleanup step.
 
 ## iOS variants, SwiftPM, and signing
 
@@ -35,6 +37,28 @@ The iOS runner uses Swift Package Manager for Flutter plugins. CocoaPods integra
 The Runner project retains Flutter's canonical Runner target, project, Flutter-group, and Frameworks-build-phase identifiers because Flutter's SwiftPM migration tooling uses those template identifiers. The shared scheme runs `xcode_backend.sh prepare` before build and sets `$(SRCROOT)/Flutter/ephemeral/flutter_lldbinit` for both Run and Test debug actions.
 
 Profile and Release use manual signing and may import `ios/Flutter/Signing.xcconfig`, which is ignored by Git. Certificates, private keys and provisioning profiles must never be committed. Unsigned simulator compilation is permitted in CI to validate the native project without exposing store credentials.
+
+The signed iOS release workflow requires:
+
+- `SUQNAA_IOS_DISTRIBUTION_P12_BASE64`
+- `SUQNAA_IOS_DISTRIBUTION_P12_PASSWORD`
+- `SUQNAA_IOS_APPSTORE_PROFILE_BASE64`
+- `SUQNAA_IOS_TEAM_ID`
+
+At runtime the workflow creates an ephemeral keychain, imports the distribution certificate, decodes the App Store provisioning profile, verifies that the profile team matches `SUQNAA_IOS_TEAM_ID`, installs the profile temporarily, and writes an ignored `ios/Flutter/Signing.xcconfig` containing only the team, `Apple Distribution` identity and profile name. The keychain, profile, certificate, decoded plist and signing xcconfig are removed in an `always()` cleanup step.
+
+## Signed store release workflow
+
+`.github/workflows/mobile-store-releases.yml` has two deliberately separate modes:
+
+1. Pull requests run only the secret-free `release-contract` job. This validates that the release workflow still keeps signing secrets outside tracked files and that signed jobs remain manual-only.
+2. `workflow_dispatch` can build Android, iOS, or both. The operator must supply `version_name` and a positive integer `build_number`.
+
+Signed build jobs are guarded by `github.event_name == 'workflow_dispatch'`, so pull requests and forks cannot cause store credentials to be materialised. Repository workflow permissions are read-only.
+
+Android produces `app-release.aab` plus a SHA-256 checksum. iOS uses Flutter's `ipa` archive command with App Store export mode and produces both `Runner.xcarchive` and the exported `.ipa`, plus SHA-256 checksums. Artifacts are retained for 14 days; signing inputs are never included in uploaded artifact paths.
+
+Release version/build numbers are supplied explicitly at dispatch time. Reusing a store build number is an operator error and must be rejected by the relevant store; release operators should monotonically increase build numbers even when rebuilding the same marketing version.
 
 ## Secure local session storage
 
@@ -61,6 +85,6 @@ Ordinary repository tests run `scripts/validate-mobile-platforms.mjs`. The `Mobi
 - Android Debug on Linux using the pinned native toolchain.
 - iOS Debug for the simulator on macOS with code signing disabled and Flutter plugins resolved through SwiftPM.
 
-The platform validator also rejects reintroduction of a CocoaPods Podfile/Pods workspace reference, missing Flutter canonical iOS IDs, missing SwiftPM prepare action, missing LLDB init configuration, or source-controlled signing material.
+The platform validator rejects reintroduction of a CocoaPods Podfile/Pods workspace reference, missing Flutter canonical iOS IDs, missing SwiftPM prepare action, missing LLDB init configuration, or source-controlled signing material.
 
-Store-signed Android App Bundles and iOS archives are deliberately deferred to P1-10, where signing secrets will be supplied only through the CI secret store.
+`scripts/validate-mobile-release-pipelines.mjs` separately checks the signed release contract, including manual-only signed jobs, required secret references, temporary Android/iOS signing paths, checksum generation, artifact upload paths, and unconditional cleanup of signing material.
