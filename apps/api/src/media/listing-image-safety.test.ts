@@ -103,5 +103,6 @@ assert.throws(
 );
 
 await import('./listing-image-sanitizer.test.js');
+await import('./listing-media-review.test.js');
 
 console.log('listing image safety ok');
