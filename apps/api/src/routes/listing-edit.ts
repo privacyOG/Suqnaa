@@ -8,8 +8,9 @@ import {
 } from '../listings/listing-edit-service.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
@@ -48,7 +49,7 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function limited(
+async function limited(
   request: FastifyRequest,
   accountId: string,
   group: string,
@@ -56,13 +57,13 @@ function limited(
   ipLimit: number,
   windowMs: number
 ) {
-  const account = checkRateLimit({
+  const account = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit: accountLimit,
     windowMs
   });
-  const ip = checkRateLimit({
+  const ip = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: ipLimit,
@@ -84,7 +85,7 @@ export async function listingEditRoutes(app: FastifyInstance): Promise<void> {
   app.get('/listings/:listingId/manage', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const params = listingParams.parse(request.params);
-    const rate = limited(
+    const rate = await limited(
       request,
       authRequest.user.sub,
       'listing.edit.read',
@@ -111,7 +112,7 @@ export async function listingEditRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const params = listingParams.parse(request.params);
     const body = listingEditBody.parse(request.body);
-    const rate = limited(
+    const rate = await limited(
       request,
       authRequest.user.sub,
       'listing.edit.write',
