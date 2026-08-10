@@ -12,6 +12,11 @@ x-runtime: &runtime
   networks:
     - application
   stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: ${SUQNAA_LOG_MAX_SIZE:-10m}
+      max-file: "${SUQNAA_LOG_MAX_FILES:-5}"
 
 x-worker: &worker
   <<: *runtime
@@ -29,6 +34,10 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       target: api
+    environment:
+      OBSERVABILITY_METRICS_TOKEN_FILE: /run/secrets/observability_metrics_token
+    secrets:
+      - observability_metrics_token
     expose:
       - "4000"
 
@@ -87,6 +96,10 @@ services:
       - application
     profiles:
       - migrate
+
+secrets:
+  observability_metrics_token:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/observability_metrics_token
 
 networks:
   application:

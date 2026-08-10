@@ -100,6 +100,64 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${SUQNAA_METRICS_RETENTION:-30d}
+      - --web.enable-lifecycle
+    secrets:
+      - observability_metrics_token
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    networks:
+      - application
+    security_opt:
+      - no-new-privileges:true
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - application
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${SUQNAA_GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    secrets:
+      - grafana_admin_password
+    ports:
+      - "127.0.0.1:${SUQNAA_GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - application
+    depends_on:
+      - prometheus
+    security_opt:
+      - no-new-privileges:true
+
   edge:
     image: caddy:2.10-alpine
     restart: unless-stopped
@@ -134,12 +192,19 @@ secrets:
     file: ${SUQNAA_SECRET_DIR:-./secrets}/object_storage_root_user
   object_storage_root_password:
     file: ${SUQNAA_SECRET_DIR:-./secrets}/object_storage_root_password
+  observability_metrics_token:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/observability_metrics_token
+  grafana_admin_password:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/grafana_admin_password
 
 volumes:
   postgres_data:
   redis_data:
   queue_data:
   object_storage_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
   caddy_data:
   caddy_config:
 
