@@ -7,7 +7,8 @@ import {
   checkHumanProtectionWithChallenge,
   humanProtectionResponse
 } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
@@ -40,7 +41,7 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function enforceLimit(
+async function enforceLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
@@ -48,14 +49,14 @@ function enforceLimit(
   accountLimit: number,
   ipLimit: number,
   windowMs = 5 * 60 * 1000
-): boolean {
-  const perAccount = checkRateLimit({
+): Promise<boolean> {
+  const perAccount = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit: accountLimit,
     windowMs
   });
-  const perIp = checkRateLimit({
+  const perIp = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: ipLimit,
@@ -178,7 +179,7 @@ export async function offerWorkflowRoutes(app: FastifyInstance): Promise<void> {
     const sellerId = authRequest.user.sub;
     const query = offerPageQuery.parse(request.query);
 
-    if (!enforceLimit(request, reply, sellerId, 'market.offers.incoming', 120, 300)) {
+    if (!await enforceLimit(request, reply, sellerId, 'market.offers.incoming', 120, 300)) {
       return;
     }
 
@@ -247,7 +248,7 @@ export async function offerWorkflowRoutes(app: FastifyInstance): Promise<void> {
     const buyerId = authRequest.user.sub;
     const query = offerPageQuery.parse(request.query);
 
-    if (!enforceLimit(request, reply, buyerId, 'market.offers.mine', 120, 300)) {
+    if (!await enforceLimit(request, reply, buyerId, 'market.offers.mine', 120, 300)) {
       return;
     }
 
@@ -307,7 +308,7 @@ export async function offerWorkflowRoutes(app: FastifyInstance): Promise<void> {
     const params = offerParams.parse(request.params);
     const body = sellerDecisionBody.parse(request.body);
 
-    if (!enforceLimit(request, reply, sellerId, 'market.offers.manage', 60, 180, 60 * 60 * 1000)) {
+    if (!await enforceLimit(request, reply, sellerId, 'market.offers.manage', 60, 180, 60 * 60 * 1000)) {
       return;
     }
 
@@ -435,7 +436,7 @@ export async function offerWorkflowRoutes(app: FastifyInstance): Promise<void> {
     const buyerId = authRequest.user.sub;
     const params = offerParams.parse(request.params);
 
-    if (!enforceLimit(request, reply, buyerId, 'market.offers.cancel', 30, 100, 60 * 60 * 1000)) {
+    if (!await enforceLimit(request, reply, buyerId, 'market.offers.cancel', 30, 100, 60 * 60 * 1000)) {
       return;
     }
 
