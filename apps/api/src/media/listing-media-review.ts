@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { ClamdListingMediaReviewer } from './listing-media-clamd-review.js';
 import type { SupportedListingImageMime } from './listing-media-upload.js';
 
 export type ListingMediaReviewVerdict = 'clean' | 'reject' | 'quarantine';
@@ -61,11 +62,19 @@ let reviewer: ListingMediaReviewer | undefined;
 
 export function getListingMediaReviewer(): ListingMediaReviewer {
   if (reviewer) return reviewer;
+
+  const configuredProvider = process.env.MEDIA_REVIEW_PROVIDER?.trim().toLowerCase();
+  if (configuredProvider === 'clamd') {
+    reviewer = new ClamdListingMediaReviewer();
+    return reviewer;
+  }
+
   if (process.env.NODE_ENV === 'production') {
     throw new ListingMediaReviewUnavailableError(
-      'Production media review provider is not configured'
+      'Production media review provider is not configured; set MEDIA_REVIEW_PROVIDER=clamd or install an approved reviewer'
     );
   }
+
   reviewer = new DevelopmentListingMediaReviewer();
   return reviewer;
 }
