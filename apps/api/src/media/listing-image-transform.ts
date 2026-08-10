@@ -43,16 +43,26 @@ function outputDimensions(width: number, height: number, maximum: number): { wid
   };
 }
 
+function inputSpecifier(mimeType: SupportedListingImageMime): string {
+  if (mimeType === 'image/jpeg') return 'jpeg:-';
+  if (mimeType === 'image/png') return 'png:-';
+  return 'webp:-';
+}
+
 function command(): string {
   return process.env.MEDIA_IMAGE_CONVERT_COMMAND?.trim() || 'convert';
 }
 
-async function convertToWebp(input: Buffer, maximum: number): Promise<Buffer> {
+async function convertToWebp(
+  input: Buffer,
+  maximum: number,
+  mimeType: SupportedListingImageMime
+): Promise<Buffer> {
   const args = [
     '-limit', 'memory', '128MiB',
     '-limit', 'map', '256MiB',
     '-limit', 'disk', '512MiB',
-    '-',
+    inputSpecifier(mimeType),
     '-auto-orient',
     '-strip',
     '-resize', `${maximum}x${maximum}>`,
@@ -106,11 +116,10 @@ export async function transformListingImage(input: {
   height: number;
   orientation: number | null;
 }): Promise<ListingImageTransformResult> {
-  void input.mimeType;
   const oriented = orientedDimensions(input.width, input.height, input.orientation);
   const [publicBuffer, thumbnailBuffer] = await Promise.all([
-    convertToWebp(input.buffer, publicMaximumDimension),
-    convertToWebp(input.buffer, thumbnailMaximumDimension)
+    convertToWebp(input.buffer, publicMaximumDimension, input.mimeType),
+    convertToWebp(input.buffer, thumbnailMaximumDimension, input.mimeType)
   ]);
   const publicDimensions = outputDimensions(oriented.width, oriented.height, publicMaximumDimension);
   const thumbnailDimensions = outputDimensions(oriented.width, oriented.height, thumbnailMaximumDimension);
@@ -136,6 +145,7 @@ export async function transformListingImage(input: {
 export const listingImageTransformInternals = {
   orientedDimensions,
   outputDimensions,
+  inputSpecifier,
   publicMaximumDimension,
   thumbnailMaximumDimension,
   transformTimeoutMs
