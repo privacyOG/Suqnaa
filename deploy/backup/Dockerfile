@@ -1,11 +1,10 @@
-FROM debian:bookworm-slim
+FROM postgres:16-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        age \
        ca-certificates \
-       postgresql-client \
        rclone \
        tini \
     && rm -rf /var/lib/apt/lists/*
