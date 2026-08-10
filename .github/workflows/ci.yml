@@ -95,7 +95,7 @@ jobs:
         run: pnpm build:web
 
   containers:
-    name: Production containers
+    name: Production containers and restore drill
     needs: policy
     runs-on: ubuntu-latest
     env:
@@ -105,6 +105,9 @@ jobs:
       SUQNAA_API_DOMAIN: api.example.invalid
       SUQNAA_ACME_EMAIL: ops@example.invalid
       SUQNAA_SECRET_DIR: ./secrets
+      SUQNAA_BACKUP_S3_BUCKETS: ci-media
+      SUQNAA_BACKUP_IMAGE: suqnaa-backup:ci
+      SUQNAA_RESTORE_ENVIRONMENT: staging
     steps:
       - uses: actions/checkout@v4
       - name: Validate container topology
@@ -116,7 +119,7 @@ jobs:
         run: |
           cp .env.example .env.production
           docker compose -f deploy/compose.production.yml config >/dev/null
-      - name: Validate infrastructure Compose configuration
+      - name: Provision CI infrastructure secret files
         shell: bash
         working-directory: deploy
         run: |
@@ -126,8 +129,20 @@ jobs:
           printf '%s' 'ci-queue-password' > secrets/queue_password
           printf '%s' 'ci-object-admin' > secrets/object_storage_root_user
           printf '%s' 'ci-object-password' > secrets/object_storage_root_password
-          docker compose -f compose.infrastructure.yml config >/dev/null
-          rm -f secrets/postgres_password secrets/redis_password secrets/queue_password secrets/object_storage_root_user secrets/object_storage_root_password
+          printf '%s' 'ci-observability-token-012345678901234567890123456789' > secrets/observability_metrics_token
+          printf '%s' 'ci-grafana-password' > secrets/grafana_admin_password
+          printf '%s' 'postgres://suqnaa:ci-postgres-password@postgres:5432/suqnaa' > secrets/backup_database_url
+          printf '%s' 'age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq' > secrets/backup_age_recipient
+          printf '%s' 'ci-object-admin' > secrets/backup_object_storage_access_key
+          printf '%s' 'ci-object-password' > secrets/backup_object_storage_secret_key
+          printf '%s' 'AGE-SECRET-KEY-1PLACEHOLDER' > secrets/backup_age_identity
+          printf '%s' 'postgres://suqnaa:ci-postgres-password@postgres:5432/suqnaa' > secrets/restore_database_url
+          printf '%s' 'ci-object-admin' > secrets/restore_object_storage_access_key
+          printf '%s' 'ci-object-password' > secrets/restore_object_storage_secret_key
+      - name: Validate infrastructure Compose configuration
+        shell: bash
+        working-directory: deploy
+        run: docker compose -f compose.infrastructure.yml config >/dev/null
       - name: Build API image
         run: docker build -f deploy/Dockerfile --target api -t suqnaa-api:ci .
       - name: Build worker image
@@ -140,6 +155,80 @@ jobs:
           -t suqnaa-web:ci .
       - name: Build migration image
         run: docker build -f deploy/Dockerfile --target migrate -t suqnaa-migrate:ci .
+      - name: Build backup image
+        run: docker build -f deploy/backup/Dockerfile -t suqnaa-backup:ci .
+      - name: Run encrypted staging restore drill
+        shell: bash
+        working-directory: deploy
+        run: |
+          set -Eeuo pipefail
+
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$PWD/secrets:/secrets" \
+            --entrypoint age-keygen \
+            suqnaa-backup:ci -o /secrets/backup_age_identity
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$PWD/secrets:/secrets" \
+            --entrypoint age-keygen \
+            suqnaa-backup:ci -y /secrets/backup_age_identity \
+            > secrets/backup_age_recipient
+
+          docker compose -f compose.infrastructure.yml up -d postgres object-storage
+
+          docker compose -f compose.infrastructure.yml exec -T postgres \
+            psql -U suqnaa -d suqnaa -v ON_ERROR_STOP=1 <<'SQL'
+          create table if not exists schema_migrations (
+            id text primary key,
+            checksum text not null default 'ci',
+            applied_at timestamptz not null default now()
+          );
+          insert into schema_migrations (id) values ('ci_restore_drill') on conflict do nothing;
+          create table if not exists backup_probe (id integer primary key, value text not null);
+          insert into backup_probe (id, value) values (1, 'database-before-backup')
+            on conflict (id) do update set value = excluded.value;
+          SQL
+
+          docker compose -f compose.infrastructure.yml exec -T object-storage sh -ec '
+            mc alias set ci http://localhost:9000 "$(cat /run/secrets/object_storage_root_user)" "$(cat /run/secrets/object_storage_root_password)" >/dev/null
+            mc mb --ignore-existing ci/ci-media >/dev/null
+            printf %s object-before-backup | mc pipe ci/ci-media/probe.txt >/dev/null
+          '
+
+          docker compose -f compose.infrastructure.yml run --rm --no-deps backup \
+            /opt/suqnaa-backup/backup.sh
+
+          docker compose -f compose.infrastructure.yml exec -T postgres \
+            psql -U suqnaa -d suqnaa -v ON_ERROR_STOP=1 \
+            -c "update backup_probe set value = 'database-after-backup' where id = 1"
+          docker compose -f compose.infrastructure.yml exec -T object-storage sh -ec '
+            mc alias set ci http://localhost:9000 "$(cat /run/secrets/object_storage_root_user)" "$(cat /run/secrets/object_storage_root_password)" >/dev/null
+            mc rm --force ci/ci-media/probe.txt >/dev/null
+          '
+
+          docker compose --profile restore-drill -f compose.infrastructure.yml run --rm --no-deps restore-drill
+
+          restored_db=$(docker compose -f compose.infrastructure.yml exec -T postgres \
+            psql -U suqnaa -d suqnaa -Atqc "select value from backup_probe where id = 1")
+          [[ "$restored_db" == "database-before-backup" ]]
+
+          restored_object=$(docker compose -f compose.infrastructure.yml exec -T object-storage sh -ec '
+            mc alias set ci http://localhost:9000 "$(cat /run/secrets/object_storage_root_user)" "$(cat /run/secrets/object_storage_root_password)" >/dev/null
+            mc cat ci/ci-media/probe.txt
+          ')
+          [[ "$restored_object" == "object-before-backup" ]]
+
+          docker compose -f compose.infrastructure.yml run --rm --no-deps --entrypoint sh backup -ec '
+            ! find /backups -type f \( -name "*.dump" -o -name "*.sql" -o -name "*.tar" \) | grep -q .
+            find /backups -type f -name "database.dump.age" | grep -q .
+            find /backups -type f -name "checksums.sha256" | grep -q .
+          '
+
+          docker compose -f compose.infrastructure.yml down -v
+      - name: Remove CI secret files
+        if: always()
+        shell: bash
+        working-directory: deploy
+        run: rm -rf secrets
 
   mobile:
     name: Mobile analysis and tests
