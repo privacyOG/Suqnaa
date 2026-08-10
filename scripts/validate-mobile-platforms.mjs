@@ -83,6 +83,8 @@ assert.match(iosWorkspace, /Runner\.xcodeproj/);
 assert.match(iosWorkspace, /Pods\/Pods\.xcodeproj/);
 assert.match(iosScheme, /buildConfiguration="Profile"/);
 assert.match(iosScheme, /buildConfiguration="Release"/);
+assert.match(iosScheme, /<PreActions>[\s\S]*?Run Prepare Flutter Framework Script[\s\S]*?xcode_backend\.sh&quot; prepare/);
+assert.match(iosScheme, /<EnvironmentBuildable>[\s\S]*?<BuildableReference[\s\S]*?BlueprintName="Runner"/);
 assert.match(iosScheme, /<MacroExpansion>[\s\S]*?<BuildableReference[\s\S]*?BlueprintName="Runner"/);
 assert.match(iosPodfile, /platform :ios, '15\.0'/);
 assert.match(iosPodfile, /flutter_install_all_ios_pods/);
