@@ -1,0 +1,4 @@
+#include "Generated.xcconfig"
+#include? "Signing.xcconfig"
+PRODUCT_BUNDLE_IDENTIFIER=co.privacyx.suqnaa
+CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements

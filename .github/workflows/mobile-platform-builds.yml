@@ -1,0 +1,61 @@
+name: Mobile Platform Builds
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-platform-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-debug:
+    name: Android native debug build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+      - name: Resolve Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Configure local Android SDK paths
+        shell: bash
+        working-directory: apps/mobile
+        run: |
+          set -Eeuo pipefail
+          flutter_sdk="$(cd "$(dirname "$(command -v flutter)")/.." && pwd)"
+          printf 'flutter.sdk=%s\nsdk.dir=%s\n' "$flutter_sdk" "$ANDROID_HOME" > android/local.properties
+      - name: Compile Android debug runner
+        working-directory: apps/mobile
+        run: gradle -p android :app:assembleDebug --stacktrace
+
+  ios-simulator:
+    name: iOS simulator debug build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Compile iOS simulator runner
+        working-directory: apps/mobile
+        run: flutter build ios --simulator --debug --no-codesign
