@@ -1,4 +1,4 @@
-FROM postgres:16-bookworm
+FROM postgres:18-bookworm
 
 # The postgres:16 base supplies the PostgreSQL 16 postgresql-client tools used by pg_dump/pg_restore.
 ENV DEBIAN_FRONTEND=noninteractive
