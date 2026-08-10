@@ -11,6 +11,7 @@ Required files:
 - `object_storage_root_password`
 - `observability_metrics_token`
 - `grafana_admin_password`
+- `turnstile_secret_key`
 - `backup_database_url`
 - `backup_age_recipient`
 - `backup_object_storage_access_key`
@@ -25,6 +26,8 @@ Use a separate secret directory for each environment and point Compose at it wit
 `observability_metrics_token` must contain at least 32 characters in production. The exact same secret file is mounted into the API and Prometheus, so the scrape credential never needs to be duplicated in environment variables. Rotate it by replacing the secret and restarting the API and Prometheus together.
 
 `grafana_admin_password` protects the bootstrap administrator account. Grafana is bound to `127.0.0.1` by default and must not be exposed publicly without the same edge authentication and access controls used for other operations surfaces.
+
+`turnstile_secret_key` is the server-only production human-verification credential. Production API startup rejects an inline `TURNSTILE_SECRET_KEY`; it must use the mounted file at `TURNSTILE_SECRET_KEY_FILE`. Rotate the provider credential by writing the new value to a temporary mode-0600 file in the same secret directory, atomically renaming it to `turnstile_secret_key`, recreating the API service, and verifying `/v1/health/ready` plus a real challenge-protected action. Never log or expose the secret through the public challenge configuration.
 
 ## Backup and restore credentials
 
@@ -41,3 +44,13 @@ Use a separate secret directory for each environment and point Compose at it wit
 The general Redis credential and durable queue credential must be distinct. Queue storage uses a separate Redis instance so cache/state memory policy cannot evict background work.
 
 Application credentials should use least-privilege identities distinct from infrastructure root/bootstrap credentials. The root object-storage credentials in this directory are for bootstrap/administration only; application S3 access keys must be provisioned separately before production rollout.
+
+## Rotation rules
+
+- Generate replacement values outside the repository and never print them in shell history, CI output, tickets, or chat.
+- Prefer atomic file replacement on the deployment host: write a mode-0600 temporary file in the same directory, verify ownership/permissions, then rename it over the active secret.
+- Recreate every service that mounts the changed secret; a file replacement alone does not guarantee a running container observes the new value.
+- Verify health and the affected protected workflow before declaring rotation complete.
+- Keep the previous value only for the minimum rollback window supported by that credential, then destroy it securely.
+- Credentials embedded in application data derivation or token signing require their documented compatibility/reauthentication procedure; do not rotate a password pepper or signing key blindly.
+- Emergency rotation after suspected compromise is an incident-response action and must preserve evidence while revoking the exposed credential as quickly as the affected dependency permits.
