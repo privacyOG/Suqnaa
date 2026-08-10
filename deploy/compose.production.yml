@@ -42,8 +42,10 @@ services:
       target: api
     environment:
       OBSERVABILITY_METRICS_TOKEN_FILE: /run/secrets/observability_metrics_token
+      TURNSTILE_SECRET_KEY_FILE: /run/secrets/turnstile_secret_key
     secrets:
       - observability_metrics_token
+      - turnstile_secret_key
     expose:
       - "4000"
     healthcheck:
@@ -132,6 +134,8 @@ services:
 secrets:
   observability_metrics_token:
     file: ${SUQNAA_SECRET_DIR:-./secrets}/observability_metrics_token
+  turnstile_secret_key:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/turnstile_secret_key
 
 networks:
   application:
