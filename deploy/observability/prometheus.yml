@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: suqnaa-api
+    metrics_path: /internal/observability/metrics
+    scheme: http
+    authorization:
+      credentials_file: /run/secrets/observability_metrics_token
+    static_configs:
+      - targets:
+          - api:4000
