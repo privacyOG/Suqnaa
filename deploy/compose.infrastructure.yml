@@ -133,6 +133,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - DAC_READ_SEARCH
 
   restore-drill:
     build:
@@ -169,6 +171,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - DAC_READ_SEARCH
 
   prometheus:
     image: prom/prometheus:v3.0.1
