@@ -21,7 +21,8 @@ import {
   deliverDisputeEvidence,
   storeBinaryDisputeEvidence
 } from '../disputes/dispute-evidence-service.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
 
 const uuid = z.string().uuid();
@@ -56,11 +57,11 @@ function disputeError(reply: any, error: unknown) {
   throw error;
 }
 
-function participantLimit(request: FastifyRequest, userId: string, action: string, limit: number) {
-  const account = checkRateLimit({
+async function participantLimit(request: FastifyRequest, userId: string, action: string, limit: number) {
+  const account = await checkSharedRateLimit({
     group: `dispute.${action}.account`, identifiers: [`account:${userId}`], limit, windowMs: 60 * 60 * 1000
   });
-  const ip = checkRateLimit({
+  const ip = await checkSharedRateLimit({
     group: `dispute.${action}.ip`, identifiers: [`ip:${request.ip}`], limit: limit * 2, windowMs: 60 * 60 * 1000
   });
   return !account.allowed ? account : !ip.allowed ? ip : null;
@@ -82,7 +83,7 @@ export async function disputeRoutes(app: FastifyInstance): Promise<void> {
   app.post('/market/disputes', { preHandler: requireUser }, async (request, reply) => {
     const auth = request as AuthenticatedRequest;
     const body = openBody.parse(request.body);
-    const limited = participantLimit(request, auth.user.sub, 'open', 10);
+    const limited = await participantLimit(request, auth.user.sub, 'open', 10);
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -109,7 +110,7 @@ export async function disputeRoutes(app: FastifyInstance): Promise<void> {
     const auth = request as AuthenticatedRequest;
     const params = z.object({ disputeId: uuid }).parse(request.params);
     const body = responseBody.parse(request.body);
-    const limited = participantLimit(request, auth.user.sub, 'response', 30);
+    const limited = await participantLimit(request, auth.user.sub, 'response', 30);
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -125,7 +126,7 @@ export async function disputeRoutes(app: FastifyInstance): Promise<void> {
     const auth = request as AuthenticatedRequest;
     const params = z.object({ disputeId: uuid }).parse(request.params);
     const body = textEvidenceBody.parse(request.body);
-    const limited = participantLimit(request, auth.user.sub, 'evidence', 40);
+    const limited = await participantLimit(request, auth.user.sub, 'evidence', 40);
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -148,7 +149,7 @@ export async function disputeRoutes(app: FastifyInstance): Promise<void> {
     const auth = request as AuthenticatedRequest;
     const params = z.object({ disputeId: uuid }).parse(request.params);
     const query = uploadQuery.parse(request.query);
-    const limited = participantLimit(request, auth.user.sub, 'evidence_binary', 24);
+    const limited = await participantLimit(request, auth.user.sub, 'evidence_binary', 24);
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -195,7 +196,7 @@ export async function disputeRoutes(app: FastifyInstance): Promise<void> {
     const auth = request as AuthenticatedRequest;
     const params = z.object({ disputeId: uuid }).parse(request.params);
     const body = appealBody.parse(request.body);
-    const limited = participantLimit(request, auth.user.sub, 'appeal', 8);
+    const limited = await participantLimit(request, auth.user.sub, 'appeal', 8);
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
