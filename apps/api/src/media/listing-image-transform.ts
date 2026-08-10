@@ -24,6 +24,16 @@ export class ListingImageTransformError extends Error {
   }
 }
 
+function orientedDimensions(
+  width: number,
+  height: number,
+  orientation: number | null
+): { width: number; height: number } {
+  return orientation !== null && orientation >= 5 && orientation <= 8
+    ? { width: height, height: width }
+    : { width, height };
+}
+
 function outputDimensions(width: number, height: number, maximum: number): { width: number; height: number } {
   if (width <= maximum && height <= maximum) return { width, height };
   const scale = Math.min(maximum / width, maximum / height);
@@ -56,7 +66,6 @@ async function convertToWebp(input: Buffer, maximum: number): Promise<Buffer> {
       env: { ...process.env, MAGICK_THREAD_LIMIT: '2' }
     });
     const output: Buffer[] = [];
-    const errors: Buffer[] = [];
     let finished = false;
 
     const timer = setTimeout(() => {
@@ -67,7 +76,7 @@ async function convertToWebp(input: Buffer, maximum: number): Promise<Buffer> {
     }, transformTimeoutMs);
 
     child.stdout.on('data', (chunk: Buffer) => output.push(Buffer.from(chunk)));
-    child.stderr.on('data', (chunk: Buffer) => errors.push(Buffer.from(chunk)));
+    child.stderr.resume();
     child.on('error', () => {
       if (finished) return;
       finished = true;
@@ -95,18 +104,16 @@ export async function transformListingImage(input: {
   mimeType: SupportedListingImageMime;
   width: number;
   height: number;
+  orientation: number | null;
 }): Promise<ListingImageTransformResult> {
-  // mimeType is intentionally part of the validated contract even though ImageMagick
-  // detects the already magic-byte-validated input from stdin.
   void input.mimeType;
+  const oriented = orientedDimensions(input.width, input.height, input.orientation);
   const [publicBuffer, thumbnailBuffer] = await Promise.all([
     convertToWebp(input.buffer, publicMaximumDimension),
     convertToWebp(input.buffer, thumbnailMaximumDimension)
   ]);
-  const publicDimensions = outputDimensions(input.width, input.height, publicMaximumDimension);
-  const thumbnailDimensions = outputDimensions(input.width, input.height, thumbnailMaximumDimension);
-  const swapsAxes = false;
-  void swapsAxes;
+  const publicDimensions = outputDimensions(oriented.width, oriented.height, publicMaximumDimension);
+  const thumbnailDimensions = outputDimensions(oriented.width, oriented.height, thumbnailMaximumDimension);
 
   return {
     publicImage: {
@@ -127,6 +134,7 @@ export async function transformListingImage(input: {
 }
 
 export const listingImageTransformInternals = {
+  orientedDimensions,
   outputDimensions,
   publicMaximumDimension,
   thumbnailMaximumDimension,
