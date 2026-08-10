@@ -27,6 +27,7 @@
       "Any account, verification or region eligibility that affects visible functionality."
     ]
   },
+  "submissionEvidence": "apps/mobile/store/review/submission-evidence.json",
   "submissionBlockers": [
     {"id":"legal_approval","status":"blocked","owner":"P0-31","detail":"Privacy, terms, contact and retention policy content is still marked pending_legal_review and has no effective date."},
     {"id":"screenshots","status":"blocked","owner":"P1-11","detail":"Required English/Arabic Android/iOS screenshots have not yet been captured from real rendered UI."},
@@ -39,6 +40,7 @@
     "P0-31 legal/privacy content is approved and effective URLs are live.",
     "Candidate privacy/data-safety manifests are reconciled against production providers and SDKs.",
     "Internal/private testing completes without release-blocking defects.",
-    "Store-console records and reviewer access are configured by an authorised release operator."
+    "Store-console records and reviewer access are configured by an authorised release operator.",
+    "Every required item in apps/mobile/store/review/submission-evidence.json is explicitly approved with an evidence reference and approval timestamp."
   ]
 }
