@@ -19,7 +19,8 @@ import {
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
 import { getListingMediaStorage, type MediaDelivery } from '../media/listing-media-storage.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const publicProfileParams = z.object({ userId: z.string().uuid() });
 const optionalText = (max: number) => z.string().trim().max(max).nullable();
@@ -72,21 +73,21 @@ function accountId(request: AuthenticatedRequest): string {
   return request.user.sub;
 }
 
-function applyLimit(
+async function applyLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   group: string,
   account: string,
   limit: number,
   windowMs: number
-): boolean {
-  const accountLimit = checkRateLimit({
+): Promise<boolean> {
+  const accountLimit = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${account}`],
     limit,
     windowMs
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: limit * 4,
@@ -99,8 +100,8 @@ function applyLimit(
   return false;
 }
 
-function applyPublicLimit(request: FastifyRequest, reply: FastifyReply): boolean {
-  const limited = checkRateLimit({
+async function applyPublicLimit(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  const limited = await checkSharedRateLimit({
     group: 'profile.public.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 300,
@@ -132,7 +133,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
 
   app.get('/account/profile', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!applyLimit(request, reply, 'account.profile.read', accountId(authRequest), 120, 5 * 60 * 1000)) return;
+    if (!await applyLimit(request, reply, 'account.profile.read', accountId(authRequest), 120, 5 * 60 * 1000)) return;
     const profile = await readAccountProfile(accountId(authRequest));
     if (!profile) return reply.code(404).send({ error: 'Account not found' });
     return reply.send(profile);
@@ -140,7 +141,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
 
   app.post('/account/profile', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!applyLimit(request, reply, 'account.profile.update', accountId(authRequest), 30, 60 * 60 * 1000)) return;
+    if (!await applyLimit(request, reply, 'account.profile.update', accountId(authRequest), 30, 60 * 60 * 1000)) return;
     const body = profileBody.parse(request.body) as AccountProfileInput;
     const saved = await saveAccountProfile(accountId(authRequest), body);
     if (!saved) return reply.code(409).send({ error: 'Account is not available for profile changes' });
@@ -149,7 +150,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
   });
 
   app.get('/profiles/:userId', async (request, reply) => {
-    if (!applyPublicLimit(request, reply)) return;
+    if (!await applyPublicLimit(request, reply)) return;
     const params = publicProfileParams.parse(request.params);
     const profile = await readVisiblePublicProfile(params.userId);
     if (!profile) return reply.code(404).send({ error: 'Profile not found' });
@@ -158,7 +159,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
 
   app.get('/account/profile/avatar', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!applyLimit(request, reply, 'account.avatar.read', accountId(authRequest), 600, 5 * 60 * 1000)) return;
+    if (!await applyLimit(request, reply, 'account.avatar.read', accountId(authRequest), 600, 5 * 60 * 1000)) return;
     const profile = await db.selectFrom('user_profiles')
       .select(['avatar_object_key', 'avatar_mime_type'])
       .where('user_id', '=', accountId(authRequest))
@@ -179,7 +180,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
   });
 
   app.get('/profiles/:userId/avatar', async (request, reply) => {
-    if (!applyPublicLimit(request, reply)) return;
+    if (!await applyPublicLimit(request, reply)) return;
     const params = publicProfileParams.parse(request.params);
     const user = await db.selectFrom('users')
       .select(['id', 'status'])
@@ -217,7 +218,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
     async (request, reply) => {
       const authRequest = request as AuthenticatedRequest;
       const userId = accountId(authRequest);
-      if (!applyLimit(request, reply, 'account.avatar.upload', userId, 20, 60 * 60 * 1000)) return;
+      if (!await applyLimit(request, reply, 'account.avatar.upload', userId, 20, 60 * 60 * 1000)) return;
 
       const declared = normalizeProfileAvatarMime(request.headers['content-type']);
       const buffer = Buffer.isBuffer(request.body) ? request.body : null;
@@ -298,7 +299,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
   app.post('/account/profile/avatar/delete', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const userId = accountId(authRequest);
-    if (!applyLimit(request, reply, 'account.avatar.delete', userId, 20, 60 * 60 * 1000)) return;
+    if (!await applyLimit(request, reply, 'account.avatar.delete', userId, 20, 60 * 60 * 1000)) return;
     const profile = await db.selectFrom('user_profiles')
       .select(['avatar_object_key'])
       .where('user_id', '=', userId)
@@ -340,7 +341,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
   app.get('/account/export', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const userId = accountId(authRequest);
-    if (!applyLimit(request, reply, 'account.export', userId, 5, 60 * 60 * 1000)) return;
+    if (!await applyLimit(request, reply, 'account.export', userId, 5, 60 * 60 * 1000)) return;
     const exported = await buildAccountExport(userId);
     if (!exported) return reply.code(404).send({ error: 'Account not found' });
     reply.header('Content-Disposition', 'attachment; filename="suqnaa-account-export.json"');
@@ -350,7 +351,7 @@ export async function accountProfileRoutes(app: FastifyInstance): Promise<void> 
   app.post('/account/closure', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const userId = accountId(authRequest);
-    if (!applyLimit(request, reply, 'account.closure', userId, 3, 24 * 60 * 60 * 1000)) return;
+    if (!await applyLimit(request, reply, 'account.closure', userId, 3, 24 * 60 * 60 * 1000)) return;
     const body = closureBody.parse(request.body);
     let result;
     try {
