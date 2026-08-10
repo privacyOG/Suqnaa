@@ -15,4 +15,4 @@ export SUQNAA_MIGRATE_IMAGE=$PREVIOUS_MIGRATE_IMAGE
 export SUQNAA_RUN_MIGRATIONS=false
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-exec "$script_dir/release.sh"
+exec bash "$script_dir/release.sh"
