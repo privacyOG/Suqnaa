@@ -4,7 +4,8 @@ import { requireOperationsUser, type OperationsRequest } from '../auth/require-o
 import { env } from '../config/env.js';
 import { resolveSellerVerificationConfiguration } from '../config/seller-verification-config.js';
 import { db } from '../db/index.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { reviewSellerVerification, SellerVerificationError } from '../seller-verification/service.js';
 
 const configuration = resolveSellerVerificationConfiguration({
@@ -32,20 +33,20 @@ const reviewBody = z.object({
   note: z.string().trim().max(2000).optional()
 }).strict();
 
-function enforceOperationsLimit(
+async function enforceOperationsLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
   group: string,
   limit: number
-): boolean {
-  const account = checkRateLimit({
+): Promise<boolean> {
+  const account = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit,
     windowMs: 60 * 60 * 1000
   });
-  const ip = checkRateLimit({
+  const ip = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: limit * 3,
@@ -61,7 +62,7 @@ function enforceOperationsLimit(
 export async function operationsVerificationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/operations/verifications', { preHandler: requireOperationsUser }, async (request, reply) => {
     const authRequest = request as OperationsRequest;
-    if (!enforceOperationsLimit(request, reply, authRequest.operationsUserId, 'operations.verifications.read', 120)) return;
+    if (!await enforceOperationsLimit(request, reply, authRequest.operationsUserId, 'operations.verifications.read', 120)) return;
     const query = queueQuery.parse(request.query);
     let selection = db.selectFrom('verification_checks')
       .innerJoin('users', 'users.id', 'verification_checks.user_id')
@@ -137,7 +138,7 @@ export async function operationsVerificationRoutes(app: FastifyInstance): Promis
 
   app.post('/operations/verifications/:id/review', { preHandler: requireOperationsUser }, async (request, reply) => {
     const authRequest = request as OperationsRequest;
-    if (!enforceOperationsLimit(request, reply, authRequest.operationsUserId, 'operations.verifications.review', 60)) return;
+    if (!await enforceOperationsLimit(request, reply, authRequest.operationsUserId, 'operations.verifications.review', 60)) return;
     const params = itemParams.parse(request.params);
     const body = reviewBody.parse(request.body);
     try {
