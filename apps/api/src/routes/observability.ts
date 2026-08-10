@@ -1,14 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import { httpMetrics } from '../observability/http-metrics.js';
 import {
-  metricsAuthorizationAllowed,
-  resolveMetricsAccessToken
+  loadMetricsAccessToken,
+  metricsAuthorizationAllowed
 } from '../observability/metrics-access.js';
 
 export async function observabilityRoutes(app: FastifyInstance): Promise<void> {
-  const expectedToken = resolveMetricsAccessToken({
+  const expectedToken = loadMetricsAccessToken({
     nodeEnv: process.env.NODE_ENV,
-    token: process.env.OBSERVABILITY_METRICS_TOKEN
+    token: process.env.OBSERVABILITY_METRICS_TOKEN,
+    tokenFile: process.env.OBSERVABILITY_METRICS_TOKEN_FILE
   });
 
   app.get('/metrics', async (request, reply) => {
