@@ -4,7 +4,8 @@ import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js'
 import { db } from '../db/index.js';
 import type { TransactionStatus } from '../db/types.js';
 import { getOrderProgress } from '../market/order-progress.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const transactionStatus = z.enum([
   'pending',
@@ -39,18 +40,18 @@ const orderColumns = [
   'updated_at'
 ] as const;
 
-function enforceReadLimit(
+async function enforceReadLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string
-): boolean {
-  const perAccount = checkRateLimit({
+): Promise<boolean> {
+  const perAccount = await checkSharedRateLimit({
     group: 'market.orders.read.account',
     identifiers: [`account:${accountId}`],
     limit: 180,
     windowMs: 5 * 60 * 1000
   });
-  const perIp = checkRateLimit({
+  const perIp = await checkSharedRateLimit({
     group: 'market.orders.read.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 400,
@@ -140,7 +141,7 @@ export async function orderActivityRoutes(app: FastifyInstance): Promise<void> {
     const accountId = authRequest.user.sub;
     const query = orderPageQuery.parse(request.query);
 
-    if (!enforceReadLimit(request, reply, accountId)) {
+    if (!await enforceReadLimit(request, reply, accountId)) {
       return;
     }
 
@@ -183,7 +184,7 @@ export async function orderActivityRoutes(app: FastifyInstance): Promise<void> {
     const accountId = authRequest.user.sub;
     const params = orderParams.parse(request.params);
 
-    if (!enforceReadLimit(request, reply, accountId)) {
+    if (!await enforceReadLimit(request, reply, accountId)) {
       return;
     }
 
