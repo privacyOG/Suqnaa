@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { resolveRuntimeSecret } from '../config/runtime-secret.js';
 
 export interface ChallengeVerificationInput {
   response?: string;
@@ -192,9 +193,15 @@ export class EnvironmentChallengeVerifier implements ChallengeVerifier {
   private readonly delegate: ChallengeVerifier;
 
   constructor() {
+    const secretKey = resolveRuntimeSecret({
+      name: 'TURNSTILE_SECRET_KEY',
+      value: process.env.TURNSTILE_SECRET_KEY,
+      file: process.env.TURNSTILE_SECRET_KEY_FILE
+    });
+
     this.delegate = createChallengeVerifier({
       provider: process.env.CHALLENGE_PROVIDER === 'turnstile' ? 'turnstile' : 'none',
-      secretKey: process.env.TURNSTILE_SECRET_KEY,
+      secretKey,
       expectedHostname: process.env.TURNSTILE_EXPECTED_HOSTNAME,
       timeoutMs: environmentTimeoutMs()
     });

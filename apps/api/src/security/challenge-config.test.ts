@@ -49,10 +49,41 @@ assert.deepEqual(enabled.actions, {
 
 assert.throws(
   () => buildPublicChallengeConfiguration({
-    provider: 'turnstile',
+    provider: 'none',
     siteKey: '',
     secretKey: '',
     nodeEnv: 'production'
   }),
+  /must be enabled/
+);
+
+assert.throws(
+  () => buildPublicChallengeConfiguration({
+    provider: 'turnstile',
+    siteKey: '',
+    secretKey: '',
+    expectedHostname: 'suqnaa.com',
+    nodeEnv: 'production'
+  }),
   /incomplete/
 );
+
+assert.throws(
+  () => buildPublicChallengeConfiguration({
+    provider: 'turnstile',
+    siteKey: 'public-site-key',
+    secretKey: 'private-server-key',
+    expectedHostname: '',
+    nodeEnv: 'production'
+  }),
+  /incomplete/
+);
+
+const productionEnabled = buildPublicChallengeConfiguration({
+  provider: 'turnstile',
+  siteKey: 'public-site-key',
+  secretKey: 'private-server-key',
+  expectedHostname: 'suqnaa.com',
+  nodeEnv: 'production'
+});
+assert.equal(productionEnabled.enabled, true);
