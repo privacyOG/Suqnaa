@@ -12,6 +12,11 @@ x-runtime: &runtime
   networks:
     - application
   stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: ${SUQNAA_LOG_MAX_SIZE:-10m}
+      max-file: "${SUQNAA_LOG_MAX_FILES:-5}"
 
 x-worker: &worker
   <<: *runtime
