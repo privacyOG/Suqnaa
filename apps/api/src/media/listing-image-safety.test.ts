@@ -102,4 +102,6 @@ assert.throws(
   (error: unknown) => error instanceof ListingImageSafetyError && error.code === 'malformed_image'
 );
 
+await import('./listing-image-sanitizer.test.js');
+
 console.log('listing image safety ok');
