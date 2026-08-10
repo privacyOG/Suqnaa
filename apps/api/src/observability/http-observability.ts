@@ -1,16 +1,18 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { httpMetrics } from './http-metrics.js';
 import {
-  resolveRequestId,
-  resolveTraceId,
+  resolveRequestContext,
   safeRouteLabel,
   statusClass
 } from './request-context.js';
+import { getTraceReporter } from './trace-reporter.js';
 
 type ActiveRequest = {
   requestId: string;
-  traceId: string | null;
+  traceId: string;
+  spanId: string;
   startedAt: bigint;
+  startedAtIso: string;
 };
 
 const activeRequests = new WeakMap<FastifyRequest, ActiveRequest>();
@@ -21,13 +23,18 @@ export function requestObservabilityContext(request: FastifyRequest): ActiveRequ
 
 export function registerHttpObservability(app: FastifyInstance): void {
   app.addHook('onRequest', async (request, reply) => {
+    const resolved = resolveRequestContext({
+      requestId: request.headers['x-request-id'],
+      traceparent: request.headers.traceparent
+    });
     const context: ActiveRequest = {
-      requestId: resolveRequestId(request.headers['x-request-id']),
-      traceId: resolveTraceId(request.headers.traceparent),
-      startedAt: process.hrtime.bigint()
+      ...resolved,
+      startedAt: process.hrtime.bigint(),
+      startedAtIso: new Date().toISOString()
     };
     activeRequests.set(request, context);
     reply.header('X-Request-Id', context.requestId);
+    reply.header('X-Trace-Id', context.traceId);
   });
 
   app.addHook('onResponse', async (request, reply) => {
@@ -48,6 +55,7 @@ export function registerHttpObservability(app: FastifyInstance): void {
       event: 'http_request_completed',
       requestId: context.requestId,
       traceId: context.traceId,
+      spanId: context.spanId,
       method: request.method,
       route,
       statusClass: responseClass,
@@ -55,6 +63,27 @@ export function registerHttpObservability(app: FastifyInstance): void {
       durationMs: Number(durationMs.toFixed(3))
     });
 
-    activeRequests.delete(request);
+    try {
+      await getTraceReporter().capture({
+        traceId: context.traceId,
+        spanId: context.spanId,
+        requestId: context.requestId,
+        name: `HTTP ${request.method} ${route}`.slice(0, 240),
+        method: request.method.slice(0, 12),
+        route,
+        statusCode: reply.statusCode,
+        durationMs: Number(durationMs.toFixed(3)),
+        startedAt: context.startedAtIso
+      });
+    } catch (error) {
+      request.log.warn({
+        event: 'trace_report_delivery_failed',
+        requestId: context.requestId,
+        traceId: context.traceId,
+        errorName: error instanceof Error ? error.name : 'Error'
+      });
+    } finally {
+      activeRequests.delete(request);
+    }
   });
 }
