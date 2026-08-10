@@ -21,6 +21,7 @@ const readiness = json('apps/mobile/store/review/readiness.json');
 const contentRating = json('apps/mobile/store/review/content-rating.json');
 const compliance = json('apps/mobile/store/review/compliance.json');
 const reviewerNotes = json('apps/mobile/store/review/reviewer-notes.json');
+const submissionEvidence = json('apps/mobile/store/review/submission-evidence.json');
 const legal = read('apps/web/lib/legal-policy-content.ts');
 const deletionPage = read('apps/web/app/[locale]/account-deletion/page.tsx');
 const pubspec = read('apps/mobile/pubspec.yaml');
@@ -160,6 +161,37 @@ assert.equal(screenshotBlocker.status, screenshots.status === 'captured_complete
 assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'store_console_configuration' && blocker.status === 'external'));
 assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'review_credentials' && blocker.status === 'external'));
 
+assert.ok(['incomplete', 'ready'].includes(submissionEvidence.status));
+const evidenceById = new Map(submissionEvidence.evidence.map((entry) => [entry.id, entry]));
+for (const id of ['legal_approval', 'screenshots', 'privacy_form_reconciliation', 'private_testing', 'store_console_configuration', 'review_credentials']) {
+  assert.ok(evidenceById.has(id), `Missing submission evidence item: ${id}`);
+}
+for (const entry of submissionEvidence.evidence) {
+  assert.equal(entry.required, true);
+  assert.ok(['pending', 'external', 'approved'].includes(entry.status));
+  assert.equal(typeof entry.owner, 'string');
+  assert.ok(entry.owner.length > 0);
+  if (entry.status === 'approved') {
+    assert.equal(typeof entry.evidenceReference, 'string');
+    assert.ok(entry.evidenceReference.length > 0);
+    assert.match(entry.approvedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/);
+  } else {
+    assert.equal(entry.approvedAt, null);
+  }
+}
+const screenshotsEvidence = evidenceById.get('screenshots');
+assert.equal(screenshotsEvidence.status, screenshots.status === 'captured_complete' ? 'approved' : 'pending');
+if (screenshotsEvidence.status === 'approved') {
+  assert.equal(screenshotsEvidence.evidenceReference, 'apps/mobile/store/screenshots/manifest.json');
+}
+const allEvidenceApproved = submissionEvidence.evidence.every((entry) => !entry.required || entry.status === 'approved');
+assert.equal(submissionEvidence.status, allEvidenceApproved ? 'ready' : 'incomplete');
+if (submissionEvidence.status === 'ready') {
+  assert.equal(readiness.status, 'ready_for_public_submission');
+} else {
+  assert.equal(readiness.status, 'not_ready_for_public_submission');
+}
+
 const trackedText = [
   JSON.stringify(en),
   JSON.stringify(ar),
@@ -168,7 +200,8 @@ const trackedText = [
   JSON.stringify(readiness),
   JSON.stringify(contentRating),
   JSON.stringify(compliance),
-  JSON.stringify(reviewerNotes)
+  JSON.stringify(reviewerNotes),
+  JSON.stringify(submissionEvidence)
 ].join('\n');
 assert.doesNotMatch(trackedText, /password\s*[:=]\s*["'][^"']+/i);
 assert.doesNotMatch(trackedText, /BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY/);
@@ -176,6 +209,7 @@ assert.ok(exists('apps/web/app/[locale]/account-deletion/page.tsx'));
 assert.ok(exists('apps/mobile/store/review/content-rating.json'));
 assert.ok(exists('apps/mobile/store/review/compliance.json'));
 assert.ok(exists('apps/mobile/store/review/reviewer-notes.json'));
+assert.ok(exists('apps/mobile/store/review/submission-evidence.json'));
 assert.ok(exists('scripts/reconcile-mobile-store-screenshots.mjs'));
 
 console.log('Mobile store readiness package passed.');
