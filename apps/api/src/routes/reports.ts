@@ -4,8 +4,9 @@ import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js'
 import { db } from '../db/index.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
@@ -47,14 +48,14 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function limitedReportCreate(request: FastifyRequest, accountId: string) {
-  const accountLimit = checkRateLimit({
+async function limitedReportCreate(request: FastifyRequest, accountId: string) {
+  const accountLimit = await checkSharedRateLimit({
     group: 'report.create.account',
     identifiers: [`account:${accountId}`],
     limit: 20,
     windowMs: 60 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: 'report.create.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 80,
@@ -68,7 +69,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
   app.post('/reports', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = reportBody.parse(request.body);
-    const limited = limitedReportCreate(request, authRequest.user.sub);
+    const limited = await limitedReportCreate(request, authRequest.user.sub);
 
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
