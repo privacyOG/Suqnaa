@@ -73,7 +73,7 @@ jobs:
       MIGRATION_FRESH_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa_fresh
       MIGRATION_UPGRADE_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa_upgrade
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: pnpm/action-setup@v4
@@ -108,7 +108,7 @@ jobs:
     needs: start
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

@@ -21,7 +21,7 @@ jobs:
       POLICY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
       POLICY_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -66,7 +66,7 @@ jobs:
       MIGRATION_FRESH_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa_fresh
       MIGRATION_UPGRADE_DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa_upgrade
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: pnpm/action-setup@v4
@@ -109,7 +109,7 @@ jobs:
       SUQNAA_BACKUP_IMAGE: suqnaa-backup:ci
       SUQNAA_RESTORE_ENVIRONMENT: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate container topology
         run: node scripts/validate-production-containers.mjs
       - name: Validate infrastructure topology
@@ -236,7 +236,7 @@ jobs:
     needs: policy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
