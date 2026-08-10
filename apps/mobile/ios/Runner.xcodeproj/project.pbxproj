@@ -31,7 +31,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		C10000000000000000000001 /* Frameworks */ = {
+		97C146EB1CF9000F007C117D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -44,13 +44,13 @@
 		D10000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				D10000000000000000000002 /* Flutter */,
+				9740EEB11CF90186004384FC /* Flutter */,
 				D10000000000000000000003 /* Runner */,
 				D10000000000000000000004 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		D10000000000000000000002 /* Flutter */ = {
+		9740EEB11CF90186004384FC /* Flutter */ = {
 			isa = PBXGroup;
 			children = (
 				B20000000000000000000001 /* Debug.xcconfig */,
@@ -87,13 +87,13 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E10000000000000000000001 /* Runner */ = {
+		97C146ED1CF9000F007C117D /* Runner */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F10000000000000000000002 /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				C20000000000000000000001 /* Run Script */,
 				C10000000000000000000002 /* Sources */,
-				C10000000000000000000001 /* Frameworks */,
+				97C146EB1CF9000F007C117D /* Frameworks */,
 				C10000000000000000000003 /* Resources */,
 				C20000000000000000000002 /* Thin Binary */,
 			);
@@ -109,14 +109,14 @@
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		E20000000000000000000001 /* Project object */ = {
+		97C146E61CF9000F007C117D /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					E10000000000000000000001 = {
+					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -134,7 +134,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				E10000000000000000000001 /* Runner */,
+				97C146ED1CF9000F007C117D /* Runner */,
 			);
 		};
 /* End PBXProject section */
@@ -316,5 +316,5 @@
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = E20000000000000000000001 /* Project object */;
+	rootObject = 97C146E61CF9000F007C117D /* Project object */;
 }
