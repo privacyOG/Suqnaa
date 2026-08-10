@@ -7,7 +7,8 @@ const manifestUrl = new URL('apps/mobile/store/screenshots/manifest.json', root)
 const screenshotRoot = new URL('apps/mobile/store/screenshots/', root);
 const checkOnly = process.argv.includes('--check');
 
-const manifest = JSON.parse(readFileSync(manifestUrl, 'utf8'));
+const original = JSON.parse(readFileSync(manifestUrl, 'utf8'));
+const manifest = structuredClone(original);
 
 function inspectPng(fileUrl) {
   const bytes = readFileSync(fileUrl);
@@ -57,17 +58,14 @@ manifest.status = captured === required && required > 0 ? 'captured_complete' : 
 manifest.capturedCount = captured;
 manifest.requiredCount = required;
 
-const normalized = `${JSON.stringify(manifest, null, 2)}\n`;
-const current = readFileSync(manifestUrl, 'utf8');
-
 if (checkOnly) {
-  assert.equal(
-    current,
-    normalized,
+  assert.deepStrictEqual(
+    original,
+    manifest,
     'Screenshot manifest is stale. Run `node scripts/reconcile-mobile-store-screenshots.mjs` after adding, replacing, or removing store screenshots.'
   );
   console.log(`Store screenshot manifest is reconciled (${captured}/${required} captured).`);
 } else {
-  writeFileSync(manifestUrl, normalized);
+  writeFileSync(manifestUrl, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`Updated store screenshot manifest (${captured}/${required} captured).`);
 }
