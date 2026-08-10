@@ -12,3 +12,9 @@ SUQNAA_API_DOMAIN=api.example.invalid
 SUQNAA_ACME_EMAIL=ops@example.invalid
 SUQNAA_WEB_UPSTREAM=web:3000
 SUQNAA_API_UPSTREAM=api:4000
+
+# Encrypted production backups. The age private identity is not mounted into the scheduled backup service.
+SUQNAA_BACKUP_S3_BUCKETS=suqnaa-media
+SUQNAA_BACKUP_INTERVAL_SECONDS=86400
+SUQNAA_BACKUP_STARTUP_DELAY_SECONDS=30
+SUQNAA_BACKUP_RETENTION_DAYS=30
