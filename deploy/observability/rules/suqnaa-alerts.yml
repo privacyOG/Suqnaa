@@ -1,0 +1,56 @@
+groups:
+  - name: suqnaa-api
+    rules:
+      - alert: SuqnaaApiUnavailable
+        expr: up{job="suqnaa-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Suqnaa API metrics target is unavailable
+          description: The API has been unreachable by Prometheus for at least two minutes.
+
+      - alert: SuqnaaApiHighErrorRate
+        expr: |
+          (
+            sum(rate(suqnaa_http_requests_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(suqnaa_http_requests_total[5m])), 0.001)
+          ) > 0.02
+          and
+          sum(rate(suqnaa_http_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Suqnaa API 5xx error rate is above 2%
+          description: Server errors have exceeded the launch threshold for ten minutes.
+
+      - alert: SuqnaaApiSlowP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(suqnaa_http_request_duration_ms_bucket[10m]))
+          ) > 1500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Suqnaa API p95 latency is above 1.5 seconds
+          description: API request latency has exceeded the operational threshold for ten minutes.
+
+      - alert: SuqnaaApiSustainedClientErrors
+        expr: |
+          (
+            sum(rate(suqnaa_http_requests_total{status_class="4xx"}[10m]))
+            /
+            clamp_min(sum(rate(suqnaa_http_requests_total[10m])), 0.001)
+          ) > 0.35
+          and
+          sum(rate(suqnaa_http_requests_total[10m])) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Suqnaa API client-error ratio is unusually high
+          description: More than 35% of traffic has returned 4xx responses for fifteen minutes.
