@@ -21,6 +21,15 @@ function parsePositiveInteger(value: string | undefined, fallback: number, name:
   return parsed;
 }
 
+function resolveHost(value?: string): string {
+  const configured = value?.trim() || process.env.CLAMAV_HOST?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === 'production') {
+    throw new ClamdMediaReviewError('CLAMAV_HOST is required in production');
+  }
+  return defaultHost;
+}
+
 export function parseClamdResponse(response: string): ListingMediaReviewResult {
   const normalized = response.replace(/\0/g, '').trim();
   if (normalized.endsWith(': OK') || normalized === 'stream: OK') {
@@ -48,7 +57,7 @@ export class ClamdListingMediaReviewer implements ListingMediaReviewer {
   private readonly timeoutMs: number;
 
   constructor(input: { host?: string; port?: number; timeoutMs?: number } = {}) {
-    this.host = input.host?.trim() || process.env.CLAMAV_HOST?.trim() || defaultHost;
+    this.host = resolveHost(input.host);
     this.port = input.port ?? parsePositiveInteger(process.env.CLAMAV_PORT, defaultPort, 'CLAMAV_PORT');
     this.timeoutMs = input.timeoutMs ?? parsePositiveInteger(
       process.env.CLAMAV_TIMEOUT_MS,
