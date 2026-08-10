@@ -12,6 +12,9 @@ const applePrivacy = json('apps/mobile/store/privacy/app-store-privacy.json');
 const playSafety = json('apps/mobile/store/privacy/google-play-data-safety.json');
 const screenshots = json('apps/mobile/store/screenshots/manifest.json');
 const readiness = json('apps/mobile/store/review/readiness.json');
+const contentRating = json('apps/mobile/store/review/content-rating.json');
+const compliance = json('apps/mobile/store/review/compliance.json');
+const reviewerNotes = json('apps/mobile/store/review/reviewer-notes.json');
 const legal = read('apps/web/lib/legal-policy-content.ts');
 const deletionPage = read('apps/web/app/[locale]/account-deletion/page.tsx');
 const pubspec = read('apps/mobile/pubspec.yaml');
@@ -89,6 +92,38 @@ for (const set of screenshots.sets) {
 assert.ok(screenshots.captureRules.some((rule) => /no real user personal information/i.test(rule)));
 assert.ok(screenshots.captureRules.some((rule) => /Arabic\/RTL/i.test(rule)));
 
+assert.equal(contentRating.status, 'candidate_requires_store_console_confirmation');
+assert.equal(contentRating.appleAgeRating.userGeneratedContent, true);
+assert.equal(contentRating.appleAgeRating.messagingOrChat, true);
+assert.equal(contentRating.appleAgeRating.gambling, false);
+assert.equal(contentRating.googlePlayContentRating.userGeneratedContent, true);
+assert.equal(contentRating.googlePlayContentRating.userInteraction, true);
+assert.equal(contentRating.googlePlayContentRating.digitalPurchases, false);
+assert.equal(contentRating.googlePlayContentRating.physicalGoodsCommerce, true);
+assert.equal(contentRating.reviewRequiredBeforeSubmission, true);
+
+assert.equal(compliance.status, 'candidate_requires_operator_confirmation');
+assert.equal(compliance.encryption.usesHttpsTls, true);
+assert.equal(compliance.encryption.usesPlatformSecureStorage, true);
+assert.equal(compliance.encryption.customCryptographicAlgorithmImplementedByApp, false);
+assert.equal(compliance.encryption.exportComplianceOperatorReviewRequired, true);
+assert.equal(compliance.commerce.physicalGoodsMarketplace, true);
+assert.equal(compliance.commerce.digitalContentSoldForInAppConsumption, false);
+assert.equal(compliance.commerce.storeBillingRequiredForCurrentMarketplaceTransactions, false);
+assert.equal(compliance.accounts.inAppAccountDeletionAvailable, true);
+assert.equal(compliance.accounts.reviewCredentialsExternalOnly, true);
+assert.equal(compliance.moderation.userGeneratedListings, true);
+assert.equal(compliance.moderation.userMessaging, true);
+assert.equal(compliance.moderation.reportingControls, true);
+
+assert.equal(reviewerNotes.status, 'template_requires_external_credentials');
+assert.equal(reviewerNotes.reviewAccount.credentialsStoredInRepository, false);
+assert.ok(reviewerNotes.reviewAccount.requiredCapabilities.includes('browse_catalogue'));
+assert.ok(reviewerNotes.reviewAccount.requiredCapabilities.includes('open_messages'));
+assert.ok(reviewerNotes.reviewAccount.requiredCapabilities.includes('view_test_order'));
+assert.ok(reviewerNotes.reviewNotes.some((note) => /real-money purchase/i.test(note)));
+assert.ok(reviewerNotes.submissionChecks.some((check) => /Account deletion flow/i.test(check)));
+
 assert.equal(readiness.status, 'not_ready_for_public_submission');
 assert.equal(readiness.productionIdentifiers.androidPackage, 'co.privacyx.suqnaa');
 assert.equal(readiness.productionIdentifiers.iosBundleId, 'co.privacyx.suqnaa');
@@ -98,9 +133,21 @@ assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'screens
 assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'store_console_configuration' && blocker.status === 'external'));
 assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'review_credentials' && blocker.status === 'external'));
 
-const trackedText = [JSON.stringify(en), JSON.stringify(ar), JSON.stringify(applePrivacy), JSON.stringify(playSafety), JSON.stringify(readiness)].join('\n');
+const trackedText = [
+  JSON.stringify(en),
+  JSON.stringify(ar),
+  JSON.stringify(applePrivacy),
+  JSON.stringify(playSafety),
+  JSON.stringify(readiness),
+  JSON.stringify(contentRating),
+  JSON.stringify(compliance),
+  JSON.stringify(reviewerNotes)
+].join('\n');
 assert.doesNotMatch(trackedText, /password\s*[:=]\s*["'][^"']+/i);
 assert.doesNotMatch(trackedText, /BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY/);
 assert.ok(exists('apps/web/app/[locale]/account-deletion/page.tsx'));
+assert.ok(exists('apps/mobile/store/review/content-rating.json'));
+assert.ok(exists('apps/mobile/store/review/compliance.json'));
+assert.ok(exists('apps/mobile/store/review/reviewer-notes.json'));
 
 console.log('Mobile store readiness package passed.');
