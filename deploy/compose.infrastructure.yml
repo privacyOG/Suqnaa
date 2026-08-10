@@ -100,6 +100,80 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  backup:
+    build:
+      context: ..
+      dockerfile: deploy/backup/Dockerfile
+    image: ${SUQNAA_BACKUP_IMAGE:-suqnaa-backup:local}
+    restart: unless-stopped
+    environment:
+      BACKUP_S3_ENDPOINT: ${SUQNAA_BACKUP_S3_ENDPOINT:-http://object-storage:9000}
+      BACKUP_S3_BUCKETS: ${SUQNAA_BACKUP_S3_BUCKETS:?SUQNAA_BACKUP_S3_BUCKETS is required}
+      BACKUP_INTERVAL_SECONDS: ${SUQNAA_BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_STARTUP_DELAY_SECONDS: ${SUQNAA_BACKUP_STARTUP_DELAY_SECONDS:-30}
+      BACKUP_RETENTION_DAYS: ${SUQNAA_BACKUP_RETENTION_DAYS:-30}
+    secrets:
+      - backup_database_url
+      - backup_age_recipient
+      - backup_object_storage_access_key
+      - backup_object_storage_secret_key
+    volumes:
+      - backup_data:/backups
+    tmpfs:
+      - /work:size=32m,mode=0700
+    networks:
+      - application
+    depends_on:
+      postgres:
+        condition: service_healthy
+      object-storage:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+
+  restore-drill:
+    build:
+      context: ..
+      dockerfile: deploy/backup/Dockerfile
+    image: ${SUQNAA_BACKUP_IMAGE:-suqnaa-backup:local}
+    command: ["/opt/suqnaa-backup/restore.sh"]
+    restart: "no"
+    profiles:
+      - restore-drill
+    environment:
+      RESTORE_ENVIRONMENT: ${SUQNAA_RESTORE_ENVIRONMENT:-staging}
+      RESTORE_S3_ENDPOINT: ${SUQNAA_RESTORE_S3_ENDPOINT:-http://object-storage:9000}
+      RESTORE_CLEAR_OBJECT_STORAGE: ${SUQNAA_RESTORE_CLEAR_OBJECT_STORAGE:-true}
+      BACKUP_ID: ${SUQNAA_RESTORE_BACKUP_ID:-}
+    secrets:
+      - restore_database_url
+      - backup_age_identity
+      - restore_object_storage_access_key
+      - restore_object_storage_secret_key
+    volumes:
+      - backup_data:/backups:ro
+    tmpfs:
+      - /work:size=32m,mode=0700
+    networks:
+      - application
+    depends_on:
+      postgres:
+        condition: service_healthy
+      object-storage:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+
   prometheus:
     image: prom/prometheus:v3.0.1
     restart: unless-stopped
@@ -196,12 +270,29 @@ secrets:
     file: ${SUQNAA_SECRET_DIR:-./secrets}/observability_metrics_token
   grafana_admin_password:
     file: ${SUQNAA_SECRET_DIR:-./secrets}/grafana_admin_password
+  backup_database_url:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/backup_database_url
+  backup_age_recipient:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/backup_age_recipient
+  backup_object_storage_access_key:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/backup_object_storage_access_key
+  backup_object_storage_secret_key:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/backup_object_storage_secret_key
+  backup_age_identity:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/backup_age_identity
+  restore_database_url:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/restore_database_url
+  restore_object_storage_access_key:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/restore_object_storage_access_key
+  restore_object_storage_secret_key:
+    file: ${SUQNAA_SECRET_DIR:-./secrets}/restore_object_storage_secret_key
 
 volumes:
   postgres_data:
   redis_data:
   queue_data:
   object_storage_data:
+  backup_data:
   prometheus_data:
   alertmanager_data:
   grafana_data:
