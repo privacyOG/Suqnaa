@@ -2,8 +2,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const listingParams = z.object({ listingId: z.string().uuid() });
 const shippingOption = z.object({
@@ -23,8 +24,8 @@ const shippingOption = z.object({
 });
 const replaceBody = z.object({ options: z.array(shippingOption).max(8) }).strict();
 
-function enforceLimit(request: FastifyRequest, reply: FastifyReply, sellerId: string): boolean {
-  const result = checkRateLimit({
+async function enforceLimit(request: FastifyRequest, reply: FastifyReply, sellerId: string): Promise<boolean> {
+  const result = await checkSharedRateLimit({
     group: 'listing.shipping_options.account',
     identifiers: [`account:${sellerId}`],
     limit: 60,
@@ -100,7 +101,7 @@ export async function listingShippingOptionRoutes(app: FastifyInstance): Promise
     const sellerId = authRequest.user.sub;
     const params = listingParams.parse(request.params);
     const body = replaceBody.parse(request.body);
-    if (!enforceLimit(request, reply, sellerId)) return;
+    if (!await enforceLimit(request, reply, sellerId)) return;
 
     const normalizedLabels = new Set(body.options.map((option) => option.label.trim().toLowerCase()));
     if (normalizedLabels.size !== body.options.length) {
