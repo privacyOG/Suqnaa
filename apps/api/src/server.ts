@@ -99,7 +99,7 @@ app.addHook('onRequest', async (request, reply) => {
       'Access-Control-Allow-Headers',
       'content-type, authorization, x-request-id, traceparent, x-suqnaa-human-check'
     );
-    reply.header('Access-Control-Expose-Headers', 'x-request-id');
+    reply.header('Access-Control-Expose-Headers', 'x-request-id, x-trace-id');
     reply.header('Access-Control-Max-Age', '600');
     reply.header('Vary', 'Origin');
   }
