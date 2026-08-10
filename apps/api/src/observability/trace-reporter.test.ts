@@ -1,3 +1,4 @@
+import './runtime-surface.test.js';
 import assert from 'node:assert/strict';
 import {
   TraceReporterConfigurationError,
