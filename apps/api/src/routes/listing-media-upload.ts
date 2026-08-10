@@ -12,6 +12,12 @@ import {
   sanitizeListingImage
 } from '../media/listing-image-sanitizer.js';
 import {
+  ListingMediaReviewUnavailableError,
+  getListingMediaReviewer,
+  mediaReviewInput,
+  validateMediaReviewResult
+} from '../media/listing-media-review.js';
+import {
   detectListingImageMime,
   extensionForListingImage,
   maximumListingImageBytes,
@@ -62,6 +68,7 @@ async function countListingMedia(listingId: string): Promise<number> {
   const row = await db.selectFrom('listing_media')
     .select((expression) => expression.fn.countAll<number>().as('count'))
     .where('listing_id', '=', listingId)
+    .where('processing_status', '!=', 'rejected')
     .executeTakeFirst();
 
   return Number(row?.count ?? 0);
@@ -74,10 +81,12 @@ function mediaPublicUrl(listingId: string, mediaId: string): string {
 function mediaSummary(media: Record<string, unknown>) {
   const listingId = String(media.listing_id);
   const id = String(media.id);
+  const processingStatus = String(media.processing_status ?? 'ready');
 
   return {
     id,
-    url: mediaPublicUrl(listingId, id),
+    url: processingStatus === 'ready' ? mediaPublicUrl(listingId, id) : null,
+    processingStatus,
     mimeType: media.mime_type,
     width: media.width,
     height: media.height,
@@ -183,9 +192,40 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         throw error;
       }
 
+      let review;
+      try {
+        review = validateMediaReviewResult(
+          await getListingMediaReviewer().review(
+            mediaReviewInput(sanitized.buffer, detectedMimeType)
+          )
+        );
+      } catch (error) {
+        if (error instanceof ListingMediaReviewUnavailableError || error instanceof Error) {
+          request.log.warn({ error }, 'listing media review unavailable');
+          return reply.code(503).send({ error: 'Media safety review unavailable' });
+        }
+        throw error;
+      }
+
+      if (review.verdict === 'reject') {
+        writeSecurityAudit(app.log, {
+          action: 'listing.media_upload',
+          decision: 'reject',
+          actorId: authRequest.user.sub,
+          targetId: listing.id,
+          ip: request.ip,
+          riskScore: protection.riskScore,
+          reasonCodes: [...protection.reasonCodes, ...review.reasonCodes],
+          metadata: { reviewProvider: review.provider, reviewReference: review.reference ?? null }
+        });
+        return reply.code(422).send({ error: 'Image failed media safety review', code: 'media_rejected' });
+      }
+
+      const processingStatus = review.verdict === 'quarantine' ? 'quarantined' : 'ready';
       const mediaId = randomUUID();
       const extension = extensionForListingImage(detectedMimeType);
-      const objectKey = `listing-media/${listing.id}/${mediaId}.${extension}`;
+      const objectPrefix = processingStatus === 'ready' ? 'listing-media' : 'listing-media-quarantine';
+      const objectKey = `${objectPrefix}/${listing.id}/${mediaId}.${extension}`;
       const storage = getListingMediaStorage();
       let stored;
 
@@ -213,7 +253,12 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
             size_bytes: sanitized.buffer.length,
             sort_order: query.sortOrder ?? existingCount,
             alt_text: query.altText || null,
-            sha256: stored.sha256
+            sha256: stored.sha256,
+            processing_status: processingStatus,
+            review_provider: review.provider,
+            review_reference: review.reference ?? null,
+            review_reason_codes: JSON.stringify(review.reasonCodes),
+            reviewed_at: new Date()
           })
           .returning([
             'id',
@@ -224,6 +269,7 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
             'size_bytes',
             'sort_order',
             'alt_text',
+            'processing_status',
             'created_at'
           ])
           .executeTakeFirstOrThrow();
@@ -245,12 +291,12 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
 
       writeSecurityAudit(app.log, {
         action: 'listing.media_upload',
-        decision: 'allow',
+        decision: processingStatus === 'ready' ? 'allow' : 'challenge',
         actorId: authRequest.user.sub,
         targetId: listing.id,
         ip: request.ip,
         riskScore: protection.riskScore,
-        reasonCodes: protection.reasonCodes,
+        reasonCodes: [...protection.reasonCodes, ...review.reasonCodes],
         metadata: {
           mediaId: inserted.id,
           mimeType: detectedMimeType,
@@ -262,12 +308,15 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
           metadataStripped: sanitized.metadataStripped,
           originalSizeBytes: buffer.length,
           storedSizeBytes: sanitized.buffer.length,
+          processingStatus,
+          reviewProvider: review.provider,
+          reviewReference: review.reference ?? null,
           storageDriver: storage.driver,
           transport: 'binary'
         }
       });
 
-      return reply.code(201).send({
+      return reply.code(processingStatus === 'ready' ? 201 : 202).send({
         media: mediaSummary(inserted),
         mediaCount: existingCount + 1
       });
