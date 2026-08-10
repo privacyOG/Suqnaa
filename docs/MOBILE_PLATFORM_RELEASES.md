@@ -13,6 +13,7 @@ Production uses `co.privacyx.suqnaa` on both Android and iOS. Debug uses `.debug
 - Any Gradle task containing `Staging` or `Release` fails before packaging unless all four `SUQNAA_ANDROID_*` signing variables are present.
 - Keystores and credentials are not tracked. `.jks` and `.keystore` files remain ignored.
 - Release enables code shrinking and resource shrinking; cleartext HTTP and application backup are disabled.
+- Flutter's current AGP 9 compatibility flags are explicit in `android/gradle.properties`; remove them only after the Flutter Gradle plugin supports the AGP 9 new DSL and built-in Kotlin path directly.
 
 Expected external values:
 
@@ -21,13 +22,17 @@ Expected external values:
 - `SUQNAA_ANDROID_KEY_ALIAS`
 - `SUQNAA_ANDROID_KEY_PASSWORD`
 
-## iOS variants and signing
+## iOS variants, SwiftPM, and signing
 
 Flutter-standard Xcode configurations are retained:
 
 - Debug → `co.privacyx.suqnaa.debug`
 - Profile/staging → `co.privacyx.suqnaa.staging`
 - Release → `co.privacyx.suqnaa`
+
+The iOS runner uses Swift Package Manager for Flutter plugins. CocoaPods integration is intentionally absent from the committed project and workspace; do not add a Podfile or Pods project unless a future dependency has no approved SwiftPM path and the package-manager decision is reviewed explicitly.
+
+The Runner project retains Flutter's canonical Runner target, project, Flutter-group, and Frameworks-build-phase identifiers because Flutter's SwiftPM migration tooling uses those template identifiers. The shared scheme runs `xcode_backend.sh prepare` before build and sets `$(SRCROOT)/Flutter/ephemeral/flutter_lldbinit` for both Run and Test debug actions.
 
 Profile and Release use manual signing and may import `ios/Flutter/Signing.xcconfig`, which is ignored by Git. Certificates, private keys and provisioning profiles must never be committed. Unsigned simulator compilation is permitted in CI to validate the native project without exposing store credentials.
 
@@ -54,6 +59,8 @@ Brand source artwork is committed with the native projects and is used for launc
 Ordinary repository tests run `scripts/validate-mobile-platforms.mjs`. The `Mobile Platform Builds` workflow additionally compiles:
 
 - Android Debug on Linux using the pinned native toolchain.
-- iOS Debug for the simulator on macOS with code signing disabled.
+- iOS Debug for the simulator on macOS with code signing disabled and Flutter plugins resolved through SwiftPM.
+
+The platform validator also rejects reintroduction of a CocoaPods Podfile/Pods workspace reference, missing Flutter canonical iOS IDs, missing SwiftPM prepare action, missing LLDB init configuration, or source-controlled signing material.
 
 Store-signed Android App Bundles and iOS archives are deliberately deferred to P1-10, where signing secrets will be supplied only through the CI secret store.
