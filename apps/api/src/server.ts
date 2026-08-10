@@ -65,6 +65,9 @@ import { sellerVerificationRoutes } from './routes/seller-verification.js';
 import { sessionManagementRoutes } from './routes/session-management.js';
 import { stripeConnectEventRoutes } from './routes/stripe-connect-events.js';
 import { stripePaymentEventRoutes } from './routes/stripe-payment-events.js';
+import { validateEnvironmentProductionSecurityConfiguration } from './security/production-security.js';
+
+validateEnvironmentProductionSecurityConfiguration();
 
 const app = Fastify({
   logger: apiLoggerOptions({ nodeEnv: env.NODE_ENV, logLevel: process.env.LOG_LEVEL }),
