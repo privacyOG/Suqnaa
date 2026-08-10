@@ -74,9 +74,7 @@ async function enforceOwnerMediaReadLimit(
       ? ipLimit
       : undefined;
 
-  if (!limited) {
-    return true;
-  }
+  if (!limited) return true;
 
   reply.header('Retry-After', String(limited.retryAfterSeconds));
   reply.code(429).send(rateLimitResponse(limited));
@@ -88,12 +86,15 @@ async function countListingMedia(listingId: string): Promise<number> {
     .select((expression) => expression.fn.countAll<number>().as('count'))
     .where('listing_id', '=', listingId)
     .executeTakeFirst();
-
   return Number(row?.count ?? 0);
 }
 
 function ownerMediaUrl(listingId: string, mediaId: string): string {
   return `/v1/listings/${listingId}/media/${mediaId}/mine`;
+}
+
+function thumbnailUrl(listingId: string, mediaId: string): string {
+  return `/v1/listings/${listingId}/media/${mediaId}/thumbnail`;
 }
 
 function ownerMediaSummary(media: Record<string, unknown>) {
@@ -102,6 +103,7 @@ function ownerMediaSummary(media: Record<string, unknown>) {
   return {
     id,
     url: ownerMediaUrl(listingId, id),
+    thumbnailUrl: thumbnailUrl(listingId, id),
     mimeType: media.mime_type,
     width: media.width,
     height: media.height,
@@ -127,9 +129,7 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
         'listing.media_mine',
         120,
         300
-      )) {
-        return;
-      }
+      )) return;
 
       const listing = await db.selectFrom('listings')
         .select(['id', 'title', 'seller_id', 'status'])
@@ -142,15 +142,8 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
 
       const media = await db.selectFrom('listing_media')
         .select([
-          'id',
-          'listing_id',
-          'mime_type',
-          'width',
-          'height',
-          'size_bytes',
-          'sort_order',
-          'alt_text',
-          'created_at'
+          'id', 'listing_id', 'mime_type', 'width', 'height', 'size_bytes',
+          'sort_order', 'alt_text', 'created_at'
         ])
         .where('listing_id', '=', listing.id)
         .orderBy('sort_order', 'asc')
@@ -159,11 +152,7 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
         .execute();
 
       return reply.send({
-        listing: {
-          id: listing.id,
-          title: listing.title,
-          status: listing.status
-        },
+        listing: { id: listing.id, title: listing.title, status: listing.status },
         media: media.map((item) => ownerMediaSummary(item)),
         mediaCount: media.length
       });
@@ -184,9 +173,7 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
         'listing.media_owner_delivery',
         600,
         1200
-      )) {
-        return;
-      }
+      )) return;
 
       const media = await db.selectFrom('listing_media')
         .innerJoin('listings', 'listings.id', 'listing_media.listing_id')
@@ -216,12 +203,10 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
 
       reply.header('Cache-Control', 'private, max-age=60');
       reply.header('X-Content-Type-Options', 'nosniff');
-
       if (delivery.type === 'redirect') {
         reply.header('Location', delivery.url);
         return reply.code(302).send();
       }
-
       reply.header('Content-Type', delivery.mimeType);
       reply.header('Content-Length', String(delivery.buffer.length));
       return reply.send(delivery.buffer);
@@ -270,15 +255,19 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
         },
         challengeVerifier
       );
-
       if (protection.decision !== 'allow') {
         return reply.code(403).send(humanProtectionResponse(protection));
       }
 
+      const derivatives = await db.selectFrom('listing_media_derivatives')
+        .select(['object_key'])
+        .where('media_id', '=', params.mediaId)
+        .execute();
       const storage = getListingMediaStorage();
+      const objectKeys = [String(media.object_key), ...derivatives.map((item) => String(item.object_key))];
 
       try {
-        await storage.remove(String(media.object_key));
+        await Promise.all(objectKeys.map((objectKey) => storage.remove(objectKey)));
       } catch (error) {
         request.log.warn({ error }, 'listing media storage deletion failed');
         return reply.code(503).send({ error: 'Media storage unavailable' });
@@ -290,9 +279,7 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
         .returning(['id'])
         .executeTakeFirst();
 
-      if (!deleted) {
-        return reply.code(404).send({ error: 'Media not found' });
-      }
+      if (!deleted) return reply.code(404).send({ error: 'Media not found' });
 
       await db.updateTable('listings')
         .set({ updated_at: new Date() })
@@ -301,7 +288,6 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
         .execute();
 
       const mediaCount = await countListingMedia(params.listingId);
-
       writeSecurityAudit(app.log, {
         action: 'listing.media_delete',
         decision: 'allow',
@@ -313,15 +299,12 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
         metadata: {
           mediaId: deleted.id,
           storageDriver: storage.driver,
+          removedObjectCount: objectKeys.length,
           mediaCount
         }
       });
 
-      return reply.send({
-        deleted: true,
-        mediaId: deleted.id,
-        mediaCount
-      });
+      return reply.send({ deleted: true, mediaId: deleted.id, mediaCount });
     }
   );
 }

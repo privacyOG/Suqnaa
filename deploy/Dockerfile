@@ -44,6 +44,9 @@ ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
     API_PORT=4000
 WORKDIR /workspace
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends imagemagick ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=prod-deps /workspace/node_modules ./node_modules
 COPY --from=prod-deps /workspace/apps/api/node_modules ./apps/api/node_modules
 COPY --from=api-build /workspace/apps/api/package.json ./apps/api/package.json

@@ -4,8 +4,28 @@ import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
 import {
+  ListingImageSafetyError,
+  inspectListingImage
+} from '../media/listing-image-safety.js';
+import {
+  ListingImageSanitizerError,
+  sanitizeListingImage
+} from '../media/listing-image-sanitizer.js';
+import {
+  ListingImageTransformError,
+  transformListingImage
+} from '../media/listing-image-transform.js';
+import {
+  persistQuarantinedListingMedia,
+  persistReadyListingMedia
+} from '../media/listing-media-processing-storage.js';
+import {
+  getListingMediaReviewer,
+  mediaReviewInput,
+  validateMediaReviewResult
+} from '../media/listing-media-review.js';
+import {
   detectListingImageMime,
-  extensionForListingImage,
   maximumListingImageBytes,
   maximumListingMediaItems,
   normalizeListingImageMime,
@@ -19,14 +39,10 @@ import { writeSecurityAudit } from '../security/security-audit.js';
 import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
+const quarantineLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 
-const listingParams = z.object({
-  listingId: z.string().uuid()
-});
-
+const listingParams = z.object({ listingId: z.string().uuid() });
 const uploadQuery = z.object({
-  width: z.coerce.number().int().min(1).max(12000).optional(),
-  height: z.coerce.number().int().min(1).max(12000).optional(),
   altText: z.string().trim().max(180).optional(),
   sortOrder: z.coerce.number().int().min(0).max(100).optional()
 });
@@ -48,30 +64,40 @@ async function limitedListingMediaUpload(request: FastifyRequest, accountId: str
     limit: 160,
     windowMs: 60 * 60 * 1000
   });
-
   return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
 }
 
-async function countListingMedia(listingId: string): Promise<number> {
-  const row = await db.selectFrom('listing_media')
-    .select((expression) => expression.fn.countAll<number>().as('count'))
-    .where('listing_id', '=', listingId)
-    .executeTakeFirst();
-
-  return Number(row?.count ?? 0);
+async function countListingMediaSlots(listingId: string): Promise<number> {
+  const [publicRow, quarantineRow] = await Promise.all([
+    db.selectFrom('listing_media')
+      .select((expression) => expression.fn.countAll<number>().as('count'))
+      .where('listing_id', '=', listingId)
+      .executeTakeFirst(),
+    db.selectFrom('listing_media_quarantine')
+      .select((expression) => expression.fn.countAll<number>().as('count'))
+      .where('listing_id', '=', listingId)
+      .where('resolved_at', 'is', null)
+      .executeTakeFirst()
+  ]);
+  return Number(publicRow?.count ?? 0) + Number(quarantineRow?.count ?? 0);
 }
 
 function mediaPublicUrl(listingId: string, mediaId: string): string {
   return `/v1/listings/${listingId}/media/${mediaId}`;
 }
 
+function mediaThumbnailUrl(listingId: string, mediaId: string): string {
+  return `/v1/listings/${listingId}/media/${mediaId}/thumbnail`;
+}
+
 function mediaSummary(media: Record<string, unknown>) {
   const listingId = String(media.listing_id);
   const id = String(media.id);
-
   return {
     id,
     url: mediaPublicUrl(listingId, id),
+    thumbnailUrl: mediaThumbnailUrl(listingId, id),
+    processingStatus: 'ready',
     mimeType: media.mime_type,
     width: media.width,
     height: media.height,
@@ -91,10 +117,7 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
 
   app.post(
     '/listings/:listingId/media/upload',
-    {
-      preHandler: requireUser,
-      bodyLimit: maximumListingImageBytes
-    },
+    { preHandler: requireUser, bodyLimit: maximumListingImageBytes },
     async (request, reply) => {
       const authRequest = request as AuthenticatedRequest;
       const params = listingParams.parse(request.params);
@@ -110,7 +133,6 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         .select(['id', 'seller_id', 'status'])
         .where('id', '=', params.listingId)
         .executeTakeFirst();
-
       if (!listing || listing.seller_id !== authRequest.user.sub) {
         return reply.code(404).send({ error: 'Listing not found' });
       }
@@ -118,7 +140,7 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         return reply.code(409).send({ error: 'Listing is closed for media changes' });
       }
 
-      const existingCount = await countListingMedia(listing.id);
+      const existingCount = await countListingMediaSlots(listing.id);
       if (existingCount >= maximumListingMediaItems) {
         return reply.code(409).send({ error: 'Maximum listing photos reached' });
       }
@@ -133,14 +155,12 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         },
         challengeVerifier
       );
-
       if (protection.decision !== 'allow') {
         return reply.code(403).send(humanProtectionResponse(protection));
       }
 
       const declaredMimeType = normalizeListingImageMime(request.headers['content-type']);
       const buffer = Buffer.isBuffer(request.body) ? request.body : null;
-
       if (!declaredMimeType || !buffer || buffer.length === 0) {
         return reply.code(400).send({ error: 'A supported image body is required' });
       }
@@ -153,57 +173,138 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         return reply.code(400).send({ error: 'Unsupported or mismatched image type' });
       }
 
-      const mediaId = randomUUID();
-      const extension = extensionForListingImage(detectedMimeType);
-      const objectKey = `listing-media/${listing.id}/${mediaId}.${extension}`;
-      const storage = getListingMediaStorage();
-      let stored;
+      let inspection;
+      try {
+        inspection = inspectListingImage(buffer, detectedMimeType);
+      } catch (error) {
+        if (error instanceof ListingImageSafetyError) {
+          return reply
+            .code(error.code === 'pixel_limit_exceeded' ? 413 : 400)
+            .send({ error: error.message, code: error.code });
+        }
+        throw error;
+      }
 
       try {
-        stored = await storage.put({
-          objectKey,
+        sanitizeListingImage(buffer, detectedMimeType, { ...inspection, orientation: null });
+      } catch (error) {
+        if (error instanceof ListingImageSanitizerError) {
+          return reply.code(400).send({ error: error.message, code: error.code });
+        }
+        throw error;
+      }
+
+      let review;
+      try {
+        review = validateMediaReviewResult(
+          await getListingMediaReviewer().review(mediaReviewInput(buffer, detectedMimeType))
+        );
+      } catch (error) {
+        request.log.warn({ error }, 'listing media review unavailable');
+        return reply.code(503).send({ error: 'Media safety review unavailable' });
+      }
+
+      if (review.verdict === 'reject') {
+        writeSecurityAudit(app.log, {
+          action: 'listing.media_upload',
+          decision: 'reject',
+          actorId: authRequest.user.sub,
+          targetId: listing.id,
+          ip: request.ip,
+          riskScore: protection.riskScore,
+          reasonCodes: [...protection.reasonCodes, ...review.reasonCodes],
+          metadata: { reviewProvider: review.provider, reviewReference: review.reference ?? null }
+        });
+        return reply.code(422).send({ error: 'Image failed media safety review', code: 'media_rejected' });
+      }
+
+      let transformed;
+      try {
+        transformed = await transformListingImage({
           buffer,
-          mimeType: detectedMimeType
+          mimeType: detectedMimeType,
+          width: inspection.width,
+          height: inspection.height,
+          orientation: inspection.orientation
         });
       } catch (error) {
-        request.log.warn({ error }, 'listing media storage write failed');
-        return reply.code(503).send({ error: 'Media storage unavailable' });
+        request.log.warn({ error }, 'listing image transform failed');
+        if (error instanceof ListingImageTransformError) {
+          return reply.code(503).send({ error: 'Media processing unavailable', code: error.code });
+        }
+        throw error;
+      }
+
+      const mediaId = randomUUID();
+      const storage = getListingMediaStorage();
+
+      if (review.verdict === 'quarantine') {
+        try {
+          await persistQuarantinedListingMedia(storage, {
+            listingId: listing.id,
+            mediaId,
+            publicImage: transformed.publicImage,
+            reviewProvider: review.provider,
+            reviewReference: review.reference ?? null,
+            reasonCodes: review.reasonCodes,
+            expiresAt: new Date(Date.now() + quarantineLifetimeMs)
+          });
+        } catch (error) {
+          request.log.error({ error }, 'listing media quarantine persistence failed');
+          return reply.code(500).send({ error: 'Media could not be quarantined' });
+        }
+
+        writeSecurityAudit(app.log, {
+          action: 'listing.media_upload',
+          decision: 'challenge',
+          actorId: authRequest.user.sub,
+          targetId: listing.id,
+          ip: request.ip,
+          riskScore: protection.riskScore,
+          reasonCodes: [...protection.reasonCodes, ...review.reasonCodes],
+          metadata: {
+            mediaId,
+            processingStatus: 'quarantined',
+            reviewProvider: review.provider,
+            reviewReference: review.reference ?? null,
+            orientation: inspection.orientation,
+            metadataDetected: inspection.containsMetadata,
+            outputMimeType: transformed.publicImage.mimeType,
+            outputWidth: transformed.publicImage.width,
+            outputHeight: transformed.publicImage.height,
+            storageDriver: storage.driver
+          }
+        });
+
+        return reply.code(202).send({
+          media: {
+            id: mediaId,
+            url: null,
+            thumbnailUrl: null,
+            processingStatus: 'quarantined',
+            mimeType: transformed.publicImage.mimeType,
+            width: transformed.publicImage.width,
+            height: transformed.publicImage.height,
+            sizeBytes: transformed.publicImage.buffer.length,
+            sortOrder: query.sortOrder ?? existingCount,
+            altText: query.altText || null
+          },
+          mediaCount: existingCount + 1
+        });
       }
 
       let inserted;
       try {
-        inserted = await db.insertInto('listing_media')
-          .values({
-            id: mediaId,
-            listing_id: listing.id,
-            object_key: stored.objectKey,
-            mime_type: detectedMimeType,
-            width: query.width ?? null,
-            height: query.height ?? null,
-            size_bytes: buffer.length,
-            sort_order: query.sortOrder ?? existingCount,
-            alt_text: query.altText || null,
-            sha256: stored.sha256
-          })
-          .returning([
-            'id',
-            'listing_id',
-            'mime_type',
-            'width',
-            'height',
-            'size_bytes',
-            'sort_order',
-            'alt_text',
-            'created_at'
-          ])
-          .executeTakeFirstOrThrow();
+        inserted = await persistReadyListingMedia(storage, {
+          listingId: listing.id,
+          mediaId,
+          sortOrder: query.sortOrder ?? existingCount,
+          altText: query.altText || null,
+          publicImage: transformed.publicImage,
+          thumbnail: transformed.thumbnail
+        });
       } catch (error) {
-        request.log.error({ error }, 'listing media database write failed');
-        try {
-          await storage.remove(stored.objectKey);
-        } catch (cleanupError) {
-          request.log.warn({ cleanupError }, 'listing media rollback failed');
-        }
+        request.log.error({ error }, 'listing media derivative persistence failed');
         return reply.code(500).send({ error: 'Media could not be saved' });
       }
 
@@ -220,11 +321,24 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         targetId: listing.id,
         ip: request.ip,
         riskScore: protection.riskScore,
-        reasonCodes: protection.reasonCodes,
+        reasonCodes: [...protection.reasonCodes, ...review.reasonCodes],
         metadata: {
           mediaId: inserted.id,
-          mimeType: detectedMimeType,
-          sizeBytes: buffer.length,
+          sourceMimeType: detectedMimeType,
+          sourceWidth: inspection.width,
+          sourceHeight: inspection.height,
+          sourcePixels: inspection.pixels,
+          orientation: inspection.orientation,
+          metadataDetected: inspection.containsMetadata,
+          outputMimeType: transformed.publicImage.mimeType,
+          outputWidth: transformed.publicImage.width,
+          outputHeight: transformed.publicImage.height,
+          outputSizeBytes: transformed.publicImage.buffer.length,
+          thumbnailWidth: transformed.thumbnail.width,
+          thumbnailHeight: transformed.thumbnail.height,
+          thumbnailSizeBytes: transformed.thumbnail.buffer.length,
+          reviewProvider: review.provider,
+          reviewReference: review.reference ?? null,
           storageDriver: storage.driver,
           transport: 'binary'
         }
