@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const json = (path) => JSON.parse(read(path));
 const exists = (path) => existsSync(new URL(path, root));
+
+execFileSync(process.execPath, ['scripts/reconcile-mobile-store-screenshots.mjs', '--check'], {
+  cwd: new URL('.', root),
+  stdio: 'inherit'
+});
 
 const en = json('apps/mobile/store/metadata/en.json');
 const ar = json('apps/mobile/store/metadata/ar.json');
@@ -73,8 +79,10 @@ for (const prohibitedSdk of ['firebase_analytics', 'google_mobile_ads', 'appsfly
   assert.doesNotMatch(pubspec, new RegExp(prohibitedSdk, 'i'));
 }
 
-assert.equal(screenshots.status, 'capture_required');
+assert.ok(['capture_required', 'captured_complete'].includes(screenshots.status));
 assert.equal(screenshots.sets.length, 4);
+let capturedCount = 0;
+let requiredCount = 0;
 for (const set of screenshots.sets) {
   assert.ok(['ios', 'android'].includes(set.platform));
   assert.ok(['en', 'ar'].includes(set.locale));
@@ -82,15 +90,32 @@ for (const set of screenshots.sets) {
   assert.ok(set.files.length >= 5 && set.files.length <= 10);
   const orders = new Set();
   for (const image of set.files) {
-    assert.equal(image.status, 'missing');
+    requiredCount += 1;
+    assert.ok(['missing', 'captured'].includes(image.status));
     assert.match(image.file, new RegExp(`^${set.platform}/${set.locale}/`));
     assert.match(image.file, /\.png$/);
     assert.ok(!orders.has(image.order));
     orders.add(image.order);
+    if (image.status === 'captured') {
+      capturedCount += 1;
+      assert.ok(Number.isInteger(image.width) && image.width >= 720);
+      assert.ok(Number.isInteger(image.height) && image.height >= 1280);
+      assert.ok(image.height > image.width);
+      assert.match(image.sha256, /^[a-f0-9]{64}$/);
+      assert.ok(exists(`apps/mobile/store/screenshots/${image.file}`));
+    } else {
+      assert.equal(image.width, undefined);
+      assert.equal(image.height, undefined);
+      assert.equal(image.sha256, undefined);
+    }
   }
 }
+assert.equal(screenshots.capturedCount, capturedCount);
+assert.equal(screenshots.requiredCount, requiredCount);
+assert.equal(screenshots.status, capturedCount === requiredCount ? 'captured_complete' : 'capture_required');
 assert.ok(screenshots.captureRules.some((rule) => /no real user personal information/i.test(rule)));
 assert.ok(screenshots.captureRules.some((rule) => /Arabic\/RTL/i.test(rule)));
+assert.ok(screenshots.captureRules.some((rule) => /SHA-256/i.test(rule)));
 
 assert.equal(contentRating.status, 'candidate_requires_store_console_confirmation');
 assert.equal(contentRating.appleAgeRating.userGeneratedContent, true);
@@ -129,7 +154,9 @@ assert.equal(readiness.productionIdentifiers.androidPackage, 'co.privacyx.suqnaa
 assert.equal(readiness.productionIdentifiers.iosBundleId, 'co.privacyx.suqnaa');
 assert.equal(readiness.reviewAccess.credentialsStoredInRepository, false);
 assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'legal_approval' && blocker.status === 'blocked'));
-assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'screenshots' && blocker.status === 'blocked'));
+const screenshotBlocker = readiness.submissionBlockers.find((blocker) => blocker.id === 'screenshots');
+assert.ok(screenshotBlocker);
+assert.equal(screenshotBlocker.status, screenshots.status === 'captured_complete' ? 'resolved' : 'blocked');
 assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'store_console_configuration' && blocker.status === 'external'));
 assert.ok(readiness.submissionBlockers.some((blocker) => blocker.id === 'review_credentials' && blocker.status === 'external'));
 
@@ -149,5 +176,6 @@ assert.ok(exists('apps/web/app/[locale]/account-deletion/page.tsx'));
 assert.ok(exists('apps/mobile/store/review/content-rating.json'));
 assert.ok(exists('apps/mobile/store/review/compliance.json'));
 assert.ok(exists('apps/mobile/store/review/reviewer-notes.json'));
+assert.ok(exists('scripts/reconcile-mobile-store-screenshots.mjs'));
 
 console.log('Mobile store readiness package passed.');
