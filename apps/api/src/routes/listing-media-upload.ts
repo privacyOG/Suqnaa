@@ -12,14 +12,20 @@ import {
   sanitizeListingImage
 } from '../media/listing-image-sanitizer.js';
 import {
-  ListingMediaReviewUnavailableError,
+  ListingImageTransformError,
+  transformListingImage
+} from '../media/listing-image-transform.js';
+import {
+  persistQuarantinedListingMedia,
+  persistReadyListingMedia
+} from '../media/listing-media-processing-storage.js';
+import {
   getListingMediaReviewer,
   mediaReviewInput,
   validateMediaReviewResult
 } from '../media/listing-media-review.js';
 import {
   detectListingImageMime,
-  extensionForListingImage,
   maximumListingImageBytes,
   maximumListingMediaItems,
   normalizeListingImageMime,
@@ -80,12 +86,17 @@ function mediaPublicUrl(listingId: string, mediaId: string): string {
   return `/v1/listings/${listingId}/media/${mediaId}`;
 }
 
+function mediaThumbnailUrl(listingId: string, mediaId: string): string {
+  return `/v1/listings/${listingId}/media/${mediaId}/thumbnail`;
+}
+
 function mediaSummary(media: Record<string, unknown>) {
   const listingId = String(media.listing_id);
   const id = String(media.id);
   return {
     id,
     url: mediaPublicUrl(listingId, id),
+    thumbnailUrl: mediaThumbnailUrl(listingId, id),
     processingStatus: 'ready',
     mimeType: media.mime_type,
     width: media.width,
@@ -176,12 +187,13 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
 
       let sanitized;
       try {
-        sanitized = sanitizeListingImage(buffer, detectedMimeType, inspection);
+        sanitized = sanitizeListingImage(buffer, detectedMimeType, {
+          ...inspection,
+          orientation: null
+        });
       } catch (error) {
         if (error instanceof ListingImageSanitizerError) {
-          return reply
-            .code(error.code === 'orientation_requires_transform' ? 422 : 400)
-            .send({ error: error.message, code: error.code });
+          return reply.code(400).send({ error: error.message, code: error.code });
         }
         throw error;
       }
@@ -212,41 +224,39 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         return reply.code(422).send({ error: 'Image failed media safety review', code: 'media_rejected' });
       }
 
-      const mediaId = randomUUID();
-      const extension = extensionForListingImage(detectedMimeType);
-      const quarantined = review.verdict === 'quarantine';
-      const objectKey = `${quarantined ? 'listing-media-quarantine' : 'listing-media'}/${listing.id}/${mediaId}.${extension}`;
-      const storage = getListingMediaStorage();
-      let stored;
-
+      let transformed;
       try {
-        stored = await storage.put({ objectKey, buffer: sanitized.buffer, mimeType: detectedMimeType });
+        transformed = await transformListingImage({
+          buffer,
+          mimeType: detectedMimeType,
+          width: inspection.width,
+          height: inspection.height,
+          orientation: inspection.orientation
+        });
       } catch (error) {
-        request.log.warn({ error }, 'listing media storage write failed');
-        return reply.code(503).send({ error: 'Media storage unavailable' });
+        request.log.warn({ error }, 'listing image transform failed');
+        if (error instanceof ListingImageTransformError) {
+          return reply.code(503).send({ error: 'Media processing unavailable', code: error.code });
+        }
+        throw error;
       }
 
-      if (quarantined) {
+      const mediaId = randomUUID();
+      const storage = getListingMediaStorage();
+
+      if (review.verdict === 'quarantine') {
         try {
-          await db.insertInto('listing_media_quarantine').values({
-            id: mediaId,
-            listing_id: listing.id,
-            object_key: stored.objectKey,
-            mime_type: detectedMimeType,
-            width: inspection.width,
-            height: inspection.height,
-            size_bytes: sanitized.buffer.length,
-            sha256: stored.sha256,
-            review_provider: review.provider,
-            review_reference: review.reference ?? null,
-            review_reason_codes: JSON.stringify(review.reasonCodes),
-            expires_at: new Date(Date.now() + quarantineLifetimeMs)
-          }).executeTakeFirstOrThrow();
+          await persistQuarantinedListingMedia(storage, {
+            listingId: listing.id,
+            mediaId,
+            publicImage: transformed.publicImage,
+            reviewProvider: review.provider,
+            reviewReference: review.reference ?? null,
+            reasonCodes: review.reasonCodes,
+            expiresAt: new Date(Date.now() + quarantineLifetimeMs)
+          });
         } catch (error) {
-          request.log.error({ error }, 'listing media quarantine database write failed');
-          try { await storage.remove(stored.objectKey); } catch (cleanupError) {
-            request.log.warn({ cleanupError }, 'listing media quarantine rollback failed');
-          }
+          request.log.error({ error }, 'listing media quarantine persistence failed');
           return reply.code(500).send({ error: 'Media could not be quarantined' });
         }
 
@@ -263,8 +273,11 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
             processingStatus: 'quarantined',
             reviewProvider: review.provider,
             reviewReference: review.reference ?? null,
-            metadataStripped: sanitized.metadataStripped,
-            storedSizeBytes: sanitized.buffer.length,
+            orientation: inspection.orientation,
+            metadataDetected: inspection.containsMetadata,
+            outputMimeType: transformed.publicImage.mimeType,
+            outputWidth: transformed.publicImage.width,
+            outputHeight: transformed.publicImage.height,
             storageDriver: storage.driver
           }
         });
@@ -273,11 +286,12 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
           media: {
             id: mediaId,
             url: null,
+            thumbnailUrl: null,
             processingStatus: 'quarantined',
-            mimeType: detectedMimeType,
-            width: inspection.width,
-            height: inspection.height,
-            sizeBytes: sanitized.buffer.length,
+            mimeType: transformed.publicImage.mimeType,
+            width: transformed.publicImage.width,
+            height: transformed.publicImage.height,
+            sizeBytes: transformed.publicImage.buffer.length,
             sortOrder: query.sortOrder ?? existingCount,
             altText: query.altText || null
           },
@@ -287,29 +301,16 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
 
       let inserted;
       try {
-        inserted = await db.insertInto('listing_media')
-          .values({
-            id: mediaId,
-            listing_id: listing.id,
-            object_key: stored.objectKey,
-            mime_type: detectedMimeType,
-            width: inspection.width,
-            height: inspection.height,
-            size_bytes: sanitized.buffer.length,
-            sort_order: query.sortOrder ?? existingCount,
-            alt_text: query.altText || null,
-            sha256: stored.sha256
-          })
-          .returning([
-            'id', 'listing_id', 'mime_type', 'width', 'height', 'size_bytes',
-            'sort_order', 'alt_text', 'created_at'
-          ])
-          .executeTakeFirstOrThrow();
+        inserted = await persistReadyListingMedia(storage, {
+          listingId: listing.id,
+          mediaId,
+          sortOrder: query.sortOrder ?? existingCount,
+          altText: query.altText || null,
+          publicImage: transformed.publicImage,
+          thumbnail: transformed.thumbnail
+        });
       } catch (error) {
-        request.log.error({ error }, 'listing media database write failed');
-        try { await storage.remove(stored.objectKey); } catch (cleanupError) {
-          request.log.warn({ cleanupError }, 'listing media rollback failed');
-        }
+        request.log.error({ error }, 'listing media derivative persistence failed');
         return reply.code(500).send({ error: 'Media could not be saved' });
       }
 
@@ -329,15 +330,19 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         reasonCodes: [...protection.reasonCodes, ...review.reasonCodes],
         metadata: {
           mediaId: inserted.id,
-          mimeType: detectedMimeType,
-          width: inspection.width,
-          height: inspection.height,
-          pixels: inspection.pixels,
+          sourceMimeType: detectedMimeType,
+          sourceWidth: inspection.width,
+          sourceHeight: inspection.height,
+          sourcePixels: inspection.pixels,
           orientation: inspection.orientation,
           metadataDetected: inspection.containsMetadata,
-          metadataStripped: sanitized.metadataStripped,
-          originalSizeBytes: buffer.length,
-          storedSizeBytes: sanitized.buffer.length,
+          outputMimeType: transformed.publicImage.mimeType,
+          outputWidth: transformed.publicImage.width,
+          outputHeight: transformed.publicImage.height,
+          outputSizeBytes: transformed.publicImage.buffer.length,
+          thumbnailWidth: transformed.thumbnail.width,
+          thumbnailHeight: transformed.thumbnail.height,
+          thumbnailSizeBytes: transformed.thumbnail.buffer.length,
           reviewProvider: review.provider,
           reviewReference: review.reference ?? null,
           storageDriver: storage.driver,
