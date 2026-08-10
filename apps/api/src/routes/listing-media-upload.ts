@@ -8,6 +8,10 @@ import {
   inspectListingImage
 } from '../media/listing-image-safety.js';
 import {
+  ListingImageSanitizerError,
+  sanitizeListingImage
+} from '../media/listing-image-sanitizer.js';
+import {
   detectListingImageMime,
   extensionForListingImage,
   maximumListingImageBytes,
@@ -167,6 +171,18 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         throw error;
       }
 
+      let sanitized;
+      try {
+        sanitized = sanitizeListingImage(buffer, detectedMimeType, inspection);
+      } catch (error) {
+        if (error instanceof ListingImageSanitizerError) {
+          return reply
+            .code(error.code === 'orientation_requires_transform' ? 422 : 400)
+            .send({ error: error.message, code: error.code });
+        }
+        throw error;
+      }
+
       const mediaId = randomUUID();
       const extension = extensionForListingImage(detectedMimeType);
       const objectKey = `listing-media/${listing.id}/${mediaId}.${extension}`;
@@ -176,7 +192,7 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
       try {
         stored = await storage.put({
           objectKey,
-          buffer,
+          buffer: sanitized.buffer,
           mimeType: detectedMimeType
         });
       } catch (error) {
@@ -194,7 +210,7 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
             mime_type: detectedMimeType,
             width: inspection.width,
             height: inspection.height,
-            size_bytes: buffer.length,
+            size_bytes: sanitized.buffer.length,
             sort_order: query.sortOrder ?? existingCount,
             alt_text: query.altText || null,
             sha256: stored.sha256
@@ -243,7 +259,9 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
           pixels: inspection.pixels,
           orientation: inspection.orientation,
           metadataDetected: inspection.containsMetadata,
-          sizeBytes: buffer.length,
+          metadataStripped: sanitized.metadataStripped,
+          originalSizeBytes: buffer.length,
+          storedSizeBytes: sanitized.buffer.length,
           storageDriver: storage.driver,
           transport: 'binary'
         }
