@@ -9,7 +9,8 @@ import {
   OrderPaymentContextError,
   presentOrderPaymentContext
 } from '../payments/order-payment-context.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const orderParams = z.object({
   orderId: z.string().uuid()
@@ -17,18 +18,18 @@ const orderParams = z.object({
 
 const paymentMethod = z.enum(orderPaymentMethods);
 
-function enforceReadLimit(
+async function enforceReadLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string
-): boolean {
-  const accountLimit = checkRateLimit({
+): Promise<boolean> {
+  const accountLimit = await checkSharedRateLimit({
     group: 'market.orders.payment_context.account',
     identifiers: [`account:${accountId}`],
     limit: 120,
     windowMs: 5 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: 'market.orders.payment_context.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 300,
@@ -60,7 +61,7 @@ export async function orderPaymentContextRoutes(
       const accountId = authRequest.user.sub;
       const params = orderParams.parse(request.params);
 
-      if (!enforceReadLimit(request, reply, accountId)) {
+      if (!await enforceReadLimit(request, reply, accountId)) {
         return;
       }
 
