@@ -174,7 +174,7 @@ jobs:
             suqnaa-backup:ci -y /secrets/backup_age_identity \
             > secrets/backup_age_recipient
 
-          docker compose -f compose.infrastructure.yml up -d postgres object-storage
+          docker compose -f compose.infrastructure.yml up -d --wait --wait-timeout 60 postgres object-storage
 
           docker compose -f compose.infrastructure.yml exec -T postgres \
             psql -U suqnaa -d suqnaa -v ON_ERROR_STOP=1 <<'SQL'
