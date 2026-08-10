@@ -6,6 +6,9 @@ const compose = readFileSync(new URL('../deploy/compose.production.yml', import.
 const dockerignore = readFileSync(new URL('../.dockerignore', import.meta.url), 'utf8');
 const healthRoute = readFileSync(new URL('../apps/api/src/routes/health.ts', import.meta.url), 'utf8');
 const readiness = readFileSync(new URL('../apps/api/src/deployment/readiness.ts', import.meta.url), 'utf8');
+const releaseScript = readFileSync(new URL('../deploy/release.sh', import.meta.url), 'utf8');
+const rollbackScript = readFileSync(new URL('../deploy/rollback.sh', import.meta.url), 'utf8');
+const reliabilityRunbook = readFileSync(new URL('../docs/DEPLOYMENT_RELIABILITY.md', import.meta.url), 'utf8');
 
 for (const target of ['api', 'worker', 'web', 'migrate']) {
   assert.match(dockerfile, new RegExp(`FROM [^\\n]+ AS ${target}\\b`), `missing Docker target: ${target}`);
@@ -64,6 +67,33 @@ assert.match(healthRoute, /\/health\/ready/);
 assert.match(healthRoute, /reply\.code\(503\)/);
 assert.match(readiness, /timeoutMs \?\? 2_000/);
 assert.match(readiness, /Promise\.race/);
+
+for (const imageVariable of [
+  'SUQNAA_API_IMAGE',
+  'SUQNAA_WEB_IMAGE',
+  'SUQNAA_WORKER_IMAGE',
+  'SUQNAA_MIGRATE_IMAGE'
+]) {
+  assert.ok(releaseScript.includes(imageVariable), `release script must require ${imageVariable}`);
+}
+assert.match(releaseScript, /config --quiet/);
+assert.match(releaseScript, /--profile migrate run --rm --no-deps migrate/);
+assert.match(releaseScript, /up -d --no-build --remove-orphans --wait --wait-timeout/);
+assert.match(releaseScript, /\/v1\/health\/ready/);
+assert.match(rollbackScript, /PREVIOUS_API_IMAGE/);
+assert.match(rollbackScript, /PREVIOUS_WEB_IMAGE/);
+assert.match(rollbackScript, /PREVIOUS_WORKER_IMAGE/);
+assert.match(rollbackScript, /SUQNAA_RUN_MIGRATIONS=false/);
+assert.match(rollbackScript, /exec bash .*release\.sh/);
+
+assert.match(reliabilityRunbook, /expand\/contract policy/i);
+assert.match(reliabilityRunbook, /rollback compatibility window/i);
+assert.match(reliabilityRunbook, /SEV-1/);
+assert.match(reliabilityRunbook, /SEV-2/);
+assert.match(reliabilityRunbook, /Security\/privacy owner/);
+assert.match(reliabilityRunbook, /Payments\/finance owner/);
+assert.match(reliabilityRunbook, /Legal\/compliance owner/);
+assert.match(reliabilityRunbook, /P1-06 encrypted backup\/restore runbook/);
 
 assert.match(dockerignore, /^\.env\.\*$/m);
 assert.match(dockerignore, /^node_modules$/m);
