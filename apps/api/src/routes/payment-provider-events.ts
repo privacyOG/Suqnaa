@@ -20,8 +20,9 @@ import {
   type PaymentEventHeaders,
   type PaymentHeldEvent
 } from '../payments/provider-event.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const eventConfiguration = resolvePaymentEventConfiguration({
   provider: env.PAYMENT_EVENT_PROVIDER,
@@ -53,11 +54,11 @@ function providerEventHeaders(request: FastifyRequest): PaymentEventHeaders {
   });
 }
 
-function enforceProviderEventLimit(
+async function enforceProviderEventLimit(
   request: FastifyRequest,
   reply: FastifyReply
-): boolean {
-  const limit = checkRateLimit({
+): Promise<boolean> {
+  const limit = await checkSharedRateLimit({
     group: 'payment.provider_event.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 300,
@@ -140,7 +141,7 @@ export async function paymentProviderEventRoutes(
       });
     }
 
-    if (!enforceProviderEventLimit(request, reply)) {
+    if (!await enforceProviderEventLimit(request, reply)) {
       writeSecurityAudit(app.log, {
         action: 'payment.provider_event',
         decision: 'rate_limited',
