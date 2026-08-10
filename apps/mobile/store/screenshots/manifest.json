@@ -9,12 +9,12 @@
       "locale": "en",
       "required": true,
       "files": [
-        {"order":1,"file":"ios/en/01-catalogue.png","screen":"catalogue","status":"missing"},
-        {"order":2,"file":"ios/en/02-listing-detail.png","screen":"listing_detail","status":"missing"},
-        {"order":3,"file":"ios/en/03-sell-listing.png","screen":"listing_management","status":"missing"},
-        {"order":4,"file":"ios/en/04-messages.png","screen":"messaging","status":"missing"},
-        {"order":5,"file":"ios/en/05-offer-order.png","screen":"offer_order","status":"missing"},
-        {"order":6,"file":"ios/en/06-fulfilment-safety.png","screen":"fulfilment_safety","status":"missing"}
+        { "order": 1, "file": "ios/en/01-catalogue.png", "screen": "catalogue", "status": "missing" },
+        { "order": 2, "file": "ios/en/02-listing-detail.png", "screen": "listing_detail", "status": "missing" },
+        { "order": 3, "file": "ios/en/03-sell-listing.png", "screen": "listing_management", "status": "missing" },
+        { "order": 4, "file": "ios/en/04-messages.png", "screen": "messaging", "status": "missing" },
+        { "order": 5, "file": "ios/en/05-offer-order.png", "screen": "offer_order", "status": "missing" },
+        { "order": 6, "file": "ios/en/06-fulfilment-safety.png", "screen": "fulfilment_safety", "status": "missing" }
       ]
     },
     {
@@ -23,12 +23,12 @@
       "locale": "ar",
       "required": true,
       "files": [
-        {"order":1,"file":"ios/ar/01-catalogue.png","screen":"catalogue","status":"missing"},
-        {"order":2,"file":"ios/ar/02-listing-detail.png","screen":"listing_detail","status":"missing"},
-        {"order":3,"file":"ios/ar/03-sell-listing.png","screen":"listing_management","status":"missing"},
-        {"order":4,"file":"ios/ar/04-messages.png","screen":"messaging","status":"missing"},
-        {"order":5,"file":"ios/ar/05-offer-order.png","screen":"offer_order","status":"missing"},
-        {"order":6,"file":"ios/ar/06-fulfilment-safety.png","screen":"fulfilment_safety","status":"missing"}
+        { "order": 1, "file": "ios/ar/01-catalogue.png", "screen": "catalogue", "status": "missing" },
+        { "order": 2, "file": "ios/ar/02-listing-detail.png", "screen": "listing_detail", "status": "missing" },
+        { "order": 3, "file": "ios/ar/03-sell-listing.png", "screen": "listing_management", "status": "missing" },
+        { "order": 4, "file": "ios/ar/04-messages.png", "screen": "messaging", "status": "missing" },
+        { "order": 5, "file": "ios/ar/05-offer-order.png", "screen": "offer_order", "status": "missing" },
+        { "order": 6, "file": "ios/ar/06-fulfilment-safety.png", "screen": "fulfilment_safety", "status": "missing" }
       ]
     },
     {
@@ -37,12 +37,12 @@
       "locale": "en",
       "required": true,
       "files": [
-        {"order":1,"file":"android/en/01-catalogue.png","screen":"catalogue","status":"missing"},
-        {"order":2,"file":"android/en/02-listing-detail.png","screen":"listing_detail","status":"missing"},
-        {"order":3,"file":"android/en/03-sell-listing.png","screen":"listing_management","status":"missing"},
-        {"order":4,"file":"android/en/04-messages.png","screen":"messaging","status":"missing"},
-        {"order":5,"file":"android/en/05-offer-order.png","screen":"offer_order","status":"missing"},
-        {"order":6,"file":"android/en/06-fulfilment-safety.png","screen":"fulfilment_safety","status":"missing"}
+        { "order": 1, "file": "android/en/01-catalogue.png", "screen": "catalogue", "status": "missing" },
+        { "order": 2, "file": "android/en/02-listing-detail.png", "screen": "listing_detail", "status": "missing" },
+        { "order": 3, "file": "android/en/03-sell-listing.png", "screen": "listing_management", "status": "missing" },
+        { "order": 4, "file": "android/en/04-messages.png", "screen": "messaging", "status": "missing" },
+        { "order": 5, "file": "android/en/05-offer-order.png", "screen": "offer_order", "status": "missing" },
+        { "order": 6, "file": "android/en/06-fulfilment-safety.png", "screen": "fulfilment_safety", "status": "missing" }
       ]
     },
     {
@@ -51,12 +51,12 @@
       "locale": "ar",
       "required": true,
       "files": [
-        {"order":1,"file":"android/ar/01-catalogue.png","screen":"catalogue","status":"missing"},
-        {"order":2,"file":"android/ar/02-listing-detail.png","screen":"listing_detail","status":"missing"},
-        {"order":3,"file":"android/ar/03-sell-listing.png","screen":"listing_management","status":"missing"},
-        {"order":4,"file":"android/ar/04-messages.png","screen":"messaging","status":"missing"},
-        {"order":5,"file":"android/ar/05-offer-order.png","screen":"offer_order","status":"missing"},
-        {"order":6,"file":"android/ar/06-fulfilment-safety.png","screen":"fulfilment_safety","status":"missing"}
+        { "order": 1, "file": "android/ar/01-catalogue.png", "screen": "catalogue", "status": "missing" },
+        { "order": 2, "file": "android/ar/02-listing-detail.png", "screen": "listing_detail", "status": "missing" },
+        { "order": 3, "file": "android/ar/03-sell-listing.png", "screen": "listing_management", "status": "missing" },
+        { "order": 4, "file": "android/ar/04-messages.png", "screen": "messaging", "status": "missing" },
+        { "order": 5, "file": "android/ar/05-offer-order.png", "screen": "offer_order", "status": "missing" },
+        { "order": 6, "file": "android/ar/06-fulfilment-safety.png", "screen": "fulfilment_safety", "status": "missing" }
       ]
     }
   ],
@@ -65,6 +65,9 @@
     "Use current production-like UI and current translations.",
     "Do not show secret values, authentication tokens, private addresses or unredacted payment/verification details.",
     "Arabic captures must be rendered in Arabic/RTL, not translated overlays.",
-    "Update each file status to captured only when the matching image is committed or otherwise retained in the approved store-artifact process."
-  ]
+    "Store approved PNG files under apps/mobile/store/screenshots/<platform>/<locale>/ using the paths declared in this manifest.",
+    "Run node scripts/reconcile-mobile-store-screenshots.mjs after adding, replacing or removing screenshots so dimensions and SHA-256 fingerprints are recorded deterministically."
+  ],
+  "capturedCount": 0,
+  "requiredCount": 24
 }
