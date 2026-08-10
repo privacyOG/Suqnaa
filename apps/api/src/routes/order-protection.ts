@@ -7,8 +7,9 @@ import {
   readOrderProtection,
   shipReturn
 } from '../protection/protection-service.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const uuid = z.string().uuid();
 const httpsUrl = z.string().trim().url().max(1000).refine((value) => new URL(value).protocol === 'https:', 'HTTPS URL required');
@@ -29,8 +30,8 @@ function protectionError(reply: any, error: unknown) {
   throw error;
 }
 
-function participantLimit(request: FastifyRequest, userId: string, action: string, limit: number) {
-  const result = checkRateLimit({
+async function participantLimit(request: FastifyRequest, userId: string, action: string, limit: number) {
+  const result = await checkSharedRateLimit({
     group: `protection.${action}`,
     identifiers: [`account:${userId}`, `ip:${request.ip}`],
     limit,
@@ -52,7 +53,7 @@ export async function orderProtectionRoutes(app: FastifyInstance): Promise<void>
     const auth = request as AuthenticatedRequest;
     const params = z.object({ returnId: uuid }).parse(request.params);
     const body = shipBody.parse(request.body);
-    const limited = participantLimit(request, auth.user.sub, 'return_ship', 12);
+    const limited = await participantLimit(request, auth.user.sub, 'return_ship', 12);
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -81,7 +82,7 @@ export async function orderProtectionRoutes(app: FastifyInstance): Promise<void>
     if (body.condition === 'contested' && !body.note) {
       return reply.code(400).send({ error: 'Protection action rejected', code: 'contest_note_required' });
     }
-    const limited = participantLimit(request, auth.user.sub, 'return_receipt', 12);
+    const limited = await participantLimit(request, auth.user.sub, 'return_receipt', 12);
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
