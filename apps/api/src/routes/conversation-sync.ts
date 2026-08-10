@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
 import { reconcileConversationChanges } from '../messaging/conversation-reconciliation.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const paramsSchema = z.object({
   conversationId: z.string().uuid()
@@ -22,18 +23,18 @@ function isParticipant(
   return conversation.buyer_id === userId || conversation.seller_id === userId;
 }
 
-function enforceSyncLimit(
+async function enforceSyncLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   userId: string
-): boolean {
-  const perAccount = checkRateLimit({
+): Promise<boolean> {
+  const perAccount = await checkSharedRateLimit({
     group: 'conversation.sync.account',
     identifiers: [`account:${userId}`],
     limit: 180,
     windowMs: 5 * 60 * 1000
   });
-  const perIp = checkRateLimit({
+  const perIp = await checkSharedRateLimit({
     group: 'conversation.sync.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 480,
@@ -54,7 +55,7 @@ export async function conversationSyncRoutes(app: FastifyInstance): Promise<void
     const params = paramsSchema.parse(request.params);
     const query = querySchema.parse(request.query);
 
-    if (!enforceSyncLimit(request, reply, userId)) return;
+    if (!await enforceSyncLimit(request, reply, userId)) return;
 
     const conversation = await db.selectFrom('conversations')
       .select(['id', 'buyer_id', 'seller_id'])

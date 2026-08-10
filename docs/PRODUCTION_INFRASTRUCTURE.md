@@ -41,6 +41,16 @@ Restrict the directory to the deployment account. Use distinct random values per
 
 The application should receive least-privilege runtime credentials through the deployment platform or the untracked application environment file. Do not pass secrets as image build arguments and do not commit populated environment files.
 
+## Shared Redis operational state
+
+P1-03 uses the general `redis` service for cross-instance security and temporary operational state. Production API containers must set `REDIS_URL` to an authenticated internal Redis URL such as `redis://:PASSWORD@redis:6379/0`, or `rediss://` when Redis is reached through a TLS endpoint.
+
+The API does not silently fall back to process-local rate-limit state in production. If `REDIS_URL` is absent, invalid, unreachable, authentication fails, or the Redis command cannot complete, protected rate-limit checks fail closed and the API maps the outage to HTTP 503. Development and test environments may retain the bounded in-memory fallback for local ergonomics.
+
+Rate-limit identifiers are SHA-256 digests before they are incorporated into Redis keys. Raw email addresses, phone numbers, IP addresses, and refresh-session identifiers must not be embedded in Redis key names. The rate-limit operation is executed atomically in Redis so replicas cannot independently admit requests against the same logical counter.
+
+Use the general shared-state Redis only for bounded temporary operational state. Durable queues stay on the separate `queue` Redis service, and durable marketplace/account records stay in PostgreSQL.
+
 ## Staging bring-up
 
 Create DNS records for the staging web/API domains so they resolve to the staging edge host, then provision the staging secret directory referenced by the environment contract.
@@ -63,7 +73,7 @@ docker compose \
   up -d postgres redis queue object-storage edge
 ```
 
-Populate an untracked application environment file with internal service endpoints. The expected Docker DNS names are `postgres`, `redis`, `queue`, and `object-storage`. The S3 endpoint is therefore private, for example `http://object-storage:9000`; do not expose the object-storage administration console publicly.
+Populate an untracked application environment file with internal service endpoints. The expected Docker DNS names are `postgres`, `redis`, `queue`, and `object-storage`. The S3 endpoint is therefore private, for example `http://object-storage:9000`; do not expose the object-storage administration console publicly. The API `REDIS_URL` must target the private `redis` service with its environment-specific password.
 
 Start the application stack on the exact same application network name:
 

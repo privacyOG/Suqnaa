@@ -12,7 +12,8 @@ import {
   requestContactVerification,
   VerificationDeliveryError
 } from '../account-verification/service.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const channelSchema = z.enum(['email', 'phone']);
 const requestBodySchema = z.object({ channel: channelSchema });
@@ -33,11 +34,11 @@ function accountId(request: AuthenticatedRequest): string {
   return request.user.sub;
 }
 
-function requestLimit(
+async function requestLimit(
   request: AuthenticatedRequest,
   channel: VerificationChannel
 ) {
-  return checkRateLimit({
+  return await checkSharedRateLimit({
     group: 'account.contact_verification.request',
     identifiers: [
       `account:${accountId(request)}:${channel}`,
@@ -48,11 +49,11 @@ function requestLimit(
   });
 }
 
-function confirmLimit(
+async function confirmLimit(
   request: AuthenticatedRequest,
   channel: VerificationChannel
 ) {
-  const account = checkRateLimit({
+  const account = await checkSharedRateLimit({
     group: 'account.contact_verification.confirm.account',
     identifiers: [`account:${accountId(request)}:${channel}`],
     limit: 15,
@@ -62,7 +63,7 @@ function confirmLimit(
     return account;
   }
 
-  return checkRateLimit({
+  return await checkSharedRateLimit({
     group: 'account.contact_verification.confirm.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 60,
@@ -85,7 +86,7 @@ export async function accountVerificationRoutes(app: FastifyInstance): Promise<v
   app.post('/account/verification/request', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = requestBodySchema.parse(request.body);
-    const limit = requestLimit(authRequest, body.channel);
+    const limit = await requestLimit(authRequest, body.channel);
 
     if (!limit.allowed) {
       reply.header('Retry-After', String(limit.retryAfterSeconds));
@@ -135,7 +136,7 @@ export async function accountVerificationRoutes(app: FastifyInstance): Promise<v
   app.post('/account/verification/confirm', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = confirmBodySchema.parse(request.body);
-    const limit = confirmLimit(authRequest, body.channel);
+    const limit = await confirmLimit(authRequest, body.channel);
 
     if (!limit.allowed) {
       reply.header('Retry-After', String(limit.retryAfterSeconds));

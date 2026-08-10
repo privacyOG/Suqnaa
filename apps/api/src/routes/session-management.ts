@@ -2,8 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sessionTokenHash } from '../auth/session-token.js';
 import { db } from '../db/index.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const logoutBody = z.object({
   refreshToken: z.string().min(40).max(200)
@@ -13,13 +14,13 @@ export async function sessionManagementRoutes(app: FastifyInstance): Promise<voi
   app.post('/auth/logout', async (request, reply) => {
     const body = logoutBody.parse(request.body);
     const tokenHash = sessionTokenHash(body.refreshToken);
-    const sessionLimit = checkRateLimit({
+    const sessionLimit = await checkSharedRateLimit({
       group: 'auth.logout.session',
       identifiers: [`session:${tokenHash.slice(0, 16)}`],
       limit: 20,
       windowMs: 15 * 60 * 1000
     });
-    const ipLimit = checkRateLimit({
+    const ipLimit = await checkSharedRateLimit({
       group: 'auth.logout.ip',
       identifiers: [`ip:${request.ip}`],
       limit: 600,

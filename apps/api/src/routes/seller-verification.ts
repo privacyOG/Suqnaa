@@ -5,8 +5,9 @@ import { env } from '../config/env.js';
 import { resolveSellerVerificationConfiguration } from '../config/seller-verification-config.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { applySellerVerificationProviderEvent } from '../seller-verification/provider-event-service.js';
 import {
   sellerVerificationProviderEventSchema,
@@ -52,21 +53,21 @@ function providerEventHeaders(request: FastifyRequest): SellerVerificationProvid
   });
 }
 
-function enforceAccountLimit(
+async function enforceAccountLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
   group: string,
   limit: number,
   windowMs: number
-): boolean {
-  const account = checkRateLimit({
+): Promise<boolean> {
+  const account = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit,
     windowMs
   });
-  const ip = checkRateLimit({
+  const ip = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: limit * 4,
@@ -79,8 +80,8 @@ function enforceAccountLimit(
   return false;
 }
 
-function enforceProviderEventLimit(request: FastifyRequest, reply: FastifyReply): boolean {
-  const result = checkRateLimit({
+async function enforceProviderEventLimit(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  const result = await checkSharedRateLimit({
     group: 'seller_verification.provider_event.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 300,
@@ -95,7 +96,7 @@ function enforceProviderEventLimit(request: FastifyRequest, reply: FastifyReply)
 export async function sellerVerificationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/account/seller-verification', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceAccountLimit(request, reply, authRequest.user.sub, 'seller_verification.read', 120, 5 * 60 * 1000)) return;
+    if (!await enforceAccountLimit(request, reply, authRequest.user.sub, 'seller_verification.read', 120, 5 * 60 * 1000)) return;
     const status = await readSellerVerificationStatus(authRequest.user.sub, configuration);
     if (!status) return reply.code(404).send({ error: 'Account not found' });
     return reply.send({ verification: status });
@@ -103,7 +104,7 @@ export async function sellerVerificationRoutes(app: FastifyInstance): Promise<vo
 
   app.post('/account/seller-verification/start', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceAccountLimit(request, reply, authRequest.user.sub, 'seller_verification.start', 8, 60 * 60 * 1000)) return;
+    if (!await enforceAccountLimit(request, reply, authRequest.user.sub, 'seller_verification.start', 8, 60 * 60 * 1000)) return;
     const body = startBody.parse(request.body);
     const protection = await checkHumanProtectionWithChallenge({
       action: 'account.seller_verification_start',
@@ -147,7 +148,7 @@ export async function sellerVerificationRoutes(app: FastifyInstance): Promise<vo
     if (!configuration.enabled) {
       return reply.code(503).send({ error: 'Seller verification event ingestion is unavailable' });
     }
-    if (!enforceProviderEventLimit(request, reply)) return;
+    if (!await enforceProviderEventLimit(request, reply)) return;
 
     const headers = providerEventHeaders(request);
     const event = sellerVerificationProviderEventSchema.parse(request.body);

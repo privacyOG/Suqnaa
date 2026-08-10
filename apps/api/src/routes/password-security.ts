@@ -22,7 +22,8 @@ import {
   checkHumanProtectionWithChallenge,
   humanProtectionResponse
 } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse, type RateLimitResult } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const phoneInput = z.string().trim().min(8).max(64)
   .refine((value) => {
@@ -71,7 +72,7 @@ function accountId(request: AuthenticatedRequest): string {
   return request.user.sub;
 }
 
-function sendLimit(reply: any, result: ReturnType<typeof checkRateLimit>) {
+function sendLimit(reply: any, result: RateLimitResult) {
   reply.header('Retry-After', String(result.retryAfterSeconds));
   return reply.code(429).send(rateLimitResponse(result));
 }
@@ -85,13 +86,13 @@ export async function passwordSecurityRoutes(app: FastifyInstance): Promise<void
       env.PASSWORD_RESET_PEPPER,
       `${channel}:${destination}`
     );
-    const targetLimit = checkRateLimit({
+    const targetLimit = await checkSharedRateLimit({
       group: 'auth.password.forgot.target',
       identifiers: [`target:${fingerprint.slice(0, 24)}`],
       limit: 5,
       windowMs: 15 * 60 * 1000
     });
-    const ipLimit = checkRateLimit({
+    const ipLimit = await checkSharedRateLimit({
       group: 'auth.password.forgot.ip',
       identifiers: [`ip:${request.ip}`],
       limit: 20,
@@ -144,13 +145,13 @@ export async function passwordSecurityRoutes(app: FastifyInstance): Promise<void
       // Invalid token shape is handled by the reset service after rate limiting.
     }
 
-    const tokenLimit = checkRateLimit({
+    const tokenLimit = await checkSharedRateLimit({
       group: 'auth.password.reset.token',
       identifiers: [`token:${tokenIdentifier}`],
       limit: 10,
       windowMs: 15 * 60 * 1000
     });
-    const ipLimit = checkRateLimit({
+    const ipLimit = await checkSharedRateLimit({
       group: 'auth.password.reset.ip',
       identifiers: [`ip:${request.ip}`],
       limit: 40,
@@ -181,7 +182,7 @@ export async function passwordSecurityRoutes(app: FastifyInstance): Promise<void
   app.post('/account/security/password', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const body = changeBody.parse(request.body);
-    const limit = checkRateLimit({
+    const limit = await checkSharedRateLimit({
       group: 'account.security.password',
       identifiers: [`account:${accountId(authRequest)}`, `ip:${request.ip}`],
       limit: 10,
@@ -223,7 +224,7 @@ export async function passwordSecurityRoutes(app: FastifyInstance): Promise<void
   app.post('/account/security/sessions/:sessionId/revoke', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const params = sessionParams.parse(request.params);
-    const limit = checkRateLimit({
+    const limit = await checkSharedRateLimit({
       group: 'account.security.session_revoke',
       identifiers: [`account:${accountId(authRequest)}`, `ip:${request.ip}`],
       limit: 30,
@@ -244,7 +245,7 @@ export async function passwordSecurityRoutes(app: FastifyInstance): Promise<void
 
   app.post('/account/security/sessions/revoke-all', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    const limit = checkRateLimit({
+    const limit = await checkSharedRateLimit({
       group: 'account.security.sessions_revoke_all',
       identifiers: [`account:${accountId(authRequest)}`, `ip:${request.ip}`],
       limit: 5,

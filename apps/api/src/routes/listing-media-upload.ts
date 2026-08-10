@@ -14,8 +14,9 @@ import {
 import { getListingMediaStorage } from '../media/listing-media-storage.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
@@ -34,14 +35,14 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function limitedListingMediaUpload(request: FastifyRequest, accountId: string) {
-  const accountLimit = checkRateLimit({
+async function limitedListingMediaUpload(request: FastifyRequest, accountId: string) {
+  const accountLimit = await checkSharedRateLimit({
     group: 'listing.media_binary.account',
     identifiers: [`account:${accountId}`],
     limit: 80,
     windowMs: 60 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: 'listing.media_binary.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 160,
@@ -98,7 +99,7 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
       const authRequest = request as AuthenticatedRequest;
       const params = listingParams.parse(request.params);
       const query = uploadQuery.parse(request.query);
-      const limited = limitedListingMediaUpload(request, authRequest.user.sub);
+      const limited = await limitedListingMediaUpload(request, authRequest.user.sub);
 
       if (limited) {
         reply.header('Retry-After', String(limited.retryAfterSeconds));

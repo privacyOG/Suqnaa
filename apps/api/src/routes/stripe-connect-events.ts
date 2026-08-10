@@ -2,8 +2,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { paymentCollectionConfigurationFromEnvironment } from '../config/payment-collection-config.js';
 import { sellerSettlementConfigurationFromEnvironment } from '../config/seller-settlement-config.js';
 import { verifyAndParseStripeConnectWebhook } from '../payments/stripe-connect-webhook.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { applyStripeConnectEvent, SellerSettlementError } from '../settlements/seller-settlement-service.js';
 
 const paymentConfiguration = paymentCollectionConfigurationFromEnvironment();
@@ -13,8 +14,8 @@ function firstHeader(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
 }
 
-function enforceLimit(request: FastifyRequest, reply: FastifyReply): boolean {
-  const result = checkRateLimit({
+async function enforceLimit(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  const result = await checkSharedRateLimit({
     group: 'payment.stripe_connect_webhook.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 600,
@@ -34,7 +35,7 @@ export async function stripeConnectEventRoutes(app: FastifyInstance): Promise<vo
     if (!settlementConfiguration.enabled || !paymentConfiguration.enabled || paymentConfiguration.provider !== 'stripe') {
       return reply.code(503).send({ error: 'Seller settlement webhook is unavailable' });
     }
-    if (!enforceLimit(request, reply)) return;
+    if (!await enforceLimit(request, reply)) return;
     if (!Buffer.isBuffer(request.body)) return reply.code(400).send({ error: 'Settlement webhook body is invalid' });
 
     let event;

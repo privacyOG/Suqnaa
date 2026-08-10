@@ -8,8 +8,9 @@ import {
   checkHumanProtectionWithChallenge,
   humanProtectionResponse
 } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
@@ -30,18 +31,18 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function enforceCancellationLimit(
+async function enforceCancellationLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string
-): boolean {
-  const accountLimit = checkRateLimit({
+): Promise<boolean> {
+  const accountLimit = await checkSharedRateLimit({
     group: 'market.orders.cancel.account',
     identifiers: [`account:${accountId}`],
     limit: 20,
     windowMs: 60 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: 'market.orders.cancel.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 80,
@@ -71,7 +72,7 @@ export async function orderCancellationRoutes(app: FastifyInstance): Promise<voi
       const buyerId = authRequest.user.sub;
       const params = orderParams.parse(request.params);
 
-      if (!enforceCancellationLimit(request, reply, buyerId)) {
+      if (!await enforceCancellationLimit(request, reply, buyerId)) {
         return;
       }
 

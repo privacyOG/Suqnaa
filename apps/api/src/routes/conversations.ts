@@ -4,8 +4,9 @@ import { z } from 'zod';
 import { requireUser, type AuthenticatedRequest } from '../auth/require-user.js';
 import { db } from '../db/index.js';
 import { publicMessagePolicy } from '../messaging/message-safety-policy.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const conversationListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -21,21 +22,21 @@ const messageListQuery = z.object({
   before: z.string().datetime().optional()
 });
 
-function enforceReadLimit(
+async function enforceReadLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
   group: string,
   accountLimit: number,
   ipLimit: number
-): boolean {
-  const perAccount = checkRateLimit({
+): Promise<boolean> {
+  const perAccount = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit: accountLimit,
     windowMs: 5 * 60 * 1000
   });
-  const perIp = checkRateLimit({
+  const perIp = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: ipLimit,
@@ -113,7 +114,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
     const userId = authRequest.user.sub;
     const query = conversationListQuery.parse(request.query);
 
-    if (!enforceReadLimit(request, reply, userId, 'conversations.list', 120, 300)) {
+    if (!await enforceReadLimit(request, reply, userId, 'conversations.list', 120, 300)) {
       return;
     }
 
@@ -214,7 +215,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
     const params = conversationParams.parse(request.params);
     const query = messageListQuery.parse(request.query);
 
-    if (!enforceReadLimit(request, reply, userId, 'conversations.messages', 300, 600)) {
+    if (!await enforceReadLimit(request, reply, userId, 'conversations.messages', 300, 600)) {
       return;
     }
 
@@ -304,7 +305,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
     const userId = authRequest.user.sub;
     const params = conversationParams.parse(request.params);
 
-    if (!enforceReadLimit(request, reply, userId, 'conversations.mark_read', 120, 300)) {
+    if (!await enforceReadLimit(request, reply, userId, 'conversations.mark_read', 120, 300)) {
       return;
     }
 

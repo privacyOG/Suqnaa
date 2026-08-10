@@ -5,7 +5,8 @@ import {
   coarseDistanceKm,
   listingLocationPoint
 } from '../listings/listing-location.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import {
   decodeListingSearchCursor,
   encodeListingSearchCursor,
@@ -14,11 +15,11 @@ import {
 
 const likeEscapeCharacter = '\\';
 
-function enforcePublicSearchLimit(
+async function enforcePublicSearchLimit(
   request: FastifyRequest,
   reply: FastifyReply
-): boolean {
-  const result = checkRateLimit({
+): Promise<boolean> {
+  const result = await checkSharedRateLimit({
     group: 'listing.public_search',
     identifiers: [`ip:${request.ip}`],
     limit: 240,
@@ -92,7 +93,7 @@ function containsPattern(value: string): string {
 
 export async function listingSearchRoutes(app: FastifyInstance): Promise<void> {
   app.get('/listings/search', async (request, reply) => {
-    if (!enforcePublicSearchLimit(request, reply)) {
+    if (!await enforcePublicSearchLimit(request, reply)) {
       return;
     }
 

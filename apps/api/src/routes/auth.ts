@@ -12,7 +12,8 @@ import {
   humanProtectionResponse
 } from '../security/human-protection.js';
 import { hashPassword, verifyPassword } from '../security/password.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 const blockedUserStates = new Set(['suspended', 'closed']);
@@ -105,7 +106,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       ...(body.email ? [`email:${body.email}`] : []),
       ...(body.phone ? [`phone:${body.phone}`] : [])
     ];
-    const limit = checkRateLimit({
+    const limit = await checkSharedRateLimit({
       group: 'auth.register',
       identifiers: [`ip:${request.ip}`, ...contactIdentifiers],
       limit: 5,
@@ -161,7 +162,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/login', async (request, reply) => {
     const body = loginBody.parse(request.body);
     const accountIdentifier = body.email ? `email:${body.email}` : `phone:${body.phone}`;
-    const limit = checkRateLimit({
+    const limit = await checkSharedRateLimit({
       group: 'auth.login',
       identifiers: [`ip:${request.ip}`, accountIdentifier],
       limit: 10,
@@ -220,13 +221,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/refresh', async (request, reply) => {
     const body = refreshBody.parse(request.body);
     const storedHash = sessionTokenHash(body.refreshToken);
-    const sessionLimit = checkRateLimit({
+    const sessionLimit = await checkSharedRateLimit({
       group: 'auth.refresh.session',
       identifiers: [`session:${storedHash.slice(0, 16)}`],
       limit: 30,
       windowMs: 15 * 60 * 1000
     });
-    const ipLimit = checkRateLimit({
+    const ipLimit = await checkSharedRateLimit({
       group: 'auth.refresh.ip',
       identifiers: [`ip:${request.ip}`],
       limit: 600,

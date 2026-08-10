@@ -18,8 +18,9 @@ import {
   checkHumanProtectionWithChallenge,
   humanProtectionResponse
 } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 const paymentMethod = z.enum(checkoutPaymentMethods);
@@ -35,18 +36,18 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function enforceCheckoutLimit(
+async function enforceCheckoutLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string
-): boolean {
-  const accountLimit = checkRateLimit({
+): Promise<boolean> {
+  const accountLimit = await checkSharedRateLimit({
     group: 'payment.checkout_prepare.account',
     identifiers: [`account:${accountId}`],
     limit: 60,
     windowMs: 15 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: 'payment.checkout_prepare.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 180,
@@ -73,7 +74,7 @@ export async function paymentRoutes(app: FastifyInstance): Promise<void> {
       const buyerId = authRequest.user.sub;
       const body = checkoutBody.parse(request.body);
 
-      if (!enforceCheckoutLimit(request, reply, buyerId)) return;
+      if (!await enforceCheckoutLimit(request, reply, buyerId)) return;
 
       const order = await db.selectFrom('transactions')
         .select([

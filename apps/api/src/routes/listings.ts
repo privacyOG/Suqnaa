@@ -5,7 +5,8 @@ import { db } from '../db/index.js';
 import { getListingMediaStorage } from '../media/listing-media-storage.js';
 import { NoopChallengeVerifier } from '../security/challenge-verifier.js';
 import { checkHumanProtectionWithChallenge, humanProtectionResponse } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
@@ -71,14 +72,14 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function limitedListingAction(request: FastifyRequest, accountId: string) {
-  const accountLimit = checkRateLimit({
+async function limitedListingAction(request: FastifyRequest, accountId: string) {
+  const accountLimit = await checkSharedRateLimit({
     group: 'listing.status.account',
     identifiers: [`account:${accountId}`],
     limit: 40,
     windowMs: 60 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: 'listing.status.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 120,
@@ -88,13 +89,13 @@ function limitedListingAction(request: FastifyRequest, accountId: string) {
   return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
 }
 
-function enforcePublicListingLimit(
+async function enforcePublicListingLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   group: string,
   limit: number
-): boolean {
-  const result = checkRateLimit({
+): Promise<boolean> {
+  const result = await checkSharedRateLimit({
     group,
     identifiers: [`ip:${request.ip}`],
     limit,
@@ -189,13 +190,13 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
   app.get('/listings/mine', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
     const query = myListingsQuery.parse(request.query);
-    const accountLimit = checkRateLimit({
+    const accountLimit = await checkSharedRateLimit({
       group: 'listing.mine.account',
       identifiers: [`account:${authRequest.user.sub}`],
       limit: 120,
       windowMs: 5 * 60 * 1000
     });
-    const ipLimit = checkRateLimit({
+    const ipLimit = await checkSharedRateLimit({
       group: 'listing.mine.ip',
       identifiers: [`ip:${request.ip}`],
       limit: 300,
@@ -289,7 +290,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const params = listingParams.parse(request.params);
     const body = listingStatusBody.parse(request.body);
-    const limited = limitedListingAction(request, authRequest.user.sub);
+    const limited = await limitedListingAction(request, authRequest.user.sub);
 
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
@@ -382,7 +383,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/listings', async (request, reply) => {
-    if (!enforcePublicListingLimit(request, reply, 'listing.public_list', 300)) {
+    if (!await enforcePublicListingLimit(request, reply, 'listing.public_list', 300)) {
       return;
     }
 
@@ -445,7 +446,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/listings/:listingId', async (request, reply) => {
-    if (!enforcePublicListingLimit(request, reply, 'listing.public_detail', 300)) {
+    if (!await enforcePublicListingLimit(request, reply, 'listing.public_detail', 300)) {
       return;
     }
 
@@ -566,7 +567,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/listings/:listingId/media/:mediaId', async (request, reply) => {
-    if (!enforcePublicListingLimit(request, reply, 'listing.public_media', 600)) {
+    if (!await enforcePublicListingLimit(request, reply, 'listing.public_media', 600)) {
       return;
     }
 
@@ -617,13 +618,13 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const body = createListingBody.parse(request.body);
 
-    const accountLimit = checkRateLimit({
+    const accountLimit = await checkSharedRateLimit({
       group: 'listing.create.account',
       identifiers: [`account:${authRequest.user.sub}`],
       limit: 20,
       windowMs: 60 * 60 * 1000
     });
-    const ipLimit = checkRateLimit({
+    const ipLimit = await checkSharedRateLimit({
       group: 'listing.create.ip',
       identifiers: [`ip:${request.ip}`],
       limit: 60,

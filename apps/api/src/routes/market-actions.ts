@@ -8,7 +8,8 @@ import {
   checkHumanProtectionWithChallenge,
   humanProtectionResponse
 } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
@@ -59,7 +60,7 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function enforceActionLimit(
+async function enforceActionLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
@@ -67,14 +68,14 @@ function enforceActionLimit(
   accountLimit: number,
   ipLimit: number,
   windowMs: number
-): boolean {
-  const perAccount = checkRateLimit({
+): Promise<boolean> {
+  const perAccount = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit: accountLimit,
     windowMs
   });
-  const perIp = checkRateLimit({
+  const perIp = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: ipLimit,
@@ -172,7 +173,7 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const body = timedSaleBody.parse(request.body);
 
-    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.timed_sale', 10, 30, 24 * 60 * 60 * 1000)) {
+    if (!await enforceActionLimit(request, reply, authRequest.user.sub, 'market.timed_sale', 10, 30, 24 * 60 * 60 * 1000)) {
       return;
     }
     if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'timed_sale.create')) {
@@ -209,11 +210,11 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
       return reply.send(offerResponse(idempotentOffer, true));
     }
 
-    if (!enforceActionLimit(request, reply, buyerId, 'market.offers', 60, 180, 15 * 60 * 1000)) {
+    if (!await enforceActionLimit(request, reply, buyerId, 'market.offers', 60, 180, 15 * 60 * 1000)) {
       return;
     }
 
-    const pairLimit = checkRateLimit({
+    const pairLimit = await checkSharedRateLimit({
       group: 'market.offers.listing_buyer',
       identifiers: [`listing:${body.listingId}:buyer:${buyerId}`],
       limit: 10,
@@ -369,7 +370,7 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
       return reply.send(orderResponse(idempotentOrder, true));
     }
 
-    if (!enforceActionLimit(request, reply, buyerId, 'market.orders', 30, 100, 60 * 60 * 1000)) {
+    if (!await enforceActionLimit(request, reply, buyerId, 'market.orders', 30, 100, 60 * 60 * 1000)) {
       return;
     }
 
@@ -502,7 +503,7 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const body = reviewBody.parse(request.body);
 
-    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.reviews', 10, 30, 24 * 60 * 60 * 1000)) {
+    if (!await enforceActionLimit(request, reply, authRequest.user.sub, 'market.reviews', 10, 30, 24 * 60 * 60 * 1000)) {
       return;
     }
     if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'review.create')) {
@@ -516,7 +517,7 @@ export async function marketActionRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const body = identityBody.parse(request.body);
 
-    if (!enforceActionLimit(request, reply, authRequest.user.sub, 'market.identity', 5, 20, 24 * 60 * 60 * 1000)) {
+    if (!await enforceActionLimit(request, reply, authRequest.user.sub, 'market.identity', 5, 20, 24 * 60 * 60 * 1000)) {
       return;
     }
     if (!enforceHumanProtection(request, reply, authRequest.user.sub, 'profile.check')) {

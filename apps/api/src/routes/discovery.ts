@@ -22,7 +22,8 @@ import {
   updateSavedSearch,
   watchListing
 } from '../discovery/discovery-service.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const listingParams = z.object({ listingId: z.string().uuid() });
 const searchParams = z.object({ searchId: z.string().uuid() });
@@ -47,19 +48,19 @@ const savedSearchUpdateBody = z.object({
   { message: 'At least one saved search field is required' }
 );
 
-function enforceDiscoveryLimit(
+async function enforceDiscoveryLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
   mutation: boolean
-): boolean {
-  const accountLimit = checkRateLimit({
+): Promise<boolean> {
+  const accountLimit = await checkSharedRateLimit({
     group: mutation ? 'discovery.mutation.account' : 'discovery.read.account',
     identifiers: [`account:${accountId}`],
     limit: mutation ? 240 : 600,
     windowMs: 5 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: mutation ? 'discovery.mutation.ip' : 'discovery.read.ip',
     identifiers: [`ip:${request.ip}`],
     limit: mutation ? 600 : 1200,
@@ -86,7 +87,7 @@ function discoveryFailure(reply: FastifyReply, error: unknown) {
 export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
   app.get('/discovery/listings/:listingId/state', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
     const params = listingParams.parse(request.params);
     try {
       return reply.send({ state: await getListingDiscoveryState(authRequest.user.sub, params.listingId) });
@@ -97,14 +98,14 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/discovery/saved-listings', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
     const query = pageQuery.parse(request.query);
     return reply.send({ items: await listSavedListings(authRequest.user.sub, query.limit) });
   });
 
   app.post('/discovery/saved-listings/:listingId/save', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = listingParams.parse(request.params);
     try {
       return reply.send({ saved: await saveListing(authRequest.user.sub, params.listingId) });
@@ -115,21 +116,21 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/discovery/saved-listings/:listingId/remove', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = listingParams.parse(request.params);
     return reply.send({ saved: await removeSavedListing(authRequest.user.sub, params.listingId) });
   });
 
   app.get('/discovery/watchlist', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
     const query = pageQuery.parse(request.query);
     return reply.send({ items: await listWatchlist(authRequest.user.sub, query.limit) });
   });
 
   app.post('/discovery/watchlist/:listingId/watch', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = listingParams.parse(request.params);
     try {
       return reply.send({ watched: await watchListing(authRequest.user.sub, params.listingId) });
@@ -140,21 +141,21 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/discovery/watchlist/:listingId/remove', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = listingParams.parse(request.params);
     return reply.send({ watched: await removeWatchedListing(authRequest.user.sub, params.listingId) });
   });
 
   app.get('/discovery/recently-viewed', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
     const query = pageQuery.parse(request.query);
     return reply.send({ items: await listRecentlyViewed(authRequest.user.sub, query.limit) });
   });
 
   app.post('/discovery/recently-viewed/:listingId/view', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = listingParams.parse(request.params);
     try {
       return reply.send({ recent: await recordRecentlyViewed(authRequest.user.sub, params.listingId) });
@@ -165,13 +166,13 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/discovery/saved-searches', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
     return reply.send({ searches: await listSavedSearches(authRequest.user.sub) });
   });
 
   app.post('/discovery/saved-searches', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const body = savedSearchBody.parse(request.body);
     try {
       return reply.code(201).send({
@@ -184,7 +185,7 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/discovery/saved-searches/:searchId/update', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = searchParams.parse(request.params);
     const body = savedSearchUpdateBody.parse(request.body);
     try {
@@ -198,7 +199,7 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/discovery/saved-searches/:searchId/delete', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = searchParams.parse(request.params);
     try {
       return reply.send({ deleted: await deleteSavedSearch(authRequest.user.sub, params.searchId) });
@@ -209,7 +210,7 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/discovery/notifications', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, false)) return;
     const query = notificationQuery.parse(request.query);
     return reply.send({
       notifications: await listSavedSearchNotifications(authRequest.user.sub, query)
@@ -218,7 +219,7 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/discovery/notifications/:notificationId/read', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     const params = notificationParams.parse(request.params);
     try {
       return reply.send({
@@ -234,7 +235,7 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/discovery/notifications/read-all', { preHandler: requireUser }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest;
-    if (!enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
+    if (!await enforceDiscoveryLimit(request, reply, authRequest.user.sub, true)) return;
     return reply.send({
       result: await markAllSavedSearchNotificationsRead(authRequest.user.sub)
     });
