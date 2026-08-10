@@ -32,9 +32,11 @@ for (const secret of [
 }
 assert.match(workflow, /RUNNER_TEMP\/suqnaa-release\.jks/);
 assert.match(workflow, /base64 --decode/);
+assert.match(workflow, /keytool -list[\s\S]*?-keystore "\$keystore_path"[\s\S]*?-alias "\$SUQNAA_ANDROID_KEY_ALIAS"/);
 assert.match(workflow, /flutter build appbundle --release/);
 assert.match(workflow, /sha256sum build\/app\/outputs\/bundle\/release\/app-release\.aab/);
 assert.match(workflow, /actions\/upload-artifact@v4/);
+assert.match(workflow, /retention-days: 14/);
 assert.match(workflow, /Remove temporary Android signing material[\s\S]*?if: always\(\)[\s\S]*?rm -f "\$RUNNER_TEMP\/suqnaa-release\.jks"/);
 
 for (const envName of [
@@ -58,10 +60,20 @@ for (const secret of [
 ]) {
   assert.match(workflow, new RegExp(`secrets\\.${secret}`));
 }
+assert.match(workflow, /SUQNAA_IOS_TEAM_ID.*10-character Apple team identifier/);
 assert.match(workflow, /RUNNER_TEMP\/suqnaa-build\.keychain-db/);
 assert.match(workflow, /security import .* -T \/usr\/bin\/codesign/);
 assert.match(workflow, /security set-key-partition-list/);
+assert.match(workflow, /security list-keychains -d user -s "\$keychain_path" "\$\{existing_keychains\[@\]\}"/);
+assert.doesNotMatch(workflow, /security default-keychain -d user -s "\$keychain_path"/);
+assert.match(workflow, /security find-identity -v -p codesigning "\$keychain_path" \| grep -F 'Apple Distribution'/);
 assert.match(workflow, /Provisioning profile team does not match SUQNAA_IOS_TEAM_ID/);
+assert.match(workflow, /profile_app_identifier.*Entitlements:application-identifier/);
+assert.match(workflow, /profile_app_identifier" == "\$SUQNAA_IOS_TEAM_ID\.co\.privacyx\.suqnaa/);
+assert.match(workflow, /ProvisionedDevices/);
+assert.match(workflow, /not an App Store profile/);
+assert.match(workflow, /ProvisionsAllDevices/);
+assert.match(workflow, /Enterprise provisioning profiles are not accepted/);
 assert.match(workflow, /cat > ios\/Flutter\/Signing\.xcconfig/);
 assert.match(workflow, /DEVELOPMENT_TEAM=\$SUQNAA_IOS_TEAM_ID/);
 assert.match(workflow, /CODE_SIGN_IDENTITY=Apple Distribution/);
@@ -70,6 +82,7 @@ assert.match(workflow, /flutter build ipa --release --export-method app-store/);
 assert.match(workflow, /apps\/mobile\/build\/ios\/archive\/Runner\.xcarchive/);
 assert.match(workflow, /apps\/mobile\/build\/ios\/ipa\/\*\.ipa/);
 assert.match(workflow, /Remove temporary iOS signing material[\s\S]*?if: always\(\)[\s\S]*?rm -f ios\/Flutter\/Signing\.xcconfig/);
+assert.match(workflow, /remaining_keychains/);
 assert.match(workflow, /security delete-keychain/);
 
 assert.match(iosRelease, /#include\? "Signing\.xcconfig"/);
