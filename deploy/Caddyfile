@@ -3,18 +3,27 @@
   email {$SUQNAA_ACME_EMAIL}
 }
 
-{$SUQNAA_WEB_DOMAIN} {
-  encode zstd gzip
+(security_headers) {
   header {
     -Server
+    Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    X-Frame-Options "DENY"
+    Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
   }
+}
+
+{$SUQNAA_WEB_DOMAIN} {
+  encode zstd gzip
+  import security_headers
+  header Content-Security-Policy "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"
   reverse_proxy {$SUQNAA_WEB_UPSTREAM}
 }
 
 {$SUQNAA_API_DOMAIN} {
   encode zstd gzip
-  header {
-    -Server
-  }
+  import security_headers
+  header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
   reverse_proxy {$SUQNAA_API_UPSTREAM}
 }
