@@ -12,8 +12,9 @@ import {
   checkHumanProtectionWithChallenge,
   humanProtectionResponse
 } from '../security/human-protection.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 
 const challengeVerifier = new NoopChallengeVerifier();
 
@@ -30,14 +31,14 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function limitedListingMediaDelete(request: FastifyRequest, accountId: string) {
-  const accountLimit = checkRateLimit({
+async function limitedListingMediaDelete(request: FastifyRequest, accountId: string) {
+  const accountLimit = await checkSharedRateLimit({
     group: 'listing.media_delete.account',
     identifiers: [`account:${accountId}`],
     limit: 80,
     windowMs: 60 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: 'listing.media_delete.ip',
     identifiers: [`ip:${request.ip}`],
     limit: 160,
@@ -47,21 +48,21 @@ function limitedListingMediaDelete(request: FastifyRequest, accountId: string) {
   return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
 }
 
-function enforceOwnerMediaReadLimit(
+async function enforceOwnerMediaReadLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   accountId: string,
   group: string,
   accountLimitValue: number,
   ipLimitValue: number
-): boolean {
-  const accountLimit = checkRateLimit({
+): Promise<boolean> {
+  const accountLimit = await checkSharedRateLimit({
     group: `${group}.account`,
     identifiers: [`account:${accountId}`],
     limit: accountLimitValue,
     windowMs: 5 * 60 * 1000
   });
-  const ipLimit = checkRateLimit({
+  const ipLimit = await checkSharedRateLimit({
     group: `${group}.ip`,
     identifiers: [`ip:${request.ip}`],
     limit: ipLimitValue,
@@ -119,7 +120,7 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
       const authRequest = request as AuthenticatedRequest;
       const params = listingParams.parse(request.params);
 
-      if (!enforceOwnerMediaReadLimit(
+      if (!await enforceOwnerMediaReadLimit(
         request,
         reply,
         authRequest.user.sub,
@@ -176,7 +177,7 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
       const authRequest = request as AuthenticatedRequest;
       const params = listingMediaParams.parse(request.params);
 
-      if (!enforceOwnerMediaReadLimit(
+      if (!await enforceOwnerMediaReadLimit(
         request,
         reply,
         authRequest.user.sub,
@@ -233,7 +234,7 @@ export async function listingMediaRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const authRequest = request as AuthenticatedRequest;
       const params = listingMediaParams.parse(request.params);
-      const limited = limitedListingMediaDelete(request, authRequest.user.sub);
+      const limited = await limitedListingMediaDelete(request, authRequest.user.sub);
 
       if (limited) {
         reply.header('Retry-After', String(limited.retryAfterSeconds));
