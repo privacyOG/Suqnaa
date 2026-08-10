@@ -1,0 +1,6 @@
+{
+  "images" : [
+    { "filename" : "launch-brand.svg", "idiom" : "universal" }
+  ],
+  "info" : { "author" : "privacyOG", "version" : 1 }
+}
