@@ -18,7 +18,6 @@ const iosDebug = read('apps/mobile/ios/Flutter/Debug.xcconfig');
 const iosProject = read('apps/mobile/ios/Runner.xcodeproj/project.pbxproj');
 const iosWorkspace = read('apps/mobile/ios/Runner.xcworkspace/contents.xcworkspacedata');
 const iosScheme = read('apps/mobile/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme');
-const iosPodfile = read('apps/mobile/ios/Podfile');
 const iosAppDelegate = read('apps/mobile/ios/Runner/AppDelegate.swift');
 const iosIconCatalog = read('apps/mobile/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json');
 const mobileIgnore = read('apps/mobile/.gitignore');
@@ -84,14 +83,15 @@ assert.match(iosProject, /baseConfigurationReference = B20000000000000000000003 
 assert.match(iosProject, /CODE_SIGN_STYLE = Manual/);
 assert.match(iosProject, /xcode_backend\.sh\\" build/);
 assert.match(iosWorkspace, /Runner\.xcodeproj/);
-assert.match(iosWorkspace, /Pods\/Pods\.xcodeproj/);
+assert.doesNotMatch(iosWorkspace, /Pods\/Pods\.xcodeproj/);
+assert.ok(!exists('apps/mobile/ios/Podfile'), 'iOS must use Swift Package Manager without a CocoaPods Podfile');
 assert.match(iosScheme, /buildConfiguration="Profile"/);
 assert.match(iosScheme, /buildConfiguration="Release"/);
 assert.match(iosScheme, /<PreActions>[\s\S]*?Run Prepare Flutter Framework Script[\s\S]*?\/bin\/sh[\s\S]*?xcode_backend\.sh&quot; prepare/);
 assert.match(iosScheme, /<EnvironmentBuildable>[\s\S]*?<BuildableReference[\s\S]*?BlueprintIdentifier="97C146ED1CF9000F007C117D"/);
 assert.match(iosScheme, /<MacroExpansion>[\s\S]*?<BuildableReference[\s\S]*?BlueprintIdentifier="97C146ED1CF9000F007C117D"/);
-assert.match(iosPodfile, /platform :ios, '15\.0'/);
-assert.match(iosPodfile, /flutter_install_all_ios_pods/);
+assert.match(iosScheme, /<TestAction[^>]*customLLDBInitFile="\$\(SRCROOT\)\/Flutter\/ephemeral\/flutter_lldbinit"/);
+assert.match(iosScheme, /<LaunchAction[^>]*customLLDBInitFile="\$\(SRCROOT\)\/Flutter\/ephemeral\/flutter_lldbinit"/);
 assert.match(iosAppDelegate, /GeneratedPluginRegistrant\.register/);
 assert.match(iosIconCatalog, /AppIcon-1024\.svg/);
 
@@ -121,8 +121,7 @@ for (const source of [
   iosRelease,
   iosProfile,
   iosDebug,
-  iosProject,
-  iosPodfile
+  iosProject
 ]) {
   assert.doesNotMatch(source, /BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY/);
 }
