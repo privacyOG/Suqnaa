@@ -185,12 +185,8 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
         throw error;
       }
 
-      let sanitized;
       try {
-        sanitized = sanitizeListingImage(buffer, detectedMimeType, {
-          ...inspection,
-          orientation: null
-        });
+        sanitizeListingImage(buffer, detectedMimeType, { ...inspection, orientation: null });
       } catch (error) {
         if (error instanceof ListingImageSanitizerError) {
           return reply.code(400).send({ error: error.message, code: error.code });
@@ -201,9 +197,7 @@ export async function listingMediaUploadRoutes(app: FastifyInstance): Promise<vo
       let review;
       try {
         review = validateMediaReviewResult(
-          await getListingMediaReviewer().review(
-            mediaReviewInput(sanitized.buffer, detectedMimeType)
-          )
+          await getListingMediaReviewer().review(mediaReviewInput(buffer, detectedMimeType))
         );
       } catch (error) {
         request.log.warn({ error }, 'listing media review unavailable');
