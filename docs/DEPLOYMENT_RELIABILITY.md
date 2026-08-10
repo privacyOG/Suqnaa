@@ -25,6 +25,8 @@ Every production release must use immutable image identifiers, preferably regist
 5. verify API readiness and the web HTTP surface from inside their containers;
 6. emit a bounded `deployment_healthy` completion record.
 
+Invoke tracked deployment scripts through Bash so repository file-mode differences cannot alter the operator procedure.
+
 Do not direct traffic to an instance whose readiness probe is failing. A failed health wait is a failed release even if the new containers are still running.
 
 ## Zero/low-downtime migration policy
@@ -55,7 +57,7 @@ PREVIOUS_WORKER_IMAGE=registry.example/suqnaa-worker@sha256:... \
 PREVIOUS_MIGRATE_IMAGE=registry.example/suqnaa-migrate@sha256:... \
 SUQNAA_ENV_FILE=../.env.production \
 SUQNAA_APPLICATION_NETWORK=suqnaa-production-application \
-./deploy/rollback.sh
+bash deploy/rollback.sh
 ```
 
 Rollback deliberately sets `SUQNAA_RUN_MIGRATIONS=false`. Do not attempt to reverse an already-applied database migration during the normal application rollback path. The expand/contract policy exists so the previous application can run safely on the current expanded schema.
