@@ -163,6 +163,7 @@ jobs:
         run: |
           set -Eeuo pipefail
 
+          rm -f secrets/backup_age_identity secrets/backup_age_recipient
           docker run --rm --user "$(id -u):$(id -g)" \
             -v "$PWD/secrets:/secrets" \
             --entrypoint age-keygen \
