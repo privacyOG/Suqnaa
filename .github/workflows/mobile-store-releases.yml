@@ -85,13 +85,17 @@ jobs:
       - name: Resolve Flutter dependencies
         working-directory: apps/mobile
         run: flutter pub get
-      - name: Materialize temporary Android keystore
+      - name: Materialize and verify temporary Android keystore
         shell: bash
         run: |
           set -Eeuo pipefail
           keystore_path="$RUNNER_TEMP/suqnaa-release.jks"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
           chmod 600 "$keystore_path"
+          keytool -list \
+            -keystore "$keystore_path" \
+            -storepass "$SUQNAA_ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$SUQNAA_ANDROID_KEY_ALIAS" >/dev/null
           echo "SUQNAA_ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
       - name: Build signed production App Bundle
         working-directory: apps/mobile
@@ -142,13 +146,14 @@ jobs:
           set -Eeuo pipefail
           [[ "$RELEASE_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]] || { echo 'version_name must be a semantic version such as 1.0.0'; exit 1; }
           [[ "$RELEASE_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo 'build_number must be a positive integer'; exit 1; }
+          [[ "$SUQNAA_IOS_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo 'SUQNAA_IOS_TEAM_ID must be a 10-character Apple team identifier'; exit 1; }
           for name in IOS_CERTIFICATE_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROFILE_BASE64 SUQNAA_IOS_TEAM_ID; do
             [[ -n "${!name:-}" ]] || { echo "Required iOS release secret is missing: $name"; exit 1; }
           done
       - name: Resolve Flutter dependencies
         working-directory: apps/mobile
         run: flutter pub get
-      - name: Materialize temporary iOS signing identity
+      - name: Materialize and verify temporary iOS signing identity
         id: ios-signing
         shell: bash
         working-directory: apps/mobile
@@ -168,15 +173,31 @@ jobs:
           profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$profile_plist")"
           profile_name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$profile_plist")"
           profile_team="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$profile_plist")"
+          profile_app_identifier="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$profile_plist")"
           [[ "$profile_team" == "$SUQNAA_IOS_TEAM_ID" ]] || { echo 'Provisioning profile team does not match SUQNAA_IOS_TEAM_ID'; exit 1; }
+          [[ "$profile_app_identifier" == "$SUQNAA_IOS_TEAM_ID.co.privacyx.suqnaa" ]] || { echo 'Provisioning profile does not target co.privacyx.suqnaa'; exit 1; }
+          if /usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' "$profile_plist" >/dev/null 2>&1; then
+            echo 'Provisioning profile contains device registrations and is not an App Store profile'
+            exit 1
+          fi
+          if /usr/libexec/PlistBuddy -c 'Print :ProvisionsAllDevices' "$profile_plist" >/dev/null 2>&1; then
+            echo 'Enterprise provisioning profiles are not accepted for App Store releases'
+            exit 1
+          fi
 
           security create-keychain -p "$keychain_password" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$keychain_password" "$keychain_path"
           security import "$cert_path" -k "$keychain_path" -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
-          security list-keychains -d user -s "$keychain_path"
-          security default-keychain -d user -s "$keychain_path"
+
+          existing_keychains=()
+          while IFS= read -r existing_keychain; do
+            existing_keychain="${existing_keychain//\"/}"
+            [[ -n "$existing_keychain" ]] && existing_keychains+=("$existing_keychain")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "$keychain_path" "${existing_keychains[@]}"
+          security find-identity -v -p codesigning "$keychain_path" | grep -F 'Apple Distribution' >/dev/null || { echo 'Imported certificate does not expose an Apple Distribution signing identity'; exit 1; }
 
           profile_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$profile_dir"
@@ -222,7 +243,16 @@ jobs:
         run: |
           rm -f ios/Flutter/Signing.xcconfig
           rm -f "${{ steps.ios-signing.outputs.profile_path }}"
-          if [[ -n "${{ steps.ios-signing.outputs.keychain_path }}" ]]; then
-            security delete-keychain "${{ steps.ios-signing.outputs.keychain_path }}" || true
+          keychain_path="${{ steps.ios-signing.outputs.keychain_path }}"
+          if [[ -n "$keychain_path" ]]; then
+            remaining_keychains=()
+            while IFS= read -r existing_keychain; do
+              existing_keychain="${existing_keychain//\"/}"
+              [[ -n "$existing_keychain" && "$existing_keychain" != "$keychain_path" ]] && remaining_keychains+=("$existing_keychain")
+            done < <(security list-keychains -d user)
+            if (( ${#remaining_keychains[@]} > 0 )); then
+              security list-keychains -d user -s "${remaining_keychains[@]}" || true
+            fi
+            security delete-keychain "$keychain_path" || true
           fi
           rm -f "$RUNNER_TEMP/suqnaa-distribution.p12" "$RUNNER_TEMP/suqnaa-appstore.mobileprovision" "$RUNNER_TEMP/suqnaa-profile.plist"
