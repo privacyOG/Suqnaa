@@ -10,7 +10,7 @@
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:usesCleartextTraffic="false"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@drawable/suqnaa_app_icon">
         <activity
             android:name=".MainActivity"
             android:exported="true"
