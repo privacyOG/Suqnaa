@@ -15,6 +15,7 @@ const iosEntitlements = read('apps/mobile/ios/Runner/Runner.entitlements');
 const iosRelease = read('apps/mobile/ios/Flutter/Release.xcconfig');
 const iosProfile = read('apps/mobile/ios/Flutter/Profile.xcconfig');
 const iosDebug = read('apps/mobile/ios/Flutter/Debug.xcconfig');
+const iosAppFrameworkInfo = read('apps/mobile/ios/Flutter/AppFrameworkInfo.plist');
 const iosProject = read('apps/mobile/ios/Runner.xcodeproj/project.pbxproj');
 const iosWorkspace = read('apps/mobile/ios/Runner.xcworkspace/contents.xcworkspacedata');
 const iosScheme = read('apps/mobile/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme');
@@ -75,6 +76,8 @@ assert.match(iosRelease, /PRODUCT_BUNDLE_IDENTIFIER=co\.privacyx\.suqnaa/);
 assert.match(iosRelease, /#include\? "Signing\.xcconfig"/);
 assert.match(iosProfile, /PRODUCT_BUNDLE_IDENTIFIER=co\.privacyx\.suqnaa\.staging/);
 assert.match(iosDebug, /PRODUCT_BUNDLE_IDENTIFIER=co\.privacyx\.suqnaa\.debug/);
+assert.match(iosAppFrameworkInfo, /<key>CFBundleIdentifier<\/key>\s*<string>io\.flutter\.flutter\.app<\/string>/);
+assert.match(iosAppFrameworkInfo, /<key>CFBundlePackageType<\/key>\s*<string>FMWK<\/string>/);
 assert.match(iosProject, /97C146EB1CF9000F007C117D \/\* Frameworks \*\/ = \{[\s\S]*?isa = PBXFrameworksBuildPhase/);
 assert.match(iosProject, /97C146ED1CF9000F007C117D \/\* Runner \*\/ = \{[\s\S]*?isa = PBXNativeTarget/);
 assert.match(iosProject, /97C146E61CF9000F007C117D \/\* Project object \*\/ = \{[\s\S]*?isa = PBXProject/);
@@ -96,6 +99,7 @@ assert.match(iosAppDelegate, /GeneratedPluginRegistrant\.register/);
 assert.match(iosIconCatalog, /AppIcon-1024\.svg/);
 
 for (const requiredIosPath of [
+  'apps/mobile/ios/Flutter/AppFrameworkInfo.plist',
   'apps/mobile/ios/Runner.xcodeproj/project.pbxproj',
   'apps/mobile/ios/Runner.xcworkspace/contents.xcworkspacedata',
   'apps/mobile/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme',
@@ -121,6 +125,7 @@ for (const source of [
   iosRelease,
   iosProfile,
   iosDebug,
+  iosAppFrameworkInfo,
   iosProject
 ]) {
   assert.doesNotMatch(source, /BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY/);
