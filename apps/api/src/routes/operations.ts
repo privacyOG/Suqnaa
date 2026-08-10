@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { requireOperationsUser, type OperationsRequest } from '../auth/require-operations-user.js';
 import { db } from '../db/index.js';
 import { recordQueueAudit } from '../operations/queue-audit.js';
-import { checkRateLimit, rateLimitResponse } from '../security/rate-limit.js';
+import { rateLimitResponse } from '../security/rate-limit.js';
+import { checkSharedRateLimit } from '../security/shared-rate-limit.js';
 import { writeSecurityAudit } from '../security/security-audit.js';
 
 const queueQuery = z.object({
@@ -26,9 +27,9 @@ const accountStatusBody = z.object({
   note: z.string().trim().max(1200).optional()
 });
 
-function limitedOperation(request: FastifyRequest, accountId: string, group: string) {
-  const accountLimit = checkRateLimit({ group, identifiers: [`account:${accountId}`], limit: 60, windowMs: 60 * 60 * 1000 });
-  const ipLimit = checkRateLimit({ group: `${group}.ip`, identifiers: [`ip:${request.ip}`], limit: 180, windowMs: 60 * 60 * 1000 });
+async function limitedOperation(request: FastifyRequest, accountId: string, group: string) {
+  const accountLimit = await checkSharedRateLimit({ group, identifiers: [`account:${accountId}`], limit: 60, windowMs: 60 * 60 * 1000 });
+  const ipLimit = await checkSharedRateLimit({ group: `${group}.ip`, identifiers: [`ip:${request.ip}`], limit: 180, windowMs: 60 * 60 * 1000 });
   return !accountLimit.allowed ? accountLimit : !ipLimit.allowed ? ipLimit : undefined;
 }
 
@@ -80,7 +81,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/operations/queue/:id/conversation-context', { preHandler: requireOperationsUser }, async (request, reply) => {
     const authRequest = request as OperationsRequest;
     const params = itemParams.parse(request.params);
-    const limited = limitedOperation(request, authRequest.operationsUserId, 'operations.conversation_context');
+    const limited = await limitedOperation(request, authRequest.operationsUserId, 'operations.conversation_context');
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -261,7 +262,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as OperationsRequest;
     const params = itemParams.parse(request.params);
     const body = listingStatusBody.parse(request.body);
-    const limited = limitedOperation(request, authRequest.operationsUserId, 'operations.listing_status');
+    const limited = await limitedOperation(request, authRequest.operationsUserId, 'operations.listing_status');
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
@@ -301,7 +302,7 @@ export async function operationsRoutes(app: FastifyInstance): Promise<void> {
     const authRequest = request as OperationsRequest;
     const params = itemParams.parse(request.params);
     const body = accountStatusBody.parse(request.body);
-    const limited = limitedOperation(request, authRequest.operationsUserId, 'operations.account_status');
+    const limited = await limitedOperation(request, authRequest.operationsUserId, 'operations.account_status');
     if (limited) {
       reply.header('Retry-After', String(limited.retryAfterSeconds));
       return reply.code(429).send(rateLimitResponse(limited));
