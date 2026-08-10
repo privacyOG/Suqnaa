@@ -1,5 +1,6 @@
 import { db } from '../db/index.js';
 import { getListingMediaStorage } from '../media/listing-media-storage.js';
+import { reportWorkerError } from '../observability/worker-error.js';
 
 export const listingMediaQuarantineBatchSize = 50;
 
@@ -41,11 +42,15 @@ export async function cleanupExpiredListingMediaQuarantine(input: {
       if (updated) expired += 1;
     } catch (error) {
       failed += 1;
-      log.warn({ error, quarantineId: row.id }, 'listing media quarantine cleanup failed');
+      log.warn({
+        event: 'listing_media_quarantine_cleanup_failed',
+        quarantineId: row.id,
+        errorName: error instanceof Error ? error.name : 'Error'
+      });
     }
   }
 
-  log.info({ attempted: rows.length, expired, failed }, 'listing media quarantine cleanup complete');
+  log.info({ event: 'listing_media_quarantine_cleanup_complete', attempted: rows.length, expired, failed });
   return { attempted: rows.length, expired, failed };
 }
 
@@ -54,8 +59,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     .then((result) => {
       if (result.failed > 0) process.exitCode = 1;
     })
-    .catch((error) => {
-      console.error(error);
+    .catch(async (error) => {
+      await reportWorkerError('listing-media-quarantine', error);
       process.exitCode = 1;
     });
 }
