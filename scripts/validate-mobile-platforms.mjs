@@ -7,6 +7,7 @@ const exists = (path) => existsSync(new URL(path, root));
 
 const androidGradle = read('apps/mobile/android/app/build.gradle.kts');
 const androidSettings = read('apps/mobile/android/settings.gradle.kts');
+const androidProperties = read('apps/mobile/android/gradle.properties');
 const androidManifest = read('apps/mobile/android/app/src/main/AndroidManifest.xml');
 const mainActivity = read('apps/mobile/android/app/src/main/kotlin/co/privacyx/suqnaa/MainActivity.kt');
 const iosInfo = read('apps/mobile/ios/Runner/Info.plist');
@@ -25,9 +26,11 @@ const pubspec = read('apps/mobile/pubspec.yaml');
 
 assert.match(androidSettings, /com\.android\.application.*9\.0\.1/);
 assert.match(androidSettings, /org\.jetbrains\.kotlin\.android.*2\.3\.20/);
+assert.match(androidProperties, /^android\.newDsl=false$/m);
+assert.match(androidProperties, /^android\.builtInKotlin=false$/m);
 assert.match(androidGradle, /applicationId = "co\.privacyx\.suqnaa"/);
 assert.match(androidGradle, /namespace = "co\.privacyx\.suqnaa"/);
-assert.match(androidGradle, /minSdk = 24/);
+assert.match(androidGradle, /minSdk = flutter\.minSdkVersion/);
 assert.match(androidGradle, /SUQNAA_ANDROID_KEYSTORE_PATH/);
 assert.match(androidGradle, /Release signing credentials must be supplied outside the repository/);
 assert.match(androidGradle, /isMinifyEnabled = true/);
@@ -80,6 +83,7 @@ assert.match(iosWorkspace, /Runner\.xcodeproj/);
 assert.match(iosWorkspace, /Pods\/Pods\.xcodeproj/);
 assert.match(iosScheme, /buildConfiguration="Profile"/);
 assert.match(iosScheme, /buildConfiguration="Release"/);
+assert.match(iosScheme, /<MacroExpansion>[\s\S]*?<BuildableReference[\s\S]*?BlueprintName="Runner"/);
 assert.match(iosPodfile, /platform :ios, '15\.0'/);
 assert.match(iosPodfile, /flutter_install_all_ios_pods/);
 assert.match(iosAppDelegate, /GeneratedPluginRegistrant\.register/);
