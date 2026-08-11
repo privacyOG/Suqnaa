@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/mobile-store-submission-bundle.yml'
       - 'scripts/build-mobile-store-submission-bundle.mjs'
+      - 'scripts/build-mobile-store-readiness-report.mjs'
       - 'scripts/validate-mobile-store-readiness.mjs'
       - 'scripts/validate-mobile-store-testing.mjs'
       - 'scripts/validate-mobile-store-console-handoff.mjs'
@@ -49,6 +50,8 @@ jobs:
         run: node scripts/validate-mobile-store-reviewer-access.mjs
       - name: Build deterministic Apple/Google submission bundle
         run: node scripts/build-mobile-store-submission-bundle.mjs
+      - name: Build operator readiness report
+        run: node scripts/build-mobile-store-readiness-report.mjs
       - name: Verify candidate/approved safety marker
         shell: bash
         run: |
@@ -56,11 +59,15 @@ jobs:
           test -s build/mobile-store-submission/submission-bundle.json
           test -s build/mobile-store-submission/SHA256SUMS
           test -s build/mobile-store-submission/STATUS.txt
+          test -s build/mobile-store-submission/readiness-report.json
+          test -s build/mobile-store-submission/READINESS.md
           (cd build/mobile-store-submission && sha256sum --check SHA256SUMS)
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           const bundle = JSON.parse(readFileSync('build/mobile-store-submission/submission-bundle.json', 'utf8'));
+          const report = JSON.parse(readFileSync('build/mobile-store-submission/readiness-report.json', 'utf8'));
           const status = readFileSync('build/mobile-store-submission/STATUS.txt', 'utf8');
+          if (bundle.submissionAllowed !== report.readyForPublicSubmission) process.exit(1);
           if (bundle.submissionAllowed) {
             if (bundle.bundleType !== 'approved_submission' || !status.startsWith('APPROVED SUBMISSION BUNDLE')) process.exit(1);
           } else {
