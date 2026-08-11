@@ -15,9 +15,9 @@ const reviewer = readJson('apps/mobile/store/review/reviewer-access.json');
 
 const pendingEvidence = evidence.evidence.filter((item) => item.required && item.status !== 'approved');
 const pendingScreenshots = screenshots.sets.flatMap((set) =>
-  set.screenshots
+  set.files
     .filter((shot) => shot.status !== 'captured')
-    .map((shot) => `${set.platform}/${set.locale}/${shot.id}`)
+    .map((shot) => `${set.platform}/${set.locale}/${shot.screen}:${shot.file}`)
 );
 const pendingTracks = testing.tracks.filter((track) => track.required && track.status !== 'passed');
 const pendingConsole = Object.entries(consoleHandoff.platforms).flatMap(([platform, config]) =>
