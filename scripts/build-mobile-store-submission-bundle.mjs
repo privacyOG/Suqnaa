@@ -17,6 +17,7 @@ const sourceFiles = [
   'apps/mobile/store/review/compliance.json',
   'apps/mobile/store/review/readiness.json',
   'apps/mobile/store/review/reviewer-notes.json',
+  'apps/mobile/store/review/reviewer-access.json',
   'apps/mobile/store/review/submission-evidence.json',
   'apps/mobile/store/review/testing-tracks.json',
   'apps/mobile/store/review/store-console-handoff.json',
@@ -36,10 +37,11 @@ const contentRating = readJson(sourceFiles[5]);
 const compliance = readJson(sourceFiles[6]);
 const readiness = readJson(sourceFiles[7]);
 const reviewerNotes = readJson(sourceFiles[8]);
-const evidence = readJson(sourceFiles[9]);
-const testingTracks = readJson(sourceFiles[10]);
-const storeConsoleHandoff = readJson(sourceFiles[11]);
-const screenshots = readJson(sourceFiles[12]);
+const reviewerAccess = readJson(sourceFiles[9]);
+const evidence = readJson(sourceFiles[10]);
+const testingTracks = readJson(sourceFiles[11]);
+const storeConsoleHandoff = readJson(sourceFiles[12]);
+const screenshots = readJson(sourceFiles[13]);
 
 const requiredEvidence = evidence.evidence.filter((item) => item.required);
 const approvedEvidence = requiredEvidence.filter((item) => item.status === 'approved');
@@ -50,6 +52,7 @@ const submissionAllowed =
   testingTracks.status === 'passed' &&
   testingTracks.releaseBlockingDefectsOpen === false &&
   storeConsoleHandoff.status === 'complete' &&
+  reviewerAccess.status === 'approved' &&
   approvedEvidence.length === requiredEvidence.length &&
   screenshots.status === 'captured_complete';
 
@@ -65,6 +68,7 @@ if (submissionAllowed) {
   for (const platform of Object.values(storeConsoleHandoff.platforms)) {
     assert.ok(platform.requiredActions.every((action) => action.status === 'approved'));
   }
+  assert.ok(reviewerAccess.requiredCapabilities.every((capability) => capability.status === 'approved'));
 }
 
 const sourceHashes = Object.fromEntries(
@@ -115,6 +119,7 @@ const bundle = {
   },
   privacyInventory,
   compliance,
+  reviewerAccess,
   privateTesting: testingTracks,
   storeConsoleHandoff,
   screenshots,
@@ -138,5 +143,5 @@ writeFileSync(
 );
 
 console.log(
-  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, privacy ${privacyInventory.status}, testing ${testingTracks.status}, console ${storeConsoleHandoff.status}, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
+  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, privacy ${privacyInventory.status}, testing ${testingTracks.status}, console ${storeConsoleHandoff.status}, reviewer ${reviewerAccess.status}, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
 );
