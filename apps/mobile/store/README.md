@@ -33,12 +33,14 @@ Build the deterministic Apple/Google operator bundle with:
 ```bash
 node scripts/validate-mobile-store-readiness.mjs
 node scripts/build-mobile-store-submission-bundle.mjs
-sha256sum --check build/mobile-store-submission/SHA256SUMS
+(cd build/mobile-store-submission && sha256sum --check SHA256SUMS)
 ```
 
 `submission-bundle.json` contains the localized metadata, privacy/data-safety declarations, content-rating candidates, compliance declarations, reviewer notes, screenshot manifest, readiness state, evidence ledger and SHA-256 hashes of every source file used to build it.
 
-The `Mobile Store Submission Bundle` GitHub Actions workflow builds and retains this package as a short-lived artifact for operator review. Store-console credentials, reviewer passwords, signing certificates, provisioning profiles and private keys must never be added to this directory or to the generated bundle.
+The `Mobile Store Submission Bundle` GitHub Actions workflow independently validates the source package, builds this bundle, verifies its checksum and safety marker, and retains it as a short-lived operator-review artifact. The artifact is not evidence of public-submission approval unless its embedded `submissionAllowed` value is `true` and its status file identifies an approved submission bundle.
+
+Store-console credentials, reviewer passwords, signing certificates, provisioning profiles and private keys must never be added to this directory or to the generated bundle.
 
 ## Approval boundary
 
