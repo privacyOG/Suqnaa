@@ -18,6 +18,7 @@ const sourceFiles = [
   'apps/mobile/store/review/reviewer-notes.json',
   'apps/mobile/store/review/submission-evidence.json',
   'apps/mobile/store/review/testing-tracks.json',
+  'apps/mobile/store/review/store-console-handoff.json',
   'apps/mobile/store/screenshots/manifest.json'
 ];
 
@@ -35,7 +36,8 @@ const readiness = readJson(sourceFiles[6]);
 const reviewerNotes = readJson(sourceFiles[7]);
 const evidence = readJson(sourceFiles[8]);
 const testingTracks = readJson(sourceFiles[9]);
-const screenshots = readJson(sourceFiles[10]);
+const storeConsoleHandoff = readJson(sourceFiles[10]);
+const screenshots = readJson(sourceFiles[11]);
 
 const requiredEvidence = evidence.evidence.filter((item) => item.required);
 const approvedEvidence = requiredEvidence.filter((item) => item.status === 'approved');
@@ -44,6 +46,7 @@ const submissionAllowed =
   readiness.status === 'ready_for_public_submission' &&
   testingTracks.status === 'passed' &&
   testingTracks.releaseBlockingDefectsOpen === false &&
+  storeConsoleHandoff.status === 'complete' &&
   approvedEvidence.length === requiredEvidence.length &&
   screenshots.status === 'captured_complete';
 
@@ -55,6 +58,9 @@ if (submissionAllowed) {
     assert.ok(!Number.isNaN(Date.parse(item.approvedAt)));
   }
   assert.ok(testingTracks.tracks.every((track) => !track.required || track.status === 'passed'));
+  for (const platform of Object.values(storeConsoleHandoff.platforms)) {
+    assert.ok(platform.requiredActions.every((action) => action.status === 'approved'));
+  }
 }
 
 const sourceHashes = Object.fromEntries(
@@ -105,6 +111,7 @@ const bundle = {
   },
   compliance,
   privateTesting: testingTracks,
+  storeConsoleHandoff,
   screenshots,
   readiness,
   submissionEvidence: evidence,
@@ -126,5 +133,5 @@ writeFileSync(
 );
 
 console.log(
-  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, testing ${testingTracks.status}, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
+  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, testing ${testingTracks.status}, console ${storeConsoleHandoff.status}, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
 );
