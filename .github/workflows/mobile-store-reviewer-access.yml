@@ -1,0 +1,26 @@
+name: Mobile Store Reviewer Access
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-reviewer-access.yml'
+      - 'scripts/validate-mobile-store-reviewer-access.mjs'
+      - 'apps/mobile/store/review/reviewer-access.json'
+      - 'apps/mobile/store/review/reviewer-notes.json'
+      - 'apps/mobile/store/review/submission-evidence.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reviewer-access-contract:
+    name: Reviewer access evidence contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate external reviewer access evidence
+        run: node scripts/validate-mobile-store-reviewer-access.mjs
