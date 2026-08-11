@@ -10,6 +10,7 @@ on:
       - 'scripts/validate-mobile-store-console-handoff.mjs'
       - 'scripts/validate-mobile-privacy-reconciliation.mjs'
       - 'scripts/validate-mobile-store-reviewer-access.mjs'
+      - 'scripts/reconcile-mobile-store-readiness.mjs'
       - 'scripts/reconcile-mobile-store-screenshots.mjs'
       - 'apps/mobile/pubspec.yaml'
       - 'apps/mobile/pubspec.lock'
@@ -36,6 +37,8 @@ jobs:
           node-version: '22'
       - name: Validate source-of-truth readiness package
         run: node scripts/validate-mobile-store-readiness.mjs
+      - name: Reconcile derived readiness state
+        run: node scripts/reconcile-mobile-store-readiness.mjs
       - name: Validate private testing evidence
         run: node scripts/validate-mobile-store-testing.mjs
       - name: Validate store-console operator handoff
