@@ -12,6 +12,7 @@ const sourceFiles = [
   'apps/mobile/store/metadata/ar.json',
   'apps/mobile/store/privacy/app-store-privacy.json',
   'apps/mobile/store/privacy/google-play-data-safety.json',
+  'apps/mobile/store/privacy/production-inventory.json',
   'apps/mobile/store/review/content-rating.json',
   'apps/mobile/store/review/compliance.json',
   'apps/mobile/store/review/readiness.json',
@@ -30,20 +31,22 @@ const en = readJson(sourceFiles[0]);
 const ar = readJson(sourceFiles[1]);
 const applePrivacy = readJson(sourceFiles[2]);
 const playSafety = readJson(sourceFiles[3]);
-const contentRating = readJson(sourceFiles[4]);
-const compliance = readJson(sourceFiles[5]);
-const readiness = readJson(sourceFiles[6]);
-const reviewerNotes = readJson(sourceFiles[7]);
-const evidence = readJson(sourceFiles[8]);
-const testingTracks = readJson(sourceFiles[9]);
-const storeConsoleHandoff = readJson(sourceFiles[10]);
-const screenshots = readJson(sourceFiles[11]);
+const privacyInventory = readJson(sourceFiles[4]);
+const contentRating = readJson(sourceFiles[5]);
+const compliance = readJson(sourceFiles[6]);
+const readiness = readJson(sourceFiles[7]);
+const reviewerNotes = readJson(sourceFiles[8]);
+const evidence = readJson(sourceFiles[9]);
+const testingTracks = readJson(sourceFiles[10]);
+const storeConsoleHandoff = readJson(sourceFiles[11]);
+const screenshots = readJson(sourceFiles[12]);
 
 const requiredEvidence = evidence.evidence.filter((item) => item.required);
 const approvedEvidence = requiredEvidence.filter((item) => item.status === 'approved');
 const submissionAllowed =
   evidence.status === 'ready' &&
   readiness.status === 'ready_for_public_submission' &&
+  privacyInventory.status === 'reconciled' &&
   testingTracks.status === 'passed' &&
   testingTracks.releaseBlockingDefectsOpen === false &&
   storeConsoleHandoff.status === 'complete' &&
@@ -57,6 +60,7 @@ if (submissionAllowed) {
     assert.ok(item.evidenceReference.trim().length > 0);
     assert.ok(!Number.isNaN(Date.parse(item.approvedAt)));
   }
+  assert.ok(privacyInventory.productionServiceClasses.every((service) => !service.required || service.providerFinalized));
   assert.ok(testingTracks.tracks.every((track) => !track.required || track.status === 'passed'));
   for (const platform of Object.values(storeConsoleHandoff.platforms)) {
     assert.ok(platform.requiredActions.every((action) => action.status === 'approved'));
@@ -109,6 +113,7 @@ const bundle = {
     contentRating: contentRating.googlePlayContentRating,
     reviewerNotes
   },
+  privacyInventory,
   compliance,
   privateTesting: testingTracks,
   storeConsoleHandoff,
@@ -133,5 +138,5 @@ writeFileSync(
 );
 
 console.log(
-  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, testing ${testingTracks.status}, console ${storeConsoleHandoff.status}, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
+  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, privacy ${privacyInventory.status}, testing ${testingTracks.status}, console ${storeConsoleHandoff.status}, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
 );
