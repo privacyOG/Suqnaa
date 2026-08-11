@@ -6,6 +6,7 @@ on:
       - '.github/workflows/mobile-store-submission-bundle.yml'
       - 'scripts/build-mobile-store-submission-bundle.mjs'
       - 'scripts/validate-mobile-store-readiness.mjs'
+      - 'scripts/validate-mobile-store-testing.mjs'
       - 'scripts/reconcile-mobile-store-screenshots.mjs'
       - 'apps/mobile/store/**'
       - 'apps/web/app/[locale]/account-deletion/**'
@@ -30,6 +31,8 @@ jobs:
           node-version: '22'
       - name: Validate source-of-truth readiness package
         run: node scripts/validate-mobile-store-readiness.mjs
+      - name: Validate private testing evidence
+        run: node scripts/validate-mobile-store-testing.mjs
       - name: Build deterministic Apple/Google submission bundle
         run: node scripts/build-mobile-store-submission-bundle.mjs
       - name: Verify candidate/approved safety marker
