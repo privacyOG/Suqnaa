@@ -7,6 +7,7 @@ on:
       - 'scripts/build-mobile-store-submission-bundle.mjs'
       - 'scripts/validate-mobile-store-readiness.mjs'
       - 'scripts/validate-mobile-store-testing.mjs'
+      - 'scripts/validate-mobile-store-console-handoff.mjs'
       - 'scripts/reconcile-mobile-store-screenshots.mjs'
       - 'apps/mobile/store/**'
       - 'apps/web/app/[locale]/account-deletion/**'
@@ -33,6 +34,8 @@ jobs:
         run: node scripts/validate-mobile-store-readiness.mjs
       - name: Validate private testing evidence
         run: node scripts/validate-mobile-store-testing.mjs
+      - name: Validate store-console operator handoff
+        run: node scripts/validate-mobile-store-console-handoff.mjs
       - name: Build deterministic Apple/Google submission bundle
         run: node scripts/build-mobile-store-submission-bundle.mjs
       - name: Verify candidate/approved safety marker
