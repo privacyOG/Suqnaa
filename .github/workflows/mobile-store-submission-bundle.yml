@@ -9,6 +9,7 @@ on:
       - 'scripts/validate-mobile-store-testing.mjs'
       - 'scripts/validate-mobile-store-console-handoff.mjs'
       - 'scripts/validate-mobile-privacy-reconciliation.mjs'
+      - 'scripts/validate-mobile-store-reviewer-access.mjs'
       - 'scripts/reconcile-mobile-store-screenshots.mjs'
       - 'apps/mobile/pubspec.yaml'
       - 'apps/mobile/pubspec.lock'
@@ -41,6 +42,8 @@ jobs:
         run: node scripts/validate-mobile-store-console-handoff.mjs
       - name: Validate privacy/provider reconciliation
         run: node scripts/validate-mobile-privacy-reconciliation.mjs
+      - name: Validate reviewer access evidence
+        run: node scripts/validate-mobile-store-reviewer-access.mjs
       - name: Build deterministic Apple/Google submission bundle
         run: node scripts/build-mobile-store-submission-bundle.mjs
       - name: Verify candidate/approved safety marker
