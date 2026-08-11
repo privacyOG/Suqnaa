@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -17,6 +17,7 @@ const sourceFiles = [
   'apps/mobile/store/review/readiness.json',
   'apps/mobile/store/review/reviewer-notes.json',
   'apps/mobile/store/review/submission-evidence.json',
+  'apps/mobile/store/review/testing-tracks.json',
   'apps/mobile/store/screenshots/manifest.json'
 ];
 
@@ -33,13 +34,16 @@ const compliance = readJson(sourceFiles[5]);
 const readiness = readJson(sourceFiles[6]);
 const reviewerNotes = readJson(sourceFiles[7]);
 const evidence = readJson(sourceFiles[8]);
-const screenshots = readJson(sourceFiles[9]);
+const testingTracks = readJson(sourceFiles[9]);
+const screenshots = readJson(sourceFiles[10]);
 
 const requiredEvidence = evidence.evidence.filter((item) => item.required);
 const approvedEvidence = requiredEvidence.filter((item) => item.status === 'approved');
 const submissionAllowed =
   evidence.status === 'ready' &&
   readiness.status === 'ready_for_public_submission' &&
+  testingTracks.status === 'passed' &&
+  testingTracks.releaseBlockingDefectsOpen === false &&
   approvedEvidence.length === requiredEvidence.length &&
   screenshots.status === 'captured_complete';
 
@@ -50,6 +54,7 @@ if (submissionAllowed) {
     assert.ok(item.evidenceReference.trim().length > 0);
     assert.ok(!Number.isNaN(Date.parse(item.approvedAt)));
   }
+  assert.ok(testingTracks.tracks.every((track) => !track.required || track.status === 'passed'));
 }
 
 const sourceHashes = Object.fromEntries(
@@ -99,6 +104,7 @@ const bundle = {
     reviewerNotes
   },
   compliance,
+  privateTesting: testingTracks,
   screenshots,
   readiness,
   submissionEvidence: evidence,
@@ -111,10 +117,7 @@ const bundleHash = sha256(serialized);
 rmSync(outputRoot, { recursive: true, force: true });
 mkdirSync(outputRoot, { recursive: true });
 writeFileSync(join(outputRoot, 'submission-bundle.json'), serialized);
-writeFileSync(
-  join(outputRoot, 'SHA256SUMS'),
-  `${bundleHash}  submission-bundle.json\n`
-);
+writeFileSync(join(outputRoot, 'SHA256SUMS'), `${bundleHash}  submission-bundle.json\n`);
 writeFileSync(
   join(outputRoot, 'STATUS.txt'),
   submissionAllowed
@@ -123,5 +126,5 @@ writeFileSync(
 );
 
 console.log(
-  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
+  `Built ${bundle.bundleType} mobile store bundle (${approvedEvidence.length}/${requiredEvidence.length} required evidence items approved, testing ${testingTracks.status}, screenshots ${screenshots.capturedCount}/${screenshots.requiredCount}).`
 );
