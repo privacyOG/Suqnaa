@@ -60,9 +60,21 @@ if (reviewerAccess.status === 'approved') {
   assert.notEqual(evidence.status, 'approved');
 }
 
+const forbiddenCredentialKeys = /^(password|passcode|otp|oneTimeCode|oneTimePassword|recoveryCode|recoverySecret|privateKey|secret|token)$/i;
+const inspectCredentialFields = (value, path = 'reviewerAccess') => {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => inspectCredentialFields(entry, `${path}[${index}]`));
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+  for (const [key, child] of Object.entries(value)) {
+    assert.doesNotMatch(key, forbiddenCredentialKeys, `Credential-bearing field is forbidden in source control: ${path}.${key}`);
+    inspectCredentialFields(child, `${path}.${key}`);
+  }
+};
+inspectCredentialFields(reviewerAccess);
+
 const tracked = JSON.stringify(reviewerAccess);
-assert.doesNotMatch(tracked, /password\s*[:=]/i);
-assert.doesNotMatch(tracked, /one[-_ ]?time\s*(code|password)/i);
 assert.doesNotMatch(tracked, /BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY/);
 
 console.log(`Reviewer access evidence contract passed (${reviewerAccess.status}).`);
