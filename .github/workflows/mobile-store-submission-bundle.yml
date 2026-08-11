@@ -39,7 +39,7 @@ jobs:
           test -s build/mobile-store-submission/submission-bundle.json
           test -s build/mobile-store-submission/SHA256SUMS
           test -s build/mobile-store-submission/STATUS.txt
-          sha256sum --check build/mobile-store-submission/SHA256SUMS
+          (cd build/mobile-store-submission && sha256sum --check SHA256SUMS)
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           const bundle = JSON.parse(readFileSync('build/mobile-store-submission/submission-bundle.json', 'utf8'));
