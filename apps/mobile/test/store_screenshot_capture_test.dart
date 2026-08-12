@@ -6,8 +6,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
 import 'package:suqnaa/src/api/catalog_api.dart';
+import 'package:suqnaa/src/api/order_activity_api.dart';
 import 'package:suqnaa/src/features/catalog/listing_detail_screen.dart';
 import 'package:suqnaa/src/features/home/home_screen.dart';
+import 'package:suqnaa/src/features/orders/order_activity_screen.dart';
 
 void main() {
   const captureEnabled = bool.fromEnvironment('CAPTURE_STORE_SCREENSHOTS');
@@ -57,6 +59,26 @@ void main() {
       }
 
       await _writeCapture(boundaryKey, scenario, '02-listing-detail.png');
+    });
+
+    testWidgets('captures offer and order ${scenario.outputDirectory}', (tester) async {
+      if (!captureEnabled) return;
+      final boundaryKey = await _pumpCapture(
+        tester,
+        scenario,
+        OrderActivityScreen(
+          gateway: _StoreCaptureOrderGateway(),
+          accessToken: 'store-capture-token',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mirrorless camera'), findsOneWidget);
+      if (scenario.locale.languageCode == 'ar') {
+        expect(Directionality.of(tester.element(find.byType(OrderActivityScreen))), TextDirection.rtl);
+      }
+
+      await _writeCapture(boundaryKey, scenario, '05-offer-order.png');
     });
   }
 }
@@ -158,4 +180,67 @@ class _StoreCaptureCatalogGateway implements CatalogGateway {
         hasMore: false,
         nextCursor: null,
       );
+}
+
+class _StoreCaptureOrderGateway implements OrderActivityGateway {
+  static const order = OrderActivity(
+    id: '423e4567-e89b-42d3-a456-426614174000',
+    offerId: '523e4567-e89b-42d3-a456-426614174000',
+    listingId: '123e4567-e89b-42d3-a456-426614174000',
+    buyerId: '623e4567-e89b-42d3-a456-426614174000',
+    sellerId: '323e4567-e89b-42d3-a456-426614174000',
+    amount: '825.00',
+    currencyCode: 'AUD',
+    status: OrderActivityStatus.paid,
+    paymentMethod: 'protected_card',
+    createdAt: '2026-08-10T02:00:00Z',
+    updatedAt: '2026-08-11T04:30:00Z',
+    role: OrderRole.buyer,
+    progress: OrderProgress(
+      stage: OrderProgressStage.fulfilment,
+      percent: 55,
+      terminal: false,
+      steps: [
+        OrderProgressStep(key: OrderProgressStepKey.created, state: OrderProgressStepState.complete),
+        OrderProgressStep(key: OrderProgressStepKey.paid, state: OrderProgressStepState.complete),
+        OrderProgressStep(key: OrderProgressStepKey.fulfilment, state: OrderProgressStepState.current),
+        OrderProgressStep(key: OrderProgressStepKey.complete, state: OrderProgressStepState.upcoming),
+      ],
+    ),
+    listing: OrderListingSummary(
+      id: '123e4567-e89b-42d3-a456-426614174000',
+      title: 'Mirrorless camera',
+      status: 'sold',
+      priceAmount: '899.50',
+      currencyCode: 'AUD',
+    ),
+    counterpart: OrderCounterpartSummary(
+      id: '323e4567-e89b-42d3-a456-426614174000',
+      displayName: 'Suqnaa Test Seller',
+      status: 'active',
+    ),
+    offer: OrderOfferSummary(
+      id: '523e4567-e89b-42d3-a456-426614174000',
+      status: 'accepted',
+      message: 'Can collect this weekend.',
+      createdAt: '2026-08-10T02:00:00Z',
+      updatedAt: '2026-08-10T02:15:00Z',
+    ),
+  );
+
+  @override
+  Future<OrderActivityPage> fetchPage(
+    String accessToken, {
+    OrderActivityStatus? status,
+    int limit = 20,
+    String? before,
+  }) async =>
+      const OrderActivityPage(orders: [order], hasMore: false, nextCursor: null);
+
+  @override
+  Future<OrderActivity> fetchDetail(
+    String accessToken, {
+    required String orderId,
+  }) async =>
+      order;
 }
