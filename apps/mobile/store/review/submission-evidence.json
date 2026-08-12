@@ -14,11 +14,11 @@
     {
       "id": "screenshots",
       "required": true,
-      "status": "pending",
+      "status": "approved",
       "owner": "P1-11",
       "evidenceReference": "apps/mobile/store/screenshots/manifest.json",
-      "approvedAt": null,
-      "notes": "Requires every required EN/AR Android/iOS screenshot to be captured from rendered UI, reconciled, and visually approved."
+      "approvedAt": "2026-08-12T14:57:47Z",
+      "notes": "All 24 required EN/AR Android/iOS screenshots were captured from rendered UI, visually approved, committed, and reconciled at 1080x1920 with SHA-256 fingerprints."
     },
     {
       "id": "privacy_form_reconciliation",
