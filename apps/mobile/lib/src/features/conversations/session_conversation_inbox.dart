@@ -7,8 +7,19 @@ import '../../session/app_session.dart';
 import '../../session/session_scope.dart';
 import 'session_conversation_screen.dart';
 
+typedef ConversationPageLoader = Future<Map<String, dynamic>> Function(
+  String accessToken, {
+  int limit,
+  String? before,
+});
+
 class SessionConversationInbox extends StatefulWidget {
-  const SessionConversationInbox({super.key});
+  const SessionConversationInbox({
+    super.key,
+    this.pageLoader,
+  });
+
+  final ConversationPageLoader? pageLoader;
 
   @override
   State<SessionConversationInbox> createState() => _SessionConversationInboxState();
@@ -24,6 +35,8 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
   bool _loadingMore = false;
   String? _error;
 
+  bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -31,19 +44,36 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
     if (identical(session, _session)) return;
 
     _session = session;
-    _api = ConversationApi(
-      authedApi: SessionAuthedApi(
-        baseUrl: Uri.parse(MobileEnvironment.apiBaseUrl),
-        sessionProvider: () => session,
-      ),
-    );
+    if (widget.pageLoader == null) {
+      _api = ConversationApi(
+        authedApi: SessionAuthedApi(
+          baseUrl: Uri.parse(MobileEnvironment.apiBaseUrl),
+          sessionProvider: () => session,
+        ),
+      );
+    }
     _reload();
   }
 
-  Future<void> _reload() async {
+  Future<Map<String, dynamic>> _loadPage(
+    String token, {
+    required int limit,
+    String? before,
+  }) async {
+    final loader = widget.pageLoader;
+    if (loader != null) {
+      return loader(token, limit: limit, before: before);
+    }
     final api = _api;
+    if (api == null) {
+      throw StateError('Conversation API is unavailable');
+    }
+    return api.getConversationPage(token, limit: limit, before: before);
+  }
+
+  Future<void> _reload() async {
     final token = _session?.access.value ?? '';
-    if (api == null || token.isEmpty || _loading) return;
+    if (token.isEmpty || _loading) return;
 
     setState(() {
       _loading = true;
@@ -51,7 +81,7 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
     });
 
     try {
-      final response = await api.getConversationPage(token, limit: 20);
+      final response = await _loadPage(token, limit: 20);
       if (!mounted) return;
       final page = _parse(response);
       setState(() {
@@ -62,21 +92,24 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
         _cursor = page.cursor;
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Unable to load conversations.');
+      if (mounted) {
+        setState(() => _error = _isArabic
+            ? 'تعذر تحميل المحادثات.'
+            : 'Unable to load conversations.');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _loadMore() async {
-    final api = _api;
     final token = _session?.access.value ?? '';
-    if (api == null || token.isEmpty || !_hasMore || _cursor == null || _loadingMore) return;
+    if (token.isEmpty || !_hasMore || _cursor == null || _loadingMore) return;
 
     setState(() => _loadingMore = true);
 
     try {
-      final response = await api.getConversationPage(
+      final response = await _loadPage(
         token,
         limit: 20,
         before: _cursor,
@@ -91,7 +124,11 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
         _cursor = page.cursor;
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Unable to load more conversations.');
+      if (mounted) {
+        setState(() => _error = _isArabic
+            ? 'تعذر تحميل المزيد من المحادثات.'
+            : 'Unable to load more conversations.');
+      }
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -130,7 +167,9 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
         builder: (_) => SessionConversationScreen(
           conversationId: conversationId,
           recipientId: recipientId,
-          counterpartName: name?.isNotEmpty == true ? name! : 'Suqnaa user',
+          counterpartName: name?.isNotEmpty == true
+              ? name!
+              : (_isArabic ? 'مستخدم سوقنا' : 'Suqnaa user'),
           listingId: listingId,
         ),
       ),
@@ -142,18 +181,19 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
   @override
   Widget build(BuildContext context) {
     final signedIn = _session?.isSignedIn == true;
+    final ar = _isArabic;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Messages'),
+        title: Text(ar ? 'الرسائل' : 'Messages'),
         backgroundColor: SuqnaaBrand.ivory,
       ),
       body: !signedIn
-          ? const Center(child: Text('Sign in to view messages.'))
+          ? Center(child: Text(ar ? 'سجّل الدخول لعرض الرسائل.' : 'Sign in to view messages.'))
           : _loading && _items.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : _error != null && _items.isEmpty
-                  ? _ErrorView(message: _error!, onRetry: _reload)
+                  ? _ErrorView(message: _error!, onRetry: _reload, isArabic: ar)
                   : RefreshIndicator(
                       onRefresh: _reload,
                       child: ListView.builder(
@@ -174,15 +214,20 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
                                                 child: CircularProgressIndicator(strokeWidth: 2),
                                               )
                                             : const Icon(Icons.expand_more),
-                                        label: const Text('Load more'),
+                                        label: Text(ar ? 'تحميل المزيد' : 'Load more'),
                                       )
-                                    : Text(_items.isEmpty ? 'No conversations yet.' : 'You are all caught up.'),
+                                    : Text(
+                                        _items.isEmpty
+                                            ? (ar ? 'لا توجد محادثات بعد.' : 'No conversations yet.')
+                                            : (ar ? 'تم عرض جميع المحادثات.' : 'You are all caught up.'),
+                                      ),
                               ),
                             );
                           }
 
                           return _ConversationRow(
                             data: _items[index],
+                            isArabic: ar,
                             onTap: () => _open(_items[index]),
                           );
                         },
@@ -193,9 +238,14 @@ class _SessionConversationInboxState extends State<SessionConversationInbox> {
 }
 
 class _ConversationRow extends StatelessWidget {
-  const _ConversationRow({required this.data, required this.onTap});
+  const _ConversationRow({
+    required this.data,
+    required this.isArabic,
+    required this.onTap,
+  });
 
   final Map<String, dynamic> data;
+  final bool isArabic;
   final VoidCallback onTap;
 
   @override
@@ -210,17 +260,20 @@ class _ConversationRow extends StatelessWidget {
         ? Map<String, dynamic>.from(data['safety'] as Map)
         : const <String, dynamic>{};
     final name = counterpart['displayName']?.toString().trim();
-    final safeName = name?.isNotEmpty == true ? name! : 'Suqnaa user';
+    final safeName = name?.isNotEmpty == true
+        ? name!
+        : (isArabic ? 'مستخدم سوقنا' : 'Suqnaa user');
     final unread = data['unreadCount'] is num
         ? (data['unreadCount'] as num).toInt()
         : 0;
     final muted = safety['muted'] == true;
     final messagingAvailable = safety['messagingAvailable'] != false;
-    final preview = latest['body']?.toString() ?? 'No messages yet';
+    final preview = latest['body']?.toString() ??
+        (isArabic ? 'لا توجد رسائل بعد' : 'No messages yet');
     final status = !messagingAvailable
-        ? 'Messaging unavailable'
+        ? (isArabic ? 'المراسلة غير متاحة' : 'Messaging unavailable')
         : muted
-            ? 'Muted'
+            ? (isArabic ? 'مكتوم' : 'Muted')
             : null;
 
     return Card(
@@ -255,17 +308,22 @@ class _ConversationRow extends StatelessWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 10),
                 ),
               )
-            : const Icon(Icons.chevron_right),
+            : Icon(isArabic ? Icons.chevron_left : Icons.chevron_right),
       ),
     );
   }
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView({
+    required this.message,
+    required this.onRetry,
+    required this.isArabic,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final bool isArabic;
 
   @override
   Widget build(BuildContext context) {
@@ -278,7 +336,7 @@ class _ErrorView extends StatelessWidget {
           FilledButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
-            label: const Text('Try again'),
+            label: Text(isArabic ? 'إعادة المحاولة' : 'Try again'),
           ),
         ],
       ),
