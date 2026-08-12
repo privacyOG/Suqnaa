@@ -11,6 +11,10 @@ import 'package:suqnaa/src/api/order_activity_api.dart';
 import 'package:suqnaa/src/features/catalog/listing_detail_screen.dart';
 import 'package:suqnaa/src/features/home/home_screen.dart';
 import 'package:suqnaa/src/features/orders/order_activity_screen.dart';
+import 'package:suqnaa/src/features/sell/create_listing_screen.dart';
+import 'package:suqnaa/src/session/access_state.dart';
+import 'package:suqnaa/src/session/app_session.dart';
+import 'package:suqnaa/src/session/session_scope.dart';
 
 void main() {
   const captureEnabled = bool.fromEnvironment('CAPTURE_STORE_SCREENSHOTS');
@@ -24,18 +28,13 @@ void main() {
     testWidgets('captures catalogue ${scenario.outputDirectory}', (tester) async {
       if (!captureEnabled) return;
       final gateway = _StoreCaptureCatalogGateway();
-      final boundaryKey = await _pumpCapture(
-        tester,
-        scenario,
-        HomeScreen(catalogApi: gateway),
-      );
+      final boundaryKey = await _pumpCapture(tester, scenario, HomeScreen(catalogApi: gateway));
       await _pumpCaptureFrames(tester);
 
       expect(find.text('Mirrorless camera'), findsOneWidget);
       if (scenario.locale.languageCode == 'ar') {
         expect(Directionality.of(tester.element(find.byType(HomeScreen))), TextDirection.rtl);
       }
-
       await _writeCapture(tester, boundaryKey, scenario, '01-catalogue.png');
     });
 
@@ -58,8 +57,20 @@ void main() {
       if (scenario.locale.languageCode == 'ar') {
         expect(Directionality.of(tester.element(find.byType(ListingDetailScreen))), TextDirection.rtl);
       }
-
       await _writeCapture(tester, boundaryKey, scenario, '02-listing-detail.png');
+    });
+
+    testWidgets('captures listing management ${scenario.outputDirectory}', (tester) async {
+      if (!captureEnabled) return;
+      final boundaryKey = await _pumpCapture(tester, scenario, const CreateListingScreen());
+      await _pumpCaptureFrames(tester);
+
+      final heading = scenario.locale.languageCode == 'ar' ? 'بِع على سوقنا' : 'Sell on Suqnaa';
+      expect(find.text(heading), findsOneWidget);
+      if (scenario.locale.languageCode == 'ar') {
+        expect(Directionality.of(tester.element(find.byType(CreateListingScreen))), TextDirection.rtl);
+      }
+      await _writeCapture(tester, boundaryKey, scenario, '03-sell-listing.png');
     });
 
     testWidgets('captures offer and order ${scenario.outputDirectory}', (tester) async {
@@ -78,7 +89,6 @@ void main() {
       if (scenario.locale.languageCode == 'ar') {
         expect(Directionality.of(tester.element(find.byType(OrderActivityScreen))), TextDirection.rtl);
       }
-
       await _writeCapture(tester, boundaryKey, scenario, '05-offer-order.png');
     });
   }
@@ -94,6 +104,8 @@ Future<GlobalKey> _pumpCapture(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
+  final session = AppSession(initial: const AccessState(value: 'store-capture-token'));
+  addTearDown(session.dispose);
   final boundaryKey = GlobalKey();
   await tester.pumpWidget(
     MaterialApp(
@@ -106,7 +118,10 @@ Future<GlobalKey> _pumpCapture(
         GlobalWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      home: RepaintBoundary(key: boundaryKey, child: screen),
+      home: SessionScope(
+        session: session,
+        child: RepaintBoundary(key: boundaryKey, child: screen),
+      ),
     ),
   );
   return boundaryKey;
@@ -139,9 +154,7 @@ Future<void> _writeCapture(
   });
   expect(bytes, isNotNull);
 
-  final output = File(
-    'build/store-screenshot-candidates/${scenario.outputDirectory}/$fileName',
-  );
+  final output = File('build/store-screenshot-candidates/${scenario.outputDirectory}/$fileName');
   output.parent.createSync(recursive: true);
   output.writeAsBytesSync(bytes!, flush: true);
   expect(output.lengthSync(), greaterThan(1024));
@@ -149,7 +162,6 @@ Future<void> _writeCapture(
 
 class _CaptureScenario {
   const _CaptureScenario(this.platform, this.locale, this.outputDirectory);
-
   final TargetPlatform platform;
   final Locale locale;
   final String outputDirectory;
@@ -252,13 +264,11 @@ class _StoreCaptureOrderGateway implements OrderActivityGateway {
     OrderActivityStatus? status,
     int limit = 20,
     String? before,
-  }) async =>
-      const OrderActivityPage(orders: [order], hasMore: false, nextCursor: null);
+  }) async => const OrderActivityPage(orders: [order], hasMore: false, nextCursor: null);
 
   @override
   Future<OrderActivity> fetchDetail(
     String accessToken, {
     required String orderId,
-  }) async =>
-      order;
+  }) async => order;
 }
