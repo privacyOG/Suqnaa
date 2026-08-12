@@ -29,7 +29,7 @@ void main() {
         scenario,
         HomeScreen(catalogApi: gateway),
       );
-      await tester.pumpAndSettle();
+      await _pumpCaptureFrames(tester);
 
       expect(find.text('Mirrorless camera'), findsOneWidget);
       if (scenario.locale.languageCode == 'ar') {
@@ -51,7 +51,7 @@ void main() {
           initialListing: _StoreCaptureCatalogGateway.listing,
         ),
       );
-      await tester.pumpAndSettle();
+      await _pumpCaptureFrames(tester);
 
       expect(find.text('Mirrorless camera'), findsOneWidget);
       expect(find.textContaining('899'), findsWidgets);
@@ -72,7 +72,7 @@ void main() {
           accessToken: 'store-capture-token',
         ),
       );
-      await tester.pumpAndSettle();
+      await _pumpCaptureFrames(tester);
 
       expect(find.text('Mirrorless camera'), findsOneWidget);
       if (scenario.locale.languageCode == 'ar') {
@@ -110,6 +110,12 @@ Future<GlobalKey> _pumpCapture(
     ),
   );
   return boundaryKey;
+}
+
+Future<void> _pumpCaptureFrames(WidgetTester tester) async {
+  for (var frame = 0; frame < 6; frame += 1) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 Future<void> _writeCapture(
