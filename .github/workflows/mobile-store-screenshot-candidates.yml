@@ -44,14 +44,14 @@ jobs:
           root='apps/mobile/build/store-screenshot-candidates'
           for platform in android ios; do
             for locale in en ar; do
-              for image in 01-catalogue.png 02-listing-detail.png; do
+              for image in 01-catalogue.png 02-listing-detail.png 05-offer-order.png; do
                 file="$root/$platform/$locale/$image"
                 test -s "$file"
                 file "$file" | grep -q 'PNG image data, 1080 x 1920'
               done
             done
           done
-          test "$(find "$root" -type f -name '*.png' | wc -l)" -eq 8
+          test "$(find "$root" -type f -name '*.png' | wc -l)" -eq 12
           find "$root" -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum > "$root/SHA256SUMS"
       - name: Upload screenshot candidates for visual approval
         uses: actions/upload-artifact@v4
