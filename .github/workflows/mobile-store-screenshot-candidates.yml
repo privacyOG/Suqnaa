@@ -7,6 +7,7 @@ on:
       - 'apps/mobile/lib/**'
       - 'apps/mobile/test/flutter_test_config.dart'
       - 'apps/mobile/test/store_screenshot_capture_test.dart'
+      - 'apps/mobile/test/store_screenshot_render_test.dart'
       - 'apps/mobile/pubspec.yaml'
       - 'apps/mobile/pubspec.lock'
       - 'apps/mobile/store/screenshots/**'
@@ -42,7 +43,7 @@ jobs:
         run: flutter gen-l10n
       - name: Capture Android/iOS English/Arabic candidates
         working-directory: apps/mobile
-        run: flutter test test/store_screenshot_capture_test.dart --dart-define=CAPTURE_STORE_SCREENSHOTS=true
+        run: flutter test test/store_screenshot_render_test.dart --dart-define=CAPTURE_STORE_SCREENSHOTS=true
       - name: Verify candidate PNGs
         shell: bash
         run: |
