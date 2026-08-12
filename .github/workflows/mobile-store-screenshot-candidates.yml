@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/mobile-store-screenshot-candidates.yml'
       - 'apps/mobile/lib/**'
+      - 'apps/mobile/test/flutter_test_config.dart'
       - 'apps/mobile/test/store_screenshot_capture_test.dart'
       - 'apps/mobile/pubspec.yaml'
       - 'apps/mobile/pubspec.lock'
@@ -28,6 +29,11 @@ jobs:
         with:
           flutter-version: '3.44.9'
           channel: stable
+      - name: Install deterministic screenshot font
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-dejavu-core
+          test -s /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
       - name: Resolve Flutter dependencies
         working-directory: apps/mobile
         run: flutter pub get
