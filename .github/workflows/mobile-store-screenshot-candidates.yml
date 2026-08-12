@@ -1,0 +1,60 @@
+name: Mobile Store Screenshot Candidates
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-screenshot-candidates.yml'
+      - 'apps/mobile/lib/**'
+      - 'apps/mobile/test/store_screenshot_capture_test.dart'
+      - 'apps/mobile/pubspec.yaml'
+      - 'apps/mobile/pubspec.lock'
+      - 'apps/mobile/store/screenshots/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-screenshot-candidates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture-candidates:
+    name: Capture real-rendered catalogue candidates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          channel: stable
+      - name: Resolve Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Generate localizations
+        working-directory: apps/mobile
+        run: flutter gen-l10n
+      - name: Capture Android/iOS English/Arabic catalogue candidates
+        working-directory: apps/mobile
+        run: flutter test test/store_screenshot_capture_test.dart --dart-define=CAPTURE_STORE_SCREENSHOTS=true
+      - name: Verify candidate PNGs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root='apps/mobile/build/store-screenshot-candidates'
+          for file in \
+            "$root/android/en/01-catalogue.png" \
+            "$root/android/ar/01-catalogue.png" \
+            "$root/ios/en/01-catalogue.png" \
+            "$root/ios/ar/01-catalogue.png"; do
+            test -s "$file"
+            file "$file" | grep -q 'PNG image data, 1080 x 1920'
+          done
+          find "$root" -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum > "$root/SHA256SUMS"
+      - name: Upload screenshot candidates for visual approval
+        uses: actions/upload-artifact@v4
+        with:
+          name: suqnaa-store-screenshot-candidates-${{ github.event.pull_request.head.sha || github.sha }}
+          path: apps/mobile/build/store-screenshot-candidates/
+          if-no-files-found: error
+          retention-days: 14
