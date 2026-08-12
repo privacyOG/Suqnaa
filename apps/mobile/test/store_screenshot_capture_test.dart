@@ -36,7 +36,7 @@ void main() {
         expect(Directionality.of(tester.element(find.byType(HomeScreen))), TextDirection.rtl);
       }
 
-      await _writeCapture(boundaryKey, scenario, '01-catalogue.png');
+      await _writeCapture(tester, boundaryKey, scenario, '01-catalogue.png');
     });
 
     testWidgets('captures listing detail ${scenario.outputDirectory}', (tester) async {
@@ -59,7 +59,7 @@ void main() {
         expect(Directionality.of(tester.element(find.byType(ListingDetailScreen))), TextDirection.rtl);
       }
 
-      await _writeCapture(boundaryKey, scenario, '02-listing-detail.png');
+      await _writeCapture(tester, boundaryKey, scenario, '02-listing-detail.png');
     });
 
     testWidgets('captures offer and order ${scenario.outputDirectory}', (tester) async {
@@ -79,7 +79,7 @@ void main() {
         expect(Directionality.of(tester.element(find.byType(OrderActivityScreen))), TextDirection.rtl);
       }
 
-      await _writeCapture(boundaryKey, scenario, '05-offer-order.png');
+      await _writeCapture(tester, boundaryKey, scenario, '05-offer-order.png');
     });
   }
 }
@@ -119,20 +119,31 @@ Future<void> _pumpCaptureFrames(WidgetTester tester) async {
 }
 
 Future<void> _writeCapture(
+  WidgetTester tester,
   GlobalKey boundaryKey,
   _CaptureScenario scenario,
   String fileName,
 ) async {
-  final boundary = boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final image = await boundary.toImage(pixelRatio: 1);
-  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-  expect(byteData, isNotNull);
+  final bytes = await tester.runAsync(() async {
+    final boundary = boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final image = await boundary.toImage(pixelRatio: 1);
+    try {
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw StateError('Flutter engine returned no PNG bytes for $fileName');
+      }
+      return byteData.buffer.asUint8List();
+    } finally {
+      image.dispose();
+    }
+  });
+  expect(bytes, isNotNull);
 
   final output = File(
     'build/store-screenshot-candidates/${scenario.outputDirectory}/$fileName',
   );
   output.parent.createSync(recursive: true);
-  output.writeAsBytesSync(byteData!.buffer.asUint8List(), flush: true);
+  output.writeAsBytesSync(bytes!, flush: true);
   expect(output.lengthSync(), greaterThan(1024));
 }
 
