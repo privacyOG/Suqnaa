@@ -30,7 +30,7 @@
   "submissionEvidence": "apps/mobile/store/review/submission-evidence.json",
   "submissionBlockers": [
     {"id":"legal_approval","status":"blocked","owner":"P0-31","detail":"Privacy, terms, contact and retention policy content is still marked pending_legal_review and has no effective date."},
-    {"id":"screenshots","status":"blocked","owner":"P1-11","detail":"Required English/Arabic Android/iOS screenshots have not yet been captured from real rendered UI."},
+    {"id":"screenshots","status":"resolved","owner":"P1-11","detail":"All 24 required English/Arabic Android/iOS screenshots are committed from real rendered UI and reconciled at 1080x1920 with SHA-256 fingerprints."},
     {"id":"store_console_configuration","status":"external","owner":"release_operator","detail":"Store records, categories, age/content questionnaires, pricing/distribution and review contacts must be completed in the real Apple/Google consoles."},
     {"id":"review_credentials","status":"external","owner":"release_operator","detail":"Dedicated non-production reviewer credentials must be provisioned outside source control."},
     {"id":"privacy_form_final_verification","status":"blocked","owner":"P1-11/P0-31","detail":"Candidate App Privacy/Data safety declarations must be reconciled against the final production SDK/provider inventory and approved privacy policy."}
