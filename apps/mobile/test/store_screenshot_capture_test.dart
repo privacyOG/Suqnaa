@@ -7,11 +7,16 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
 import 'package:suqnaa/src/api/catalog_api.dart';
+import 'package:suqnaa/src/api/challenge_config_api.dart';
 import 'package:suqnaa/src/api/order_activity_api.dart';
+import 'package:suqnaa/src/api/order_fulfilment_api.dart';
 import 'package:suqnaa/src/features/catalog/listing_detail_screen.dart';
+import 'package:suqnaa/src/features/conversations/session_conversation_inbox.dart';
 import 'package:suqnaa/src/features/home/home_screen.dart';
 import 'package:suqnaa/src/features/orders/order_activity_screen.dart';
+import 'package:suqnaa/src/features/orders/order_fulfilment_screen.dart';
 import 'package:suqnaa/src/features/sell/create_listing_screen.dart';
+import 'package:suqnaa/src/navigation/secure_web_handoff.dart';
 import 'package:suqnaa/src/session/access_state.dart';
 import 'package:suqnaa/src/session/app_session.dart';
 import 'package:suqnaa/src/session/session_scope.dart';
@@ -73,6 +78,54 @@ void main() {
       await _writeCapture(tester, boundaryKey, scenario, '03-sell-listing.png');
     });
 
+    testWidgets('captures messaging ${scenario.outputDirectory}', (tester) async {
+      if (!captureEnabled) return;
+      final ar = scenario.locale.languageCode == 'ar';
+      final boundaryKey = await _pumpCapture(
+        tester,
+        scenario,
+        SessionConversationInbox(
+          pageLoader: (
+            String accessToken, {
+            int limit = 20,
+            String? before,
+          }) async {
+            expect(accessToken, 'store-capture-token');
+            return {
+              'conversations': [
+                {
+                  'id': '723e4567-e89b-42d3-a456-426614174000',
+                  'listingId': _StoreCaptureCatalogGateway.listing.id,
+                  'counterpart': {
+                    'id': '823e4567-e89b-42d3-a456-426614174000',
+                    'displayName': ar ? 'مشتري تجريبي' : 'Sample buyer',
+                  },
+                  'latestMessage': {
+                    'body': ar
+                        ? 'مرحباً، هل الكاميرا ما زالت متاحة للاستلام؟'
+                        : 'Hi, is the camera still available for pickup?',
+                  },
+                  'unreadCount': 2,
+                  'safety': {
+                    'muted': false,
+                    'messagingAvailable': true,
+                  },
+                },
+              ],
+              'pagination': {'hasMore': false, 'nextCursor': null},
+            };
+          },
+        ),
+      );
+      await _pumpCaptureFrames(tester);
+
+      expect(find.text(ar ? 'مشتري تجريبي' : 'Sample buyer'), findsOneWidget);
+      if (ar) {
+        expect(Directionality.of(tester.element(find.byType(SessionConversationInbox))), TextDirection.rtl);
+      }
+      await _writeCapture(tester, boundaryKey, scenario, '04-messages.png');
+    });
+
     testWidgets('captures offer and order ${scenario.outputDirectory}', (tester) async {
       if (!captureEnabled) return;
       final boundaryKey = await _pumpCapture(
@@ -90,6 +143,31 @@ void main() {
         expect(Directionality.of(tester.element(find.byType(OrderActivityScreen))), TextDirection.rtl);
       }
       await _writeCapture(tester, boundaryKey, scenario, '05-offer-order.png');
+    });
+
+    testWidgets('captures fulfilment and safety ${scenario.outputDirectory}', (tester) async {
+      if (!captureEnabled) return;
+      final boundaryKey = await _pumpCapture(
+        tester,
+        scenario,
+        OrderFulfilmentScreen(
+          orderGateway: _StoreCaptureOrderGateway(),
+          fulfilmentGateway: _StoreCaptureFulfilmentGateway(),
+          challengeGateway: _StoreCaptureChallengeGateway(),
+          secureWebHandoffGateway: _StoreCaptureSecureWebHandoff(),
+          accessToken: 'store-capture-token',
+        ),
+      );
+      await _pumpCaptureFrames(tester);
+
+      expect(find.text('Mirrorless camera'), findsOneWidget);
+      if (scenario.locale.languageCode == 'ar') {
+        expect(Directionality.of(tester.element(find.byType(OrderFulfilmentScreen))), TextDirection.rtl);
+        expect(find.text('تأكيد الاستلام'), findsOneWidget);
+      } else {
+        expect(find.text('Confirm receipt'), findsOneWidget);
+      }
+      await _writeCapture(tester, boundaryKey, scenario, '06-fulfilment-safety.png');
     });
   }
 }
@@ -128,7 +206,7 @@ Future<GlobalKey> _pumpCapture(
 }
 
 Future<void> _pumpCaptureFrames(WidgetTester tester) async {
-  for (var frame = 0; frame < 6; frame += 1) {
+  for (var frame = 0; frame < 8; frame += 1) {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
@@ -271,4 +349,54 @@ class _StoreCaptureOrderGateway implements OrderActivityGateway {
     String accessToken, {
     required String orderId,
   }) async => order;
+}
+
+class _StoreCaptureFulfilmentGateway implements OrderFulfilmentGateway {
+  @override
+  Future<OrderFulfilmentContext> fetchContext(
+    String accessToken, {
+    required String orderId,
+  }) async {
+    expect(accessToken, 'store-capture-token');
+    return const OrderFulfilmentContext(
+      orderId: '423e4567-e89b-42d3-a456-426614174000',
+      paymentIntentId: '923e4567-e89b-42d3-a456-426614174000',
+      paymentStatus: MobilePaymentContextStatus.held,
+      providerConfigured: true,
+      fulfilmentId: 'a23e4567-e89b-42d3-a456-426614174000',
+      fulfilmentStatus: MobileFulfilmentStatus.shipped,
+      releaseEnabled: false,
+    );
+  }
+
+  @override
+  Future<OrderFulfilmentResult> update(
+    String accessToken, {
+    required String orderId,
+    required MobileFulfilmentAction action,
+    String? carrier,
+    String? trackingReference,
+    String? challengeResponse,
+  }) async => throw UnimplementedError();
+}
+
+class _StoreCaptureChallengeGateway implements ChallengeConfigurationGateway {
+  @override
+  Future<MobileChallengeConfiguration> fetch() async => const MobileChallengeConfiguration(
+        enabled: false,
+        provider: 'none',
+        siteKey: null,
+        paymentCheckoutAction: 'payment_checkout_prepare',
+        orderCancelAction: 'order_cancel',
+        fulfilmentManageAction: 'fulfilment_manage',
+        fulfilmentConfirmAction: 'fulfilment_confirm',
+      );
+}
+
+class _StoreCaptureSecureWebHandoff implements SecureWebHandoffGateway {
+  @override
+  Future<bool> openOrder({required String locale, required String orderId}) async => true;
+
+  @override
+  Future<bool> openOrders({required String locale}) async => true;
 }
