@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   capture-candidates:
-    name: Capture real-rendered catalogue candidates
+    name: Capture real-rendered store candidates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
       - name: Generate localizations
         working-directory: apps/mobile
         run: flutter gen-l10n
-      - name: Capture Android/iOS English/Arabic catalogue candidates
+      - name: Capture Android/iOS English/Arabic candidates
         working-directory: apps/mobile
         run: flutter test test/store_screenshot_capture_test.dart --dart-define=CAPTURE_STORE_SCREENSHOTS=true
       - name: Verify candidate PNGs
@@ -42,14 +42,16 @@ jobs:
         run: |
           set -Eeuo pipefail
           root='apps/mobile/build/store-screenshot-candidates'
-          for file in \
-            "$root/android/en/01-catalogue.png" \
-            "$root/android/ar/01-catalogue.png" \
-            "$root/ios/en/01-catalogue.png" \
-            "$root/ios/ar/01-catalogue.png"; do
-            test -s "$file"
-            file "$file" | grep -q 'PNG image data, 1080 x 1920'
+          for platform in android ios; do
+            for locale in en ar; do
+              for image in 01-catalogue.png 02-listing-detail.png; do
+                file="$root/$platform/$locale/$image"
+                test -s "$file"
+                file "$file" | grep -q 'PNG image data, 1080 x 1920'
+              done
+            done
           done
+          test "$(find "$root" -type f -name '*.png' | wc -l)" -eq 8
           find "$root" -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum > "$root/SHA256SUMS"
       - name: Upload screenshot candidates for visual approval
         uses: actions/upload-artifact@v4
