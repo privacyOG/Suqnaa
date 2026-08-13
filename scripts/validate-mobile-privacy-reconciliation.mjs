@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const json = (path) => JSON.parse(read(path));
+const exists = (path) => existsSync(new URL(path, root));
 
 const inventory = json('apps/mobile/store/privacy/production-inventory.json');
 const apple = json('apps/mobile/store/privacy/app-store-privacy.json');
@@ -90,8 +91,27 @@ for (const id of requiredServiceIds) {
   assert.ok(service, `Missing production service class: ${id}`);
   assert.equal(service.required, true);
   assert.equal(typeof service.providerFinalized, 'boolean');
+  assert.ok(Array.isArray(service.finalizationEvidence), `${id} requires finalizationEvidence`);
   assert.ok(Array.isArray(service.dataClasses) && service.dataClasses.length > 0);
+
+  if (service.providerFinalized) {
+    assert.equal(typeof service.provider, 'string', `${id} finalized provider must be named`);
+    assert.ok(service.provider.trim().length > 0, `${id} finalized provider must be named`);
+    assert.ok(service.finalizationEvidence.length > 0, `${id} finalized provider requires source-controlled evidence`);
+    for (const path of service.finalizationEvidence) {
+      assert.equal(typeof path, 'string', `${id} finalization evidence path must be a string`);
+      assert.ok(path.trim().length > 0, `${id} finalization evidence path must not be empty`);
+      assert.equal(exists(path), true, `${id} finalization evidence does not exist: ${path}`);
+    }
+  } else {
+    assert.equal(service.provider, null, `${id} unresolved provider must remain null`);
+    assert.deepEqual(service.finalizationEvidence, [], `${id} unresolved provider must not claim finalization evidence`);
+  }
 }
+
+assert.equal(serviceById.get('payment_and_payout_provider')?.provider, 'stripe_checkout_and_connect');
+assert.equal(serviceById.get('object_storage_and_cdn')?.provider, 'suqnaa_private_s3_compatible_object_storage');
+assert.equal(serviceById.get('operational_observability')?.provider, 'prometheus_grafana_alertmanager');
 
 const allProvidersFinalized = inventory.productionServiceClasses
   .filter((entry) => entry.required)
