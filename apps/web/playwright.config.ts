@@ -10,7 +10,7 @@ export default defineConfig({
     baseURL: process.env.BROWSER_E2E_WEB_ORIGIN ?? 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
+    video: 'off'
   },
   projects: [
     {
