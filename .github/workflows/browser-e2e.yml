@@ -1,0 +1,85 @@
+name: Browser E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/browser-e2e.yml'
+      - 'apps/web/**'
+      - 'apps/api/**'
+      - 'migrations/**'
+      - 'scripts/migrate-database.mjs'
+      - 'scripts/migration-lib.mjs'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-journeys:
+    name: EN/AR buyer seller operations journeys
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: suqnaa
+          POSTGRES_PASSWORD: suqnaa_dev_password
+          POSTGRES_DB: suqnaa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suqnaa -d suqnaa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      API_HOST: 127.0.0.1
+      API_PORT: 4000
+      WEB_ORIGIN: http://127.0.0.1:3000
+      BROWSER_E2E_WEB_ORIGIN: http://127.0.0.1:3000
+      API_BASE_URL: http://127.0.0.1:4000
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4000
+      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@127.0.0.1:5432/suqnaa
+      JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
+      PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
+      PASSWORD_RESET_PEPPER: ci-password-reset-pepper-change-in-production-32chars
+      VERIFICATION_CODE_PEPPER: ci-verification-pepper-change-in-production-32chars
+      VERIFICATION_DELIVERY_PROVIDER: console
+      CHALLENGE_PROVIDER: none
+      SELLER_SETTLEMENT_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium runtime
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+      - name: Apply complete migration ledger
+        run: node scripts/migrate-database.mjs
+      - name: Build API and web
+        run: pnpm build
+      - name: Seed isolated browser data
+        run: pnpm --dir apps/api exec tsx src/integration/browser-e2e-seed.ts ../web/e2e/.seed.json
+      - name: Run browser journeys
+        run: pnpm --dir apps/web exec playwright test
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-failure-evidence
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
