@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "status": "not_started",
+  "releaseBlockingDefectsOpen": true,
+  "tracks": [
+    {
+      "platform": "android",
+      "track": "internal",
+      "required": true,
+      "status": "not_configured",
+      "buildReference": null,
+      "evidenceReference": null,
+      "startedAt": null,
+      "passedAt": null
+    },
+    {
+      "platform": "android",
+      "track": "closed",
+      "required": true,
+      "status": "not_configured",
+      "buildReference": null,
+      "evidenceReference": null,
+      "startedAt": null,
+      "passedAt": null
+    },
+    {
+      "platform": "ios",
+      "track": "testflight_internal",
+      "required": true,
+      "status": "not_configured",
+      "buildReference": null,
+      "evidenceReference": null,
+      "startedAt": null,
+      "passedAt": null
+    },
+    {
+      "platform": "ios",
+      "track": "testflight_external",
+      "required": true,
+      "status": "not_configured",
+      "buildReference": null,
+      "evidenceReference": null,
+      "startedAt": null,
+      "passedAt": null
+    }
+  ],
+  "allowedStatuses": ["not_configured", "configured", "testing", "passed", "blocked"],
+  "completionRule": "private testing is complete only when every required track is passed, each passed track has a buildReference, evidenceReference and ISO-8601 startedAt/passedAt timestamps, passedAt is not earlier than startedAt, and releaseBlockingDefectsOpen is false."
+}

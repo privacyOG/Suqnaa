@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "status": "template_requires_external_credentials",
+  "reviewAccount": {
+    "credentialsStoredInRepository": false,
+    "provisioning": "Create a dedicated non-production reviewer account and enter credentials only in App Store Connect / Play Console review fields.",
+    "requiredCapabilities": [
+      "browse_catalogue",
+      "view_listing_detail",
+      "create_or_edit_test_listing",
+      "open_messages",
+      "create_test_offer",
+      "view_test_order",
+      "exercise_fulfilment_flow"
+    ]
+  },
+  "reviewNotes": [
+    "Suqnaa is an Australia-focused marketplace for user-listed physical goods/services; user-generated listings and messages are moderated and reportable.",
+    "Use the dedicated reviewer account supplied in the store console. Do not use production customer credentials.",
+    "Payment and identity-provider flows may operate in approved sandbox/test configuration for review; no reviewer should be asked to make a real-money purchase or submit real identity documents.",
+    "Account deletion is available from Profile and privacy inside the authenticated app. Public deletion information is available at https://suqnaa.com/en/account-deletion.",
+    "If a reviewed feature is hidden by eligibility, region, verification or sandbox configuration, release notes must state the exact test condition and safe review path."
+  ],
+  "submissionChecks": [
+    "Reviewer account signs in successfully on the submitted build.",
+    "No OTP, captcha, payment or identity step blocks review without documented test handling.",
+    "Test listing/order fixtures contain no real personal or financial data.",
+    "Support and privacy URLs are reachable over HTTPS.",
+    "Account deletion flow is reachable from the submitted build."
+  ]
+}

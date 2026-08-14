@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate_requires_final_provider_confirmation",
+  "mobileDependencies": [
+    {
+      "package": "cupertino_icons",
+      "classification": "ui_assets",
+      "networkCapable": false,
+      "collectsUserData": false,
+      "disclosureImpact": "none"
+    },
+    {
+      "package": "flutter_secure_storage",
+      "classification": "platform_secure_storage",
+      "networkCapable": false,
+      "collectsUserData": false,
+      "disclosureImpact": "Stores authentication/session material locally using platform-protected storage; does not itself transmit data."
+    },
+    {
+      "package": "http",
+      "classification": "network_transport",
+      "networkCapable": true,
+      "collectsUserData": false,
+      "disclosureImpact": "Transports application API requests; disclosure is determined by the Suqnaa API data fields and downstream service providers."
+    },
+    {
+      "package": "image_picker",
+      "classification": "user_selected_media",
+      "networkCapable": false,
+      "collectsUserData": true,
+      "disclosureImpact": "Allows users to select or capture listing/profile/dispute photos that are uploaded only through explicit application flows."
+    },
+    {
+      "package": "intl",
+      "classification": "localisation",
+      "networkCapable": false,
+      "collectsUserData": false,
+      "disclosureImpact": "none"
+    },
+    {
+      "package": "url_launcher",
+      "classification": "external_url_handoff",
+      "networkCapable": false,
+      "collectsUserData": false,
+      "disclosureImpact": "Hands approved external URLs to the operating system; no embedded browser analytics SDK is declared."
+    }
+  ],
+  "productionServiceClasses": [
+    {
+      "id": "suqnaa_api",
+      "role": "first_party_backend",
+      "required": true,
+      "provider": "suqnaa_first_party",
+      "providerFinalized": true,
+      "finalizationEvidence": [
+        "apps/api/src/server.ts"
+      ],
+      "dataClasses": ["account", "profile", "marketplace_location", "listings", "messages", "offers", "orders", "security_session", "reports_disputes"]
+    },
+    {
+      "id": "payment_and_payout_provider",
+      "role": "service_provider",
+      "required": true,
+      "provider": "stripe_checkout_and_connect",
+      "providerFinalized": true,
+      "finalizationEvidence": [
+        "apps/api/src/payments/stripe-connect-provider.ts",
+        "docs/PAYMENT_COLLECTION.md",
+        "docs/SELLER_SETTLEMENT.md"
+      ],
+      "dataClasses": ["payment_status", "provider_references", "purchase_history", "seller_payout_status"]
+    },
+    {
+      "id": "identity_verification_provider",
+      "role": "service_provider",
+      "required": true,
+      "provider": null,
+      "providerFinalized": false,
+      "finalizationEvidence": [],
+      "dataClasses": ["verification_status", "provider_references", "provider_controlled_verification_evidence"]
+    },
+    {
+      "id": "communications_providers",
+      "role": "service_provider",
+      "required": true,
+      "provider": null,
+      "providerFinalized": false,
+      "finalizationEvidence": [],
+      "dataClasses": ["email", "phone_number", "notification_delivery_metadata", "security_notification_metadata"]
+    },
+    {
+      "id": "object_storage_and_cdn",
+      "role": "self_hosted_service",
+      "required": true,
+      "provider": "suqnaa_private_s3_compatible_object_storage",
+      "providerFinalized": true,
+      "finalizationEvidence": [
+        "deploy/compose.infrastructure.yml",
+        "docs/PRODUCTION_INFRASTRUCTURE.md",
+        "docs/MEDIA_STORAGE.md"
+      ],
+      "dataClasses": ["user_selected_photos", "moderation_media", "dispute_evidence"]
+    },
+    {
+      "id": "operational_observability",
+      "role": "self_hosted_service",
+      "required": true,
+      "provider": "prometheus_grafana_alertmanager",
+      "providerFinalized": true,
+      "finalizationEvidence": [
+        "deploy/compose.infrastructure.yml",
+        "docs/OBSERVABILITY.md"
+      ],
+      "dataClasses": ["privacy_minimised_diagnostics", "error_events", "operational_metrics"]
+    }
+  ],
+  "prohibitedUntilPrivacyReview": [
+    "advertising_sdk",
+    "cross_app_tracking_sdk",
+    "marketing_attribution_sdk",
+    "production_analytics_sdk"
+  ],
+  "reconciliationRule": "privacy_form_reconciliation may be approved only after every required production service class has providerFinalized=true with source-controlled finalization evidence and the Apple App Privacy and Google Play Data safety declarations have been reviewed against this exact inventory."
+}

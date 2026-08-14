@@ -5,8 +5,12 @@ on:
     paths:
       - '.github/workflows/mobile-store-releases.yml'
       - 'scripts/validate-mobile-release-pipelines.mjs'
+      - 'scripts/validate-mobile-store-readiness.mjs'
       - 'apps/mobile/android/**'
       - 'apps/mobile/ios/**'
+      - 'apps/mobile/store/**'
+      - 'apps/web/app/[locale]/account-deletion/**'
+      - 'apps/web/lib/legal-policy-content.ts'
       - 'docs/MOBILE_PLATFORM_RELEASES.md'
   workflow_dispatch:
     inputs:
@@ -46,6 +50,8 @@ jobs:
           node-version: '22'
       - name: Validate store release pipeline
         run: node scripts/validate-mobile-release-pipelines.mjs
+      - name: Validate store readiness package
+        run: node scripts/validate-mobile-store-readiness.mjs
 
   android-app-bundle:
     name: Signed Android App Bundle

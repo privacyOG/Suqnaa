@@ -1,0 +1,26 @@
+name: Mobile Store Privacy Reconciliation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-privacy-reconciliation.yml'
+      - 'scripts/validate-mobile-privacy-reconciliation.mjs'
+      - 'apps/mobile/pubspec.yaml'
+      - 'apps/mobile/pubspec.lock'
+      - 'apps/mobile/store/privacy/**'
+      - 'apps/mobile/store/review/submission-evidence.json'
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-reconciliation-contract:
+    name: Privacy reconciliation contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate mobile runtime/privacy inventory reconciliation
+        run: node scripts/validate-mobile-privacy-reconciliation.mjs

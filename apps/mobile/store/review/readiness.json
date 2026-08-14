@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "status": "not_ready_for_public_submission",
+  "productionIdentifiers": {
+    "androidPackage": "co.privacyx.suqnaa",
+    "iosBundleId": "co.privacyx.suqnaa"
+  },
+  "urls": {
+    "support": "https://suqnaa.com/en/policy/contact",
+    "privacyPolicy": "https://suqnaa.com/en/policy/privacy",
+    "accountDeletion": "https://suqnaa.com/en/account-deletion"
+  },
+  "testingPlan": {
+    "android": ["internal", "closed", "production"],
+    "ios": ["testflight_internal", "testflight_external", "app_review"],
+    "publicProductionBlockedUntilPrivateTestingPasses": true
+  },
+  "reviewAccess": {
+    "requiresAuthenticatedReviewerAccount": true,
+    "credentialsStoredInRepository": false,
+    "credentialsProvisioning": "Supply dedicated review credentials through the relevant store review console only. Never commit them or place them in issue/PR text.",
+    "reviewNotesMustExplain": [
+      "How to sign in with the dedicated review account.",
+      "How to browse catalogue/listing detail and create or edit a test listing.",
+      "How to open messaging, offers/orders and fulfilment flows.",
+      "Any sandbox/provider conditions that prevent real money movement during review.",
+      "Any account, verification or region eligibility that affects visible functionality."
+    ]
+  },
+  "submissionEvidence": "apps/mobile/store/review/submission-evidence.json",
+  "submissionBlockers": [
+    {"id":"legal_approval","status":"blocked","owner":"P0-31","detail":"Privacy, terms, contact and retention policy content is still marked pending_legal_review and has no effective date."},
+    {"id":"screenshots","status":"resolved","owner":"P1-11","detail":"All 24 required English/Arabic Android/iOS screenshots are committed from real rendered UI and reconciled at 1080x1920 with SHA-256 fingerprints."},
+    {"id":"store_console_configuration","status":"external","owner":"release_operator","detail":"Store records, categories, age/content questionnaires, pricing/distribution and review contacts must be completed in the real Apple/Google consoles."},
+    {"id":"review_credentials","status":"external","owner":"release_operator","detail":"Dedicated non-production reviewer credentials must be provisioned outside source control."},
+    {"id":"privacy_form_final_verification","status":"blocked","owner":"P1-11/P0-31","detail":"Candidate App Privacy/Data safety declarations must be reconciled against the final production SDK/provider inventory and approved privacy policy."}
+  ],
+  "readyWhen": [
+    "All required screenshots are captured and approved.",
+    "P0-31 legal/privacy content is approved and effective URLs are live.",
+    "Candidate privacy/data-safety manifests are reconciled against production providers and SDKs.",
+    "Internal/private testing completes without release-blocking defects.",
+    "Store-console records and reviewer access are configured by an authorised release operator.",
+    "Every required item in apps/mobile/store/review/submission-evidence.json is explicitly approved with an evidence reference and approval timestamp."
+  ]
+}

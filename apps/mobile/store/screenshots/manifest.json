@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "status": "captured_complete",
+  "sourceOfTruth": "Real rendered application UI only; do not use mock screens that misrepresent production functionality.",
+  "sets": [
+    {
+      "platform": "ios",
+      "deviceFamily": "iphone_6_9_portrait",
+      "locale": "en",
+      "required": true,
+      "files": [
+        {
+          "order": 1,
+          "file": "ios/en/01-catalogue.png",
+          "screen": "catalogue",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "f4f708085940eb7c220e0ad2c5b44c17ac265331e8d3eb7d56f68d97d2a88f45"
+        },
+        {
+          "order": 2,
+          "file": "ios/en/02-listing-detail.png",
+          "screen": "listing_detail",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "c8be3f3101705e08912fa188813c81574e27e71016aad71282be125917b53032"
+        },
+        {
+          "order": 3,
+          "file": "ios/en/03-sell-listing.png",
+          "screen": "listing_management",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "0192c8ee378ddd481d18c6b6d8c5cf8ba714f39f7c1f3103238bca7f03570ac4"
+        },
+        {
+          "order": 4,
+          "file": "ios/en/04-messages.png",
+          "screen": "messaging",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "39f22fdb75efeaaa47bf1bf06006ac6f10cef9a8754448fb92e9e1ead6819bdf"
+        },
+        {
+          "order": 5,
+          "file": "ios/en/05-offer-order.png",
+          "screen": "offer_order",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "6e29053dfaf2c5639d0adc5242089d838be970d1b034d25c45ebaea56595e441"
+        },
+        {
+          "order": 6,
+          "file": "ios/en/06-fulfilment-safety.png",
+          "screen": "fulfilment_safety",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "a7ce5688022b802cf111249461d8aef38410085bdea7f6c42c51802d7bc84f50"
+        }
+      ]
+    },
+    {
+      "platform": "ios",
+      "deviceFamily": "iphone_6_9_portrait",
+      "locale": "ar",
+      "required": true,
+      "files": [
+        {
+          "order": 1,
+          "file": "ios/ar/01-catalogue.png",
+          "screen": "catalogue",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "4ec643c497499f6607c9975ed42c175bf937babde47e0e49d8fad9fa10697cda"
+        },
+        {
+          "order": 2,
+          "file": "ios/ar/02-listing-detail.png",
+          "screen": "listing_detail",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "be0b1a6f1575819f413bfef3a80836c7c9b203ad5819c64e1b555d849e413b1c"
+        },
+        {
+          "order": 3,
+          "file": "ios/ar/03-sell-listing.png",
+          "screen": "listing_management",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "d3f9c795261ff6b32473854d72ff3e0ac74a9955996188d2b670d09013e77598"
+        },
+        {
+          "order": 4,
+          "file": "ios/ar/04-messages.png",
+          "screen": "messaging",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "40707daaffcc259db36a59c039e5660396ae38c00597f7d5ea0f8e0291d71988"
+        },
+        {
+          "order": 5,
+          "file": "ios/ar/05-offer-order.png",
+          "screen": "offer_order",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "9d2f8a0514f6b61a9b1377c8b14e477005b8b63bae3540b67605c8dcdb7bee90"
+        },
+        {
+          "order": 6,
+          "file": "ios/ar/06-fulfilment-safety.png",
+          "screen": "fulfilment_safety",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "70938e17aad46a9976a6e22f34c142f8d2233cfda45bc75e154786d254733185"
+        }
+      ]
+    },
+    {
+      "platform": "android",
+      "deviceFamily": "phone_portrait",
+      "locale": "en",
+      "required": true,
+      "files": [
+        {
+          "order": 1,
+          "file": "android/en/01-catalogue.png",
+          "screen": "catalogue",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "f4f708085940eb7c220e0ad2c5b44c17ac265331e8d3eb7d56f68d97d2a88f45"
+        },
+        {
+          "order": 2,
+          "file": "android/en/02-listing-detail.png",
+          "screen": "listing_detail",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "63c3676cd302c4b177719610b0c6064ef08946984a33a5742d4744eb5081fd21"
+        },
+        {
+          "order": 3,
+          "file": "android/en/03-sell-listing.png",
+          "screen": "listing_management",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "5eec9d677cd38345b8112830f7404cf170dfe525cd10a5f0654cf2677c02aefd"
+        },
+        {
+          "order": 4,
+          "file": "android/en/04-messages.png",
+          "screen": "messaging",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "6c8a6f14d4090b9f0d6ca57f709d385ce5a02d4705af51f1e64a495e43c4c2bd"
+        },
+        {
+          "order": 5,
+          "file": "android/en/05-offer-order.png",
+          "screen": "offer_order",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "1bf6c592d7ada3b803176729a8e3ac2480d5485acfc833b9e852c2df9be7aec7"
+        },
+        {
+          "order": 6,
+          "file": "android/en/06-fulfilment-safety.png",
+          "screen": "fulfilment_safety",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "437aba742d433aba5f1fe85cc4e42d22cd1262e5b20a8a5fbd5056029e556b6a"
+        }
+      ]
+    },
+    {
+      "platform": "android",
+      "deviceFamily": "phone_portrait",
+      "locale": "ar",
+      "required": true,
+      "files": [
+        {
+          "order": 1,
+          "file": "android/ar/01-catalogue.png",
+          "screen": "catalogue",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "4ec643c497499f6607c9975ed42c175bf937babde47e0e49d8fad9fa10697cda"
+        },
+        {
+          "order": 2,
+          "file": "android/ar/02-listing-detail.png",
+          "screen": "listing_detail",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "1eb7c8278a308e8d8fcda9774677592d285588efa0f800ca6cf7552b88783d4d"
+        },
+        {
+          "order": 3,
+          "file": "android/ar/03-sell-listing.png",
+          "screen": "listing_management",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "42b7f833dbe5d4f82ecedc54f2a3a6159a3e66fb4592090ca9af657a971fac9d"
+        },
+        {
+          "order": 4,
+          "file": "android/ar/04-messages.png",
+          "screen": "messaging",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "9d92f3c42178a6a98e1da9c2577197de168c24cb529ad9f8eca144361766982c"
+        },
+        {
+          "order": 5,
+          "file": "android/ar/05-offer-order.png",
+          "screen": "offer_order",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "e7722e4862e970f4d6ae406ec435aed6460422048264044e31107e9f58d151a5"
+        },
+        {
+          "order": 6,
+          "file": "android/ar/06-fulfilment-safety.png",
+          "screen": "fulfilment_safety",
+          "status": "captured",
+          "width": 1080,
+          "height": 1920,
+          "sha256": "a78a12a7ee93633f42f8f1a616f8b2ac355d232f989b8aca8af5de4af6196c6c"
+        }
+      ]
+    }
+  ],
+  "captureRules": [
+    "Use deterministic test data with no real user personal information.",
+    "Use current production-like UI and current translations.",
+    "Do not show secret values, authentication tokens, private addresses or unredacted payment/verification details.",
+    "Arabic captures must be rendered in Arabic/RTL, not translated overlays.",
+    "Store approved PNG files under apps/mobile/store/screenshots/<platform>/<locale>/ using the paths declared in this manifest.",
+    "Run node scripts/reconcile-mobile-store-screenshots.mjs after adding, replacing or removing screenshots so dimensions and SHA-256 fingerprints are recorded deterministically."
+  ],
+  "capturedCount": 24,
+  "requiredCount": 24
+}
