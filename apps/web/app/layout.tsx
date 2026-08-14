@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { siteUrl } from '../lib/seo';
 import './globals.css';
 import './auth-components.css';
 import './marketplace-components.css';
@@ -10,8 +11,24 @@ import './activity-detail-components.css';
 import './policy-components.css';
 
 export const metadata: Metadata = {
-  title: 'Suqnaa | Trusted marketplace',
-  description: 'Buy, sell, and connect through a trusted marketplace built around fairness and quality.'
+  metadataBase: siteUrl,
+  title: {
+    default: 'Suqnaa | Trusted marketplace',
+    template: '%s | Suqnaa'
+  },
+  description: 'Buy, sell, and connect through a trusted marketplace built around fairness and quality.',
+  applicationName: 'Suqnaa',
+  openGraph: {
+    type: 'website',
+    siteName: 'Suqnaa',
+    title: 'Suqnaa | Trusted marketplace',
+    description: 'Buy, sell, and connect through a trusted marketplace built around fairness and quality.'
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Suqnaa | Trusted marketplace',
+    description: 'Buy, sell, and connect through a trusted marketplace built around fairness and quality.'
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
