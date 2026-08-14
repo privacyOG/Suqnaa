@@ -8,8 +8,10 @@ const json = (path) => JSON.parse(read(path));
 const requiredFiles = [
   'apps/web/app/accessibility.css',
   'apps/web/app/[locale]/layout.tsx',
+  'apps/mobile/lib/src/app_root.dart',
   'apps/mobile/lib/l10n/app_en.arb',
-  'apps/mobile/lib/l10n/app_ar.arb'
+  'apps/mobile/lib/l10n/app_ar.arb',
+  'docs/ACCESSIBILITY_LOCALIZATION.md'
 ];
 for (const path of requiredFiles) {
   assert.ok(existsSync(new URL(path, root)), `Missing accessibility/localization file: ${path}`);
@@ -17,6 +19,7 @@ for (const path of requiredFiles) {
 
 const accessibilityCss = read('apps/web/app/accessibility.css');
 const localeLayout = read('apps/web/app/[locale]/layout.tsx');
+const mobileRoot = read('apps/mobile/lib/src/app_root.dart');
 
 for (const requiredPattern of [
   /:focus-visible/,
@@ -33,6 +36,14 @@ assert.match(localeLayout, /href="#main-content"/);
 assert.match(localeLayout, /انتقل إلى المحتوى الرئيسي/);
 assert.match(localeLayout, /id="main-content"/);
 assert.match(localeLayout, /tabIndex=\{-1\}/);
+
+assert.match(mobileRoot, /materialTapTargetSize:\s*MaterialTapTargetSize\.padded/);
+assert.match(mobileRoot, /visualDensity:\s*VisualDensity\.standard/);
+assert.match(mobileRoot, /Semantics\(/);
+assert.match(mobileRoot, /liveRegion:\s*true/);
+assert.match(mobileRoot, /ExcludeSemantics\(/);
+assert.match(mobileRoot, /جارٍ استعادة جلسة سوقنا/);
+assert.doesNotMatch(mobileRoot, /textScaler\s*:/, 'Do not clamp or replace the operating-system Flutter text scaler');
 
 const enArb = json('apps/mobile/lib/l10n/app_en.arb');
 const arArb = json('apps/mobile/lib/l10n/app_ar.arb');
