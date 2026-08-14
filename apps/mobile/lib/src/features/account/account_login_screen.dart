@@ -66,8 +66,11 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
       Navigator.of(context).pop(true);
     } catch (_) {
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         setState(() {
-          _error = 'Sign in failed. Check your contact details and password, then try again.';
+          _error = isArabic
+              ? 'تعذر تسجيل الدخول. تحقق من بيانات الاتصال وكلمة المرور ثم حاول مرة أخرى.'
+              : 'Sign in failed. Check your contact details and password, then try again.';
         });
       }
     } finally {
@@ -79,9 +82,11 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
   Widget build(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final phoneMode = _contactMode == 'phone';
+    final signIn = isArabic ? 'تسجيل الدخول' : 'Sign in';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sign in'),
+        title: Text(signIn),
         backgroundColor: SuqnaaBrand.ivory,
       ),
       body: SafeArea(
@@ -91,27 +96,29 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                const Text(
-                  'Welcome back',
-                  style: TextStyle(
+                Text(
+                  isArabic ? 'مرحباً بعودتك' : 'Welcome back',
+                  style: const TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w900,
                     color: SuqnaaBrand.blue,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Sign in to access your listings, account, and messages.'),
+                Text(isArabic
+                    ? 'سجّل الدخول للوصول إلى إعلاناتك وحسابك ورسائلك.'
+                    : 'Sign in to access your listings, account, and messages.'),
                 const SizedBox(height: 28),
                 DropdownButtonFormField<String>(
                   initialValue: _contactMode,
-                  decoration: const InputDecoration(
-                    labelText: 'Sign in with',
-                    prefixIcon: Icon(Icons.contact_phone_outlined),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'تسجيل الدخول باستخدام' : 'Sign in with',
+                    prefixIcon: const Icon(Icons.contact_phone_outlined),
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'email', child: Text('Email')),
-                    DropdownMenuItem(value: 'phone', child: Text('Phone')),
+                  items: [
+                    DropdownMenuItem(value: 'email', child: Text(isArabic ? 'البريد الإلكتروني' : 'Email')),
+                    DropdownMenuItem(value: 'phone', child: Text(isArabic ? 'الهاتف' : 'Phone')),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
@@ -130,21 +137,33 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
                   textInputAction: TextInputAction.next,
                   autofillHints: [phoneMode ? AutofillHints.telephoneNumber : AutofillHints.email],
                   decoration: InputDecoration(
-                    labelText: phoneMode ? 'International phone number' : 'Email',
-                    helperText: phoneMode ? 'Use + and the country code, for example +61412345678' : null,
+                    labelText: phoneMode
+                        ? (isArabic ? 'رقم الهاتف الدولي' : 'International phone number')
+                        : (isArabic ? 'البريد الإلكتروني' : 'Email'),
+                    helperText: phoneMode
+                        ? (isArabic
+                            ? 'استخدم + ورمز الدولة، مثال: +61412345678'
+                            : 'Use + and the country code, for example +61412345678')
+                        : null,
                     prefixIcon: Icon(phoneMode ? Icons.phone_outlined : Icons.email_outlined),
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
                     final contact = value?.trim() ?? '';
                     if (!phoneMode) {
-                      if (contact.isEmpty || !contact.contains('@')) return 'Enter a valid email address';
+                      if (contact.isEmpty || !contact.contains('@')) {
+                        return isArabic ? 'أدخل بريداً إلكترونياً صالحاً' : 'Enter a valid email address';
+                      }
                       return null;
                     }
                     if (!(contact.startsWith('+') || contact.startsWith('00'))) {
-                      return 'Use international format with + and country code';
+                      return isArabic
+                          ? 'استخدم الصيغة الدولية مع + ورمز الدولة'
+                          : 'Use international format with + and country code';
                     }
-                    if (contact.length < 8) return 'Enter a valid international phone number';
+                    if (contact.length < 8) {
+                      return isArabic ? 'أدخل رقم هاتف دولياً صالحاً' : 'Enter a valid international phone number';
+                    }
                     return null;
                   },
                 ),
@@ -156,19 +175,23 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
                   autofillHints: const [AutofillHints.password],
                   onFieldSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: isArabic ? 'كلمة المرور' : 'Password',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
-                      tooltip: _hidePassword ? 'Show password' : 'Hide password',
+                      tooltip: _hidePassword
+                          ? (isArabic ? 'إظهار كلمة المرور' : 'Show password')
+                          : (isArabic ? 'إخفاء كلمة المرور' : 'Hide password'),
                       onPressed: () => setState(() => _hidePassword = !_hidePassword),
                       icon: Icon(_hidePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                     ),
                   ),
-                  validator: (value) => value == null || value.isEmpty ? 'Enter your password' : null,
+                  validator: (value) => value == null || value.isEmpty
+                      ? (isArabic ? 'أدخل كلمة المرور' : 'Enter your password')
+                      : null,
                 ),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: TextButton(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const PasswordRecoveryScreen()),
@@ -178,7 +201,10 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
-                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ),
                 ],
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -186,7 +212,9 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
                   icon: _submitting
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.login),
-                  label: Text(_submitting ? 'Signing in...' : 'Sign in'),
+                  label: Text(_submitting
+                      ? (isArabic ? 'جارٍ تسجيل الدخول...' : 'Signing in...')
+                      : signIn),
                 ),
               ],
             ),
