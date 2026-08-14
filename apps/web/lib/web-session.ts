@@ -80,14 +80,38 @@ export function clearWebSessionCookies(response: NextResponse): void {
   });
 }
 
+function firstForwardedValue(value: string | null): string | null {
+  const first = value?.split(',')[0]?.trim();
+  return first || null;
+}
+
+function browserVisibleOrigin(request: Request): string | null {
+  const internalUrl = new URL(request.url);
+  const host = request.headers.get('host')?.trim() || internalUrl.host;
+  const forwardedProtocol = firstForwardedValue(request.headers.get('x-forwarded-proto'));
+  const protocol = forwardedProtocol === 'http' || forwardedProtocol === 'https'
+    ? forwardedProtocol
+    : internalUrl.protocol.replace(':', '');
+
+  if (!host || (protocol !== 'http' && protocol !== 'https')) {
+    return null;
+  }
+
+  return `${protocol}://${host}`;
+}
+
 export function isSameOriginMutation(
   request: Request,
   production = process.env.NODE_ENV === 'production'
 ): boolean {
-  const requestOrigin = new URL(request.url).origin;
   const origin = request.headers.get('origin');
   if (origin) {
-    return origin === requestOrigin;
+    try {
+      const expectedOrigin = browserVisibleOrigin(request);
+      return expectedOrigin !== null && new URL(origin).origin === expectedOrigin;
+    } catch {
+      return false;
+    }
   }
 
   const fetchSite = request.headers.get('sec-fetch-site');
