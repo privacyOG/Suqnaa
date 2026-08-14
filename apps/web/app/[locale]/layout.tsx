@@ -45,10 +45,12 @@ export default function LocaleLayout({ children, params }: { children: React.Rea
   }
 
   const locale = params.locale as Locale;
+  const skipLabel = locale === 'ar' ? 'انتقل إلى المحتوى الرئيسي' : 'Skip to main content';
 
   return (
     <div lang={locale} dir={directionForLocale(locale)}>
-      {children}
+      <a className="skip-link" href="#main-content">{skipLabel}</a>
+      <div id="main-content" tabIndex={-1}>{children}</div>
       <SiteFooter locale={locale} />
     </div>
   );
