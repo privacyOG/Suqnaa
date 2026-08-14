@@ -1,0 +1,41 @@
+name: P1-15 Account State Fix
+
+on:
+  push:
+    branches:
+      - preflight/p1-15-api-integration
+    paths:
+      - '.github/workflows/p1-15-account-state-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: preflight/p1-15-api-integration
+      - name: Model registration then verification activation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/integration/marketplace-lifecycle.integration.test.ts')
+          source = path.read_text()
+          old = """  assert.equal(persistedAccounts.length, 2);\n  assert.ok(persistedAccounts.every((row) => row.status === 'active'));\n\n  await db.insertInto('listings').values({"""
+          new = """  assert.equal(persistedAccounts.length, 2);\n  assert.ok(persistedAccounts.every((row) => row.status === 'pending'));\n\n  // Registration intentionally starts pending. Model successful contact verification\n  // before entering marketplace messaging and commerce journeys.\n  const activatedAt = new Date();\n  await db.updateTable('users')\n    .set({ status: 'active', email_verified_at: activatedAt, updated_at: activatedAt })\n    .where('id', 'in', [sellerId, buyerId])\n    .execute();\n  const activeAccounts = await db.selectFrom('users')\n    .select(['id', 'status', 'email_verified_at'])\n    .where('id', 'in', [sellerId, buyerId])\n    .execute();\n  assert.equal(activeAccounts.length, 2);\n  assert.ok(activeAccounts.every((row) => row.status === 'active' && row.email_verified_at));\n\n  await db.insertInto('listings').values({"""
+          if source.count(old) != 1:
+              raise SystemExit(f'Expected one account-state assertion block, found {source.count(old)}')
+          path.write_text(source.replace(old, new))
+          PY
+          rm .github/workflows/p1-15-account-state-fix.yml
+      - name: Commit account-state correction
+        shell: bash
+        run: |
+          git config user.name privacyOG
+          git config user.email kriptiik@proton.me
+          git add apps/api/src/integration/marketplace-lifecycle.integration.test.ts .github/workflows/p1-15-account-state-fix.yml
+          git commit -m "Model account verification before marketplace journey"
+          git push origin HEAD:preflight/p1-15-api-integration
