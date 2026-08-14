@@ -61,7 +61,21 @@ try {
     .orderBy('email')
     .execute();
   assert.equal(persistedAccounts.length, 2);
-  assert.ok(persistedAccounts.every((row) => row.status === 'active'));
+  assert.ok(persistedAccounts.every((row) => row.status === 'pending'));
+
+  // Registration intentionally starts pending. Model successful contact verification
+  // before entering marketplace messaging and commerce journeys.
+  const activatedAt = new Date();
+  await db.updateTable('users')
+    .set({ status: 'active', email_verified_at: activatedAt, updated_at: activatedAt })
+    .where('id', 'in', [sellerId, buyerId])
+    .execute();
+  const activeAccounts = await db.selectFrom('users')
+    .select(['id', 'status', 'email_verified_at'])
+    .where('id', 'in', [sellerId, buyerId])
+    .execute();
+  assert.equal(activeAccounts.length, 2);
+  assert.ok(activeAccounts.every((row) => row.status === 'active' && row.email_verified_at));
 
   await db.insertInto('listings').values({
     id: listingId,
