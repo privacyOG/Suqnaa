@@ -73,7 +73,7 @@ jobs:
 
   ios-integration:
     name: iOS simulator marketplace journeys
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
