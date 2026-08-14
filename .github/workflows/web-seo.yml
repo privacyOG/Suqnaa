@@ -1,0 +1,31 @@
+name: Web SEO
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/web-seo.yml'
+      - 'scripts/validate-web-seo.mjs'
+      - 'apps/web/app/layout.tsx'
+      - 'apps/web/app/robots.ts'
+      - 'apps/web/app/sitemap.ts'
+      - 'apps/web/app/[locale]/layout.tsx'
+      - 'apps/web/app/[locale]/listings/**'
+      - 'apps/web/lib/seo.ts'
+      - 'apps/web/lib/public-listing-api.ts'
+      - 'docs/WEB_SEO.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  seo-contract:
+    name: SEO discovery contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate marketplace SEO and privacy boundary
+        run: node scripts/validate-web-seo.mjs
