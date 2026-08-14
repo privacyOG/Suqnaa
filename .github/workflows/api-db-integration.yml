@@ -1,0 +1,73 @@
+name: API Database Integration
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/api-db-integration.yml'
+      - 'scripts/run-api-db-integration.sh'
+      - 'apps/api/src/integration/**'
+      - 'apps/api/src/**'
+      - 'migrations/**'
+      - 'scripts/migrate-database.mjs'
+      - 'scripts/migration-lib.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database-journeys:
+    name: Complete marketplace database journeys
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: suqnaa
+          POSTGRES_PASSWORD: suqnaa_dev_password
+          POSTGRES_DB: suqnaa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suqnaa -d suqnaa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      WEB_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@localhost:5432/suqnaa
+      JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
+      PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
+      PASSWORD_RESET_PEPPER: ci-password-reset-pepper-change-in-production-32chars
+      VERIFICATION_CODE_PEPPER: ci-verification-pepper-change-in-production-32chars
+      VERIFICATION_DELIVERY_PROVIDER: console
+      CHALLENGE_PROVIDER: none
+      SELLER_SETTLEMENT_ENABLED: 'true'
+      SELLER_SETTLEMENT_LIVE_APPROVED: 'false'
+      SELLER_SETTLEMENT_COMMISSION_BPS: '750'
+      SELLER_SETTLEMENT_DELAY_DAYS: '0'
+      SELLER_SETTLEMENT_PAYOUT_INTERVAL: weekly
+      SELLER_SETTLEMENT_PAYOUT_ANCHOR: friday
+      SELLER_SETTLEMENT_WORKER_BATCH_SIZE: '20'
+      SELLER_SETTLEMENT_WORKER_INTERVAL_MS: '15000'
+      STRIPE_CONNECT_WEBHOOK_SECRET: whsec_connect_ci_1234567890abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Apply complete migration ledger
+        run: node scripts/migrate-database.mjs
+      - name: Run database-backed marketplace journeys
+        run: bash scripts/run-api-db-integration.sh
