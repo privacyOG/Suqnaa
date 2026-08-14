@@ -55,13 +55,13 @@ jobs:
             -gpu swiftshader_indirect \
             -no-snapshot \
             > "$RUNNER_TEMP/android-emulator.log" 2>&1 &
-          adb wait-for-device
-          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
-          adb shell input keyevent 82 || true
+          "$ANDROID_HOME/platform-tools/adb" wait-for-device
+          timeout 300 bash -c 'until [ "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          "$ANDROID_HOME/platform-tools/adb" shell input keyevent 82 || true
           flutter devices
       - name: Run Android integration suite
         working-directory: apps/mobile
-        run: flutter test integration_test/marketplace_journeys_test.dart -d emulator-5554
+        run: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/marketplace_journeys_test.dart -d emulator-5554
       - name: Upload Android emulator log on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -100,4 +100,4 @@ jobs:
           flutter devices
       - name: Run iOS integration suite
         working-directory: apps/mobile
-        run: flutter test integration_test/marketplace_journeys_test.dart -d '${{ steps.simulator.outputs.device_id }}'
+        run: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/marketplace_journeys_test.dart -d '${{ steps.simulator.outputs.device_id }}'
