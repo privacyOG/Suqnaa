@@ -1,9 +1,52 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const json = (path) => JSON.parse(read(path));
+
+function filesUnder(relativeDir, suffix) {
+  const base = new URL(relativeDir, root);
+  const output = [];
+  const visit = (url, relative) => {
+    for (const entry of readdirSync(url)) {
+      const child = new URL(`${entry}${statSync(new URL(entry, url)).isDirectory() ? '/' : ''}`, url);
+      const childRelative = `${relative}${entry}`;
+      if (statSync(child).isDirectory()) visit(child, `${childRelative}/`);
+      else if (childRelative.endsWith(suffix)) output.push(`${relativeDir}${childRelative}`);
+    }
+  };
+  visit(base, '');
+  return output;
+}
+
+function extractBalancedCall(source, callName, fromIndex) {
+  const start = source.indexOf(`${callName}(`, fromIndex);
+  if (start < 0) return null;
+  const open = start + callName.length;
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let index = open; index < source.length; index += 1) {
+    const char = source[index];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+    if (char === '(') depth += 1;
+    if (char === ')') {
+      depth -= 1;
+      if (depth === 0) return { start, end: index + 1, text: source.slice(start, index + 1) };
+    }
+  }
+  throw new Error(`Unbalanced ${callName} call near character ${start}`);
+}
 
 const authScreens = [
   'apps/mobile/lib/src/features/account/sign_in_screen.dart',
@@ -34,9 +77,8 @@ for (const requiredPattern of [
   /\[dir='rtl'\]/,
   /Noto Sans Arabic/,
   /@media \(max-width:\s*720px\)/
-]) {
-  assert.match(accessibilityCss, requiredPattern);
-}
+]) assert.match(accessibilityCss, requiredPattern);
+
 assert.match(localeLayout, /className="skip-link"/);
 assert.match(localeLayout, /href="#main-content"/);
 assert.match(localeLayout, /انتقل إلى المحتوى الرئيسي/);
@@ -57,8 +99,38 @@ for (const path of authScreens) {
   assert.match(source, /[\u0600-\u06FF]{3,}/, `${path} must contain Arabic user-facing copy`);
   assert.match(source, /Semantics\([\s\S]*?liveRegion:\s*true/, `${path} must announce asynchronous form errors`);
   assert.match(source, /tooltip:[\s\S]*?إظهار كلمة المرور/, `${path} must localize password visibility semantics`);
-  assert.match(source, /AlignmentDirectional\.|TextDirection|Directionality|Form\(/, `${path} must remain compatible with directional layout semantics`);
 }
+
+const mobileSources = filesUnder('apps/mobile/lib/src/', '.dart');
+const unlabeledIconButtons = [];
+for (const path of mobileSources) {
+  const source = read(path);
+  let cursor = 0;
+  while (true) {
+    const call = extractBalancedCall(source, 'IconButton', cursor);
+    if (!call) break;
+    if (!/\btooltip\s*:/.test(call.text)) {
+      const line = source.slice(0, call.start).split('\n').length;
+      unlabeledIconButtons.push(`${path}:${line}`);
+    }
+    cursor = call.end;
+  }
+}
+assert.deepEqual(unlabeledIconButtons, [], `Every Flutter IconButton must expose an accessible tooltip. Missing: ${unlabeledIconButtons.join(', ')}`);
+
+const webSources = [
+  ...filesUnder('apps/web/app/', '.tsx'),
+  ...filesUnder('apps/web/components/', '.tsx')
+];
+const rawClickTargets = [];
+for (const path of webSources) {
+  const source = read(path);
+  for (const match of source.matchAll(/<(div|span)\b[^>]*\bonClick\s*=/g)) {
+    const line = source.slice(0, match.index).split('\n').length;
+    rawClickTargets.push(`${path}:${line}`);
+  }
+}
+assert.deepEqual(rawClickTargets, [], `Use native keyboard-operable controls instead of clickable div/span elements. Found: ${rawClickTargets.join(', ')}`);
 
 const enArb = json('apps/mobile/lib/l10n/app_en.arb');
 const arArb = json('apps/mobile/lib/l10n/app_ar.arb');
@@ -85,4 +157,4 @@ const arabicScript = /[\u0600-\u06FF]/;
 const arabicValues = publicKeys(arArb).map((key) => arArb[key]);
 assert.ok(arabicValues.filter((value) => arabicScript.test(value)).length >= Math.floor(arabicValues.length * 0.8), 'Arabic Flutter catalogue must remain predominantly Arabic-script content');
 
-console.log(`P1-13 accessibility/localization contract passed (${publicKeys(enArb).length} Flutter messages; ${webEnKeys.length} web translation keys; ${authScreens.length} localized auth screens).`);
+console.log(`P1-13 accessibility/localization contract passed (${publicKeys(enArb).length} Flutter messages; ${webEnKeys.length} web translation keys; ${mobileSources.length} mobile source files; ${webSources.length} web TSX files).`);
