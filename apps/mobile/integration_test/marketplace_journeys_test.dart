@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:suqnaa/l10n/app_localizations.dart';
 import 'package:suqnaa/src/api/auth_api.dart';
 import 'package:suqnaa/src/api/catalog_api.dart';
+import 'package:suqnaa/src/api/trading_api.dart';
 import 'package:suqnaa/src/features/account/account_login_screen.dart';
 import 'package:suqnaa/src/features/account/account_screen.dart';
 import 'package:suqnaa/src/features/conversations/session_conversation_inbox.dart';
@@ -50,6 +55,36 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(TextField), findsWidgets);
     session.dispose();
+  });
+
+  testWidgets('offers use the authenticated mobile trading transport', (tester) async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/v1/market/offers');
+      expect(request.headers['authorization'], 'Bearer integration-access-token');
+      expect(request.headers['content-type'], contains('application/json'));
+      expect(jsonDecode(request.body), {
+        'listingId': '33333333-3333-4333-8333-333333333333',
+        'amountMinor': 12500,
+        'currency': 'AUD',
+      });
+      return http.Response(
+        jsonEncode({
+          'offer': {'id': '44444444-4444-4444-8444-444444444444', 'status': 'pending'}
+        }),
+        201,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final api = TradingApi(baseUrl: Uri.parse('https://integration.invalid'), client: client);
+
+    final result = await api.submitOffer('integration-access-token', {
+      'listingId': '33333333-3333-4333-8333-333333333333',
+      'amountMinor': 12500,
+      'currency': 'AUD',
+    });
+
+    expect((result['offer'] as Map<String, dynamic>)['status'], 'pending');
   });
 
   testWidgets('signed-in marketplace surfaces open on a native device', (tester) async {
