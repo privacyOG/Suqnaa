@@ -15,9 +15,9 @@ type Locale = 'en' | 'ar';
 async function signIn(page: Page, locale: Locale, email: string) {
   await page.goto(`/${locale}/account/sign-in`);
   const isArabic = locale === 'ar';
-  await page.getByLabel(isArabic ? 'البريد الإلكتروني' : 'Email').fill(email);
-  await page.getByLabel(isArabic ? 'كلمة المرور' : 'Password').fill(seed.password);
-  await page.getByRole('button', { name: isArabic ? 'دخول' : 'Sign in' }).click();
+  await page.getByRole('textbox', { name: isArabic ? 'البريد الإلكتروني' : 'Email', exact: true }).fill(email);
+  await page.getByLabel(isArabic ? 'كلمة المرور' : 'Password', { exact: true }).fill(seed.password);
+  await page.getByRole('button', { name: isArabic ? 'دخول' : 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/${locale}/account$`));
 }
 
