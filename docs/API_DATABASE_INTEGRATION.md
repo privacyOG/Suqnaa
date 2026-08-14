@@ -12,7 +12,7 @@ The suite must run against a freshly migrated database. It does not mock Kysely 
 
 The integration runner covers every domain named by P1-15:
 
-- **Account:** register buyer and seller accounts through the Fastify authentication route and verify durable user rows.
+- **Account:** register buyer and seller accounts through the Fastify authentication route, verify the durable `pending` registration state, then model completed contact verification before marketplace participation and verify the persisted `active` state.
 - **Listing:** exercise database-backed listing lifecycle/inventory transitions and use an active listing as the shared marketplace aggregate for communication and commerce.
 - **Message:** send a listing-context message through the API and verify the persisted conversation participants, listing relationship, sender, and idempotency identifier.
 - **Offer:** create an offer through the API, verify idempotent replay, and have the seller accept it through the offer workflow.
