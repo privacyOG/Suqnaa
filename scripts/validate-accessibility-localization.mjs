@@ -5,10 +5,16 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const json = (path) => JSON.parse(read(path));
 
+const authScreens = [
+  'apps/mobile/lib/src/features/account/sign_in_screen.dart',
+  'apps/mobile/lib/src/features/account/account_login_screen.dart',
+  'apps/mobile/lib/src/features/account/register_screen.dart'
+];
 const requiredFiles = [
   'apps/web/app/accessibility.css',
   'apps/web/app/[locale]/layout.tsx',
   'apps/mobile/lib/src/app_root.dart',
+  ...authScreens,
   'apps/mobile/lib/l10n/app_en.arb',
   'apps/mobile/lib/l10n/app_ar.arb',
   'docs/ACCESSIBILITY_LOCALIZATION.md'
@@ -45,6 +51,15 @@ assert.match(mobileRoot, /ExcludeSemantics\(/);
 assert.match(mobileRoot, /جارٍ استعادة جلسة سوقنا/);
 assert.doesNotMatch(mobileRoot, /textScaler\s*:/, 'Do not clamp or replace the operating-system Flutter text scaler');
 
+for (const path of authScreens) {
+  const source = read(path);
+  assert.match(source, /Localizations\.localeOf\(context\)\.languageCode\s*==\s*'ar'/, `${path} must select Arabic UI copy`);
+  assert.match(source, /[\u0600-\u06FF]{3,}/, `${path} must contain Arabic user-facing copy`);
+  assert.match(source, /Semantics\([\s\S]*?liveRegion:\s*true/, `${path} must announce asynchronous form errors`);
+  assert.match(source, /tooltip:[\s\S]*?إظهار كلمة المرور/, `${path} must localize password visibility semantics`);
+  assert.match(source, /AlignmentDirectional\.|TextDirection|Directionality|Form\(/, `${path} must remain compatible with directional layout semantics`);
+}
+
 const enArb = json('apps/mobile/lib/l10n/app_en.arb');
 const arArb = json('apps/mobile/lib/l10n/app_ar.arb');
 const publicKeys = (value) => Object.keys(value).filter((key) => !key.startsWith('@')).sort();
@@ -70,4 +85,4 @@ const arabicScript = /[\u0600-\u06FF]/;
 const arabicValues = publicKeys(arArb).map((key) => arArb[key]);
 assert.ok(arabicValues.filter((value) => arabicScript.test(value)).length >= Math.floor(arabicValues.length * 0.8), 'Arabic Flutter catalogue must remain predominantly Arabic-script content');
 
-console.log(`P1-13 accessibility/localization contract passed (${publicKeys(enArb).length} Flutter messages; ${webEnKeys.length} web translation keys).`);
+console.log(`P1-13 accessibility/localization contract passed (${publicKeys(enArb).length} Flutter messages; ${webEnKeys.length} web translation keys; ${authScreens.length} localized auth screens).`);
