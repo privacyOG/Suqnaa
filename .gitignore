@@ -19,6 +19,9 @@ build/
 .next/
 out/
 coverage/
+playwright-report/
+test-results/
+apps/web/e2e/.seed.json
 
 # local uploads
 .suqnaa-media/
