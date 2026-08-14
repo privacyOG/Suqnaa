@@ -35,9 +35,9 @@ The resulting identifiers and test-only credentials are written to the ignored `
 6. seeds isolated browser test data;
 7. starts the built API and web servers through Playwright `webServer` orchestration;
 8. runs all six browser journeys with one worker to keep shared database state deterministic;
-9. uploads traces, screenshots, videos, and the HTML report only when the run fails.
+9. uploads Playwright traces, screenshots, error context, and the HTML report when the run fails.
 
-Local runs can use Playwright's normal bundled Chromium when `CI` is not set; CI explicitly selects the hosted Chrome channel.
+Local runs can use Playwright's normal bundled Chromium when `CI` is not set; CI explicitly selects the hosted Chrome channel. CI video recording is disabled so the gate does not require Playwright's separate ffmpeg runtime; trace and screenshot evidence remain enabled for failures.
 
 ## Completion rule
 
