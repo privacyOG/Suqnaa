@@ -10,6 +10,8 @@ Localized routes expose a keyboard skip link before application content. English
 
 Buttons and form fields retain a minimum 44 CSS-pixel block target. Native semantic elements remain preferred over click handlers on non-interactive elements.
 
+The repository accessibility gate additionally scans web TSX sources and rejects click handlers attached directly to `div` or `span` elements. New interactions should use native `button`, `a`, form controls, or another element with the correct built-in keyboard semantics.
+
 ## Motion and contrast
 
 The web application honors `prefers-reduced-motion: reduce` by disabling non-essential animation, transition, and smooth-scroll motion. A `prefers-contrast: more` rule strengthens control borders for users requesting increased contrast.
@@ -33,9 +35,9 @@ Manual QA must include:
 
 Meaningful public images require alternative text or an equivalent semantic label. Decorative imagery should be excluded from the accessibility tree.
 
-Icon-only controls require a visible or assistive label (`aria-label`, accessible name, or Flutter `tooltip`/`Semantics`). Progress/loading state that materially blocks interaction should be announced without repeatedly flooding the live region.
+Icon-only controls require a visible or assistive label (`aria-label`, accessible name, or Flutter `tooltip`/`Semantics`). The repository gate scans Flutter source files and rejects any `IconButton` without a `tooltip`; the marketplace filter control found by this audit was corrected with localized English/Arabic semantics. Progress/loading state that materially blocks interaction should be announced without repeatedly flooding the live region.
 
-The mobile session-restoration gate exposes one live-region semantic announcement and excludes duplicate child semantics while retaining visible localized text.
+The mobile session-restoration gate exposes one live-region semantic announcement and excludes duplicate child semantics while retaining visible localized text. Authentication failures on sign-in, account login, and registration are also announced as live regions, and password-visibility controls expose localized tooltips.
 
 ## RTL and Arabic typography
 
@@ -54,7 +56,10 @@ Manual RTL review must cover navigation, search/filter controls, forms, dialogs,
 - matching interpolation placeholders for every translated message;
 - structural key parity between the web English and Arabic message objects;
 - a predominantly Arabic-script Arabic mobile catalogue;
-- presence of the web keyboard/focus/reduced-motion/RTL accessibility baseline.
+- presence of the web keyboard/focus/reduced-motion/RTL accessibility baseline;
+- localized Arabic copy and semantic error announcements across primary mobile authentication entry points;
+- accessible tooltips for every Flutter `IconButton` found under `apps/mobile/lib/src`;
+- native keyboard-operable web controls instead of clickable `div`/`span` elements.
 
 Any new user-visible message should be added to English and Arabic in the same change. Secrets, identifiers, prices, codes, URLs, and other machine values must not be translated accidentally.
 
