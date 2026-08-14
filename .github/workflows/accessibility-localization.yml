@@ -1,0 +1,29 @@
+name: Accessibility and Localization
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/accessibility-localization.yml'
+      - 'scripts/validate-accessibility-localization.mjs'
+      - 'apps/web/app/**'
+      - 'apps/web/components/**'
+      - 'apps/web/i18n/**'
+      - 'apps/mobile/lib/**'
+      - 'apps/mobile/test/**'
+      - 'docs/ACCESSIBILITY_LOCALIZATION.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accessibility-localization-contract:
+    name: Accessibility and EN/AR parity contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate accessibility and localization baseline
+        run: node scripts/validate-accessibility-localization.mjs
