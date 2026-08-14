@@ -1,0 +1,108 @@
+:root {
+  --suqnaa-focus: #7a2cff;
+  --suqnaa-focus-offset: #ffffff;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-wrap: anywhere;
+}
+
+.skip-link {
+  position: fixed;
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  z-index: 10000;
+  transform: translateY(-160%);
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  border: 2px solid var(--suqnaa-focus);
+  font-weight: 800;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.2);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+:where(a, button, input, textarea, select, summary, [role='button'], [tabindex]):focus-visible {
+  outline: 3px solid var(--suqnaa-focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px var(--suqnaa-focus-offset);
+}
+
+:where(button, input, select, textarea) {
+  min-block-size: 44px;
+}
+
+:where(a, button, [role='button']) {
+  touch-action: manipulation;
+}
+
+[aria-disabled='true'],
+:disabled {
+  cursor: not-allowed;
+}
+
+[dir='rtl'] {
+  font-family: "Noto Sans Arabic", "Noto Kufi Arabic", Tahoma, Arial, sans-serif;
+  letter-spacing: normal;
+}
+
+[dir='rtl'] :where(h1, h2, h3, h4, p, li, label, button, input, textarea, select) {
+  line-height: 1.65;
+}
+
+[dir='rtl'] input,
+[dir='rtl'] textarea {
+  text-align: start;
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    padding-inline: 16px;
+  }
+
+  .top-nav,
+  .nav-links,
+  .actions {
+    max-inline-size: 100%;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :where(a, button, input, textarea, select) {
+    border-color: currentColor;
+  }
+}
