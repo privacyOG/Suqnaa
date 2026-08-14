@@ -68,14 +68,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (!mounted) return;
-
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const AccountVerificationScreen()),
       );
     } catch (_) {
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         setState(() {
-          _error = 'Account creation failed. The contact detail may already be registered or the phone format may be invalid.';
+          _error = isArabic
+              ? 'تعذر إنشاء الحساب. قد تكون بيانات الاتصال مسجلة مسبقاً أو قد تكون صيغة الهاتف غير صالحة.'
+              : 'Account creation failed. The contact detail may already be registered or the phone format may be invalid.';
         });
       }
     } finally {
@@ -85,10 +87,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final phoneMode = _contactMode == 'phone';
+    final createAccount = isArabic ? 'إنشاء حساب' : 'Create account';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create account'),
+        title: Text(createAccount),
         backgroundColor: SuqnaaBrand.ivory,
       ),
       body: SafeArea(
@@ -98,44 +103,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                const Text(
-                  'Join Suqnaa',
-                  style: TextStyle(
+                Text(
+                  isArabic ? 'انضم إلى سوقنا' : 'Join Suqnaa',
+                  style: const TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w900,
                     color: SuqnaaBrand.blue,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Create your marketplace account to buy, sell, and message securely.'),
+                Text(isArabic
+                    ? 'أنشئ حسابك في السوق للشراء والبيع والمراسلة بأمان.'
+                    : 'Create your marketplace account to buy, sell, and message securely.'),
                 const SizedBox(height: 28),
                 TextFormField(
                   controller: _nameController,
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.name],
-                  decoration: const InputDecoration(
-                    labelText: 'Display name',
-                    prefixIcon: Icon(Icons.person_outline),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'اسم العرض' : 'Display name',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
                     final name = value?.trim() ?? '';
-                    if (name.length < 2) return 'Enter at least 2 characters';
-                    if (name.length > 80) return 'Display name is too long';
+                    if (name.length < 2) {
+                      return isArabic ? 'أدخل حرفين على الأقل' : 'Enter at least 2 characters';
+                    }
+                    if (name.length > 80) {
+                      return isArabic ? 'اسم العرض طويل جداً' : 'Display name is too long';
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: _contactMode,
-                  decoration: const InputDecoration(
-                    labelText: 'Contact method',
-                    prefixIcon: Icon(Icons.contact_phone_outlined),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'طريقة الاتصال' : 'Contact method',
+                    prefixIcon: const Icon(Icons.contact_phone_outlined),
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'email', child: Text('Email')),
-                    DropdownMenuItem(value: 'phone', child: Text('Phone')),
+                  items: [
+                    DropdownMenuItem(value: 'email', child: Text(isArabic ? 'البريد الإلكتروني' : 'Email')),
+                    DropdownMenuItem(value: 'phone', child: Text(isArabic ? 'الهاتف' : 'Phone')),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
@@ -154,21 +165,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.next,
                   autofillHints: [phoneMode ? AutofillHints.telephoneNumber : AutofillHints.email],
                   decoration: InputDecoration(
-                    labelText: phoneMode ? 'International phone number' : 'Email',
-                    helperText: phoneMode ? 'Use + and the country code, for example +61412345678' : null,
+                    labelText: phoneMode
+                        ? (isArabic ? 'رقم الهاتف الدولي' : 'International phone number')
+                        : (isArabic ? 'البريد الإلكتروني' : 'Email'),
+                    helperText: phoneMode
+                        ? (isArabic
+                            ? 'استخدم + ورمز الدولة، مثال: +61412345678'
+                            : 'Use + and the country code, for example +61412345678')
+                        : null,
                     prefixIcon: Icon(phoneMode ? Icons.phone_outlined : Icons.email_outlined),
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
                     final contact = value?.trim() ?? '';
                     if (!phoneMode) {
-                      if (contact.isEmpty || !contact.contains('@')) return 'Enter a valid email address';
+                      if (contact.isEmpty || !contact.contains('@')) {
+                        return isArabic ? 'أدخل بريداً إلكترونياً صالحاً' : 'Enter a valid email address';
+                      }
                       return null;
                     }
                     if (!(contact.startsWith('+') || contact.startsWith('00'))) {
-                      return 'Use international format with + and country code';
+                      return isArabic
+                          ? 'استخدم الصيغة الدولية مع + ورمز الدولة'
+                          : 'Use international format with + and country code';
                     }
-                    if (contact.length < 8) return 'Enter a valid international phone number';
+                    if (contact.length < 8) {
+                      return isArabic ? 'أدخل رقم هاتف دولياً صالحاً' : 'Enter a valid international phone number';
+                    }
                     return null;
                   },
                 ),
@@ -179,18 +202,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.newPassword],
                   decoration: InputDecoration(
-                    labelText: 'Password',
-                    helperText: 'Use at least 10 characters',
+                    labelText: isArabic ? 'كلمة المرور' : 'Password',
+                    helperText: isArabic ? 'استخدم 10 أحرف على الأقل' : 'Use at least 10 characters',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
-                      tooltip: _hidePassword ? 'Show password' : 'Hide password',
+                      tooltip: _hidePassword
+                          ? (isArabic ? 'إظهار كلمة المرور' : 'Show password')
+                          : (isArabic ? 'إخفاء كلمة المرور' : 'Hide password'),
                       onPressed: () => setState(() => _hidePassword = !_hidePassword),
                       icon: Icon(_hidePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                     ),
                   ),
                   validator: (value) => value == null || value.length < 10
-                      ? 'Password must contain at least 10 characters'
+                      ? (isArabic ? 'يجب أن تتكون كلمة المرور من 10 أحرف على الأقل' : 'Password must contain at least 10 characters')
                       : null,
                 ),
                 const SizedBox(height: 16),
@@ -200,16 +225,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.done,
                   autofillHints: const [AutofillHints.newPassword],
                   onFieldSubmitted: (_) => _submit(),
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm password',
-                    prefixIcon: Icon(Icons.lock_reset_outlined),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'تأكيد كلمة المرور' : 'Confirm password',
+                    prefixIcon: const Icon(Icons.lock_reset_outlined),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (value) => value != _passwordController.text ? 'Passwords do not match' : null,
+                  validator: (value) => value != _passwordController.text
+                      ? (isArabic ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match')
+                      : null,
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
-                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ),
                 ],
                 const SizedBox(height: 24),
                 FilledButton.icon(
@@ -217,7 +247,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   icon: _submitting
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.person_add_alt_1),
-                  label: Text(_submitting ? 'Creating account...' : 'Create account'),
+                  label: Text(_submitting
+                      ? (isArabic ? 'جارٍ إنشاء الحساب...' : 'Creating account...')
+                      : createAccount),
                 ),
               ],
             ),

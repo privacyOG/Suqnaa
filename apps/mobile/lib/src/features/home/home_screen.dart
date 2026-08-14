@@ -383,7 +383,11 @@ class _SearchBox extends StatelessWidget {
       suffixIcon: Stack(
         alignment: Alignment.center,
         children: [
-          IconButton(onPressed: onFilters, icon: const Icon(Icons.tune)),
+          IconButton(
+  tooltip: Localizations.localeOf(context).languageCode == 'ar' ? 'الفلاتر' : 'Filters',
+  onPressed: onFilters,
+  icon: const Icon(Icons.tune),
+),
           if (activeFilterCount > 0)
             PositionedDirectional(
               top: 7,

@@ -51,9 +51,7 @@ class _SignInScreenState extends State<SignInScreen> {
         'password': _passwordController.text,
       });
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       SessionScope.of(context).establish(
         access: AccessState.fromToken(result.accessToken),
@@ -65,24 +63,27 @@ class _SignInScreenState extends State<SignInScreen> {
       Navigator.of(context).pop(true);
     } catch (_) {
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         setState(() {
-          _error = 'Sign in failed. Check your email and password, then try again.';
+          _error = isArabic
+              ? 'تعذر تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور ثم حاول مرة أخرى.'
+              : 'Sign in failed. Check your email and password, then try again.';
         });
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final signIn = isArabic ? 'تسجيل الدخول' : 'Sign in';
+    final password = isArabic ? 'كلمة المرور' : 'Password';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sign in'),
+        title: Text(signIn),
         backgroundColor: SuqnaaBrand.ivory,
       ),
       body: SafeArea(
@@ -92,31 +93,33 @@ class _SignInScreenState extends State<SignInScreen> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                const Text(
-                  'Welcome back',
-                  style: TextStyle(
+                Text(
+                  isArabic ? 'مرحباً بعودتك' : 'Welcome back',
+                  style: const TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w900,
                     color: SuqnaaBrand.blue,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Sign in to access your listings, account, and messages.'),
+                Text(isArabic
+                    ? 'سجّل الدخول للوصول إلى إعلاناتك وحسابك ورسائلك.'
+                    : 'Sign in to access your listings, account, and messages.'),
                 const SizedBox(height: 28),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.email],
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'البريد الإلكتروني' : 'Email',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
                     final email = value?.trim() ?? '';
                     if (email.isEmpty || !email.contains('@')) {
-                      return 'Enter a valid email address';
+                      return isArabic ? 'أدخل بريداً إلكترونياً صالحاً' : 'Enter a valid email address';
                     }
                     return null;
                   },
@@ -129,33 +132,34 @@ class _SignInScreenState extends State<SignInScreen> {
                   autofillHints: const [AutofillHints.password],
                   onFieldSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: password,
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
-                      tooltip: _hidePassword ? 'Show password' : 'Hide password',
-                      onPressed: () => setState(() {
-                        _hidePassword = !_hidePassword;
-                      }),
+                      tooltip: _hidePassword
+                          ? (isArabic ? 'إظهار كلمة المرور' : 'Show password')
+                          : (isArabic ? 'إخفاء كلمة المرور' : 'Hide password'),
+                      onPressed: () => setState(() => _hidePassword = !_hidePassword),
                       icon: Icon(
-                        _hidePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
+                        _hidePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                       ),
                     ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Enter your password';
+                      return isArabic ? 'أدخل كلمة المرور' : 'Enter your password';
                     }
                     return null;
                   },
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
-                  Text(
-                    _error!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -168,7 +172,9 @@ class _SignInScreenState extends State<SignInScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.login),
-                  label: Text(_isSubmitting ? 'Signing in...' : 'Sign in'),
+                  label: Text(_isSubmitting
+                      ? (isArabic ? 'جارٍ تسجيل الدخول...' : 'Signing in...')
+                      : signIn),
                 ),
               ],
             ),

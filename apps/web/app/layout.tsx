@@ -9,6 +9,7 @@ import './catalog-search.css';
 import './activity-components.css';
 import './activity-detail-components.css';
 import './policy-components.css';
+import './accessibility.css';
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
