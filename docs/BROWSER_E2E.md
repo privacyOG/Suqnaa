@@ -1,6 +1,6 @@
 # Browser end-to-end verification
 
-P1-16 verifies the production web application in a real Chromium browser against the built Next.js web app, built Fastify API, and a freshly migrated PostgreSQL/PostGIS database.
+P1-16 verifies the production web application in a real Chrome browser against the built Next.js web app, built Fastify API, and a freshly migrated PostgreSQL/PostGIS database.
 
 ## Covered journeys
 
@@ -29,13 +29,15 @@ The resulting identifiers and test-only credentials are written to the ignored `
 
 1. provisions PostGIS 16 / PostgreSQL 16;
 2. installs the frozen pnpm dependency graph;
-3. installs the pinned Chromium runtime for Playwright;
+3. verifies and targets the Chrome installation supplied by the GitHub-hosted Ubuntu runner, avoiding a second browser download during the gate;
 4. applies the complete migration ledger;
 5. builds the API and web production bundles;
 6. seeds isolated browser test data;
 7. starts the built API and web servers through Playwright `webServer` orchestration;
 8. runs all six browser journeys with one worker to keep shared database state deterministic;
 9. uploads traces, screenshots, videos, and the HTML report only when the run fails.
+
+Local runs can use Playwright's normal bundled Chromium when `CI` is not set; CI explicitly selects the hosted Chrome channel.
 
 ## Completion rule
 
