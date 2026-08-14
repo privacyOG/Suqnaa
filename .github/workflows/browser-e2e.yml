@@ -63,8 +63,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Chromium runtime
-        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+      - name: Verify hosted Chrome
+        run: google-chrome --version
       - name: Apply complete migration ledger
         run: node scripts/migrate-database.mjs
       - name: Build API and web
