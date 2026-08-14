@@ -12,10 +12,7 @@ import './policy-components.css';
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
-  title: {
-    default: 'Suqnaa | Trusted marketplace',
-    template: '%s | Suqnaa'
-  },
+  title: 'Suqnaa | Trusted marketplace',
   description: 'Buy, sell, and connect through a trusted marketplace built around fairness and quality.',
   applicationName: 'Suqnaa',
   openGraph: {
