@@ -34,7 +34,7 @@ export default defineConfig({
       }
     },
     {
-      command: 'pnpm --filter suqnaa-web start -- -H 127.0.0.1 -p 3000',
+      command: 'pnpm exec next start -H 127.0.0.1 -p 3000',
       url: 'http://127.0.0.1:3000/en',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
