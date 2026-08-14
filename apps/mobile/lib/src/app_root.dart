@@ -63,6 +63,9 @@ class _SuqnaaRootState extends State<SuqnaaRoot>
           ),
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFFFFFAF0),
+          materialTapTargetSize: MaterialTapTargetSize.padded,
+          visualDensity: VisualDensity.standard,
+          focusColor: const Color(0x337A2CFF),
         ),
         home: const _SessionGate(),
       ),
@@ -81,25 +84,38 @@ class _SessionGate extends StatelessWidget {
       return const HomeScreen();
     }
 
-    return const Scaffold(
+    final locale = Localizations.maybeLocaleOf(context);
+    final isArabic = locale?.languageCode == 'ar';
+    final restoringLabel = isArabic
+        ? 'جارٍ استعادة جلسة سوقنا...'
+        : 'Restoring your Suqnaa session...';
+
+    return Scaffold(
       backgroundColor: SuqnaaBrand.ivory,
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.storefront_outlined,
-              size: 54,
-              color: SuqnaaBrand.blue,
+        child: Semantics(
+          liveRegion: true,
+          label: restoringLabel,
+          child: ExcludeSemantics(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.storefront_outlined,
+                  size: 54,
+                  color: SuqnaaBrand.blue,
+                ),
+                const SizedBox(height: 18),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 14),
+                Text(
+                  restoringLabel,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
-            SizedBox(height: 18),
-            CircularProgressIndicator(),
-            SizedBox(height: 14),
-            Text(
-              'Restoring your Suqnaa session...',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
+          ),
         ),
       ),
     );
