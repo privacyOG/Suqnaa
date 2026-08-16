@@ -61,7 +61,7 @@ jobs:
       SUQNAA_ANDROID_KEY_PASSWORD: ${{ secrets.SUQNAA_ANDROID_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
