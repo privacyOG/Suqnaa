@@ -26,8 +26,8 @@ importers:
         specifier: 5.2.1
         version: 5.2.1
       kysely:
-        specifier: 0.27.5
-        version: 0.27.5
+        specifier: 0.29.5
+        version: 0.29.5
       pg:
         specifier: 8.13.1
         version: 8.13.1
@@ -794,9 +794,9 @@ packages:
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
 
-  kysely@0.27.5:
-    resolution: {integrity: sha512-s7hZHcQeSNKpzCkHRm8yA+0JPLjncSWnjb+2TIElwS2JAqYr+Kv3Ess+9KFfJS0C1xcQ1i9NkNHpWwCYpHMWsA==}
-    engines: {node: '>=14.0.0'}
+  kysely@0.29.5:
+    resolution: {integrity: sha512-ooa+eSbBNPTo3MycPEuW5jdrxQdQwdtB3LC3h43FiXQbIry5tR0C5lDG7eealK0E4D7XjrnOP5DIUg/LyjRMYQ==}
+    engines: {node: '>=22.0.0'}
 
   light-my-request@6.6.0:
     resolution: {integrity: sha512-CHYbu8RtboSIoVsHZ6Ye4cj4Aw/yg2oAFimlF7mNvfDV192LR7nDiKtSIfCuLT7KokPSTn/9kfVLm5OGN0A28A==}
@@ -2082,7 +2082,7 @@ snapshots:
 
   json-schema-traverse@1.0.0: {}
 
-  kysely@0.27.5: {}
+  kysely@0.29.5: {}
 
   light-my-request@6.6.0:
     dependencies:
