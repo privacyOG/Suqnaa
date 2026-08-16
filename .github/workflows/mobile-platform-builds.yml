@@ -27,7 +27,7 @@ jobs:
         with:
           channel: stable
           cache: true
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.1.0'
       - name: Resolve Flutter dependencies
