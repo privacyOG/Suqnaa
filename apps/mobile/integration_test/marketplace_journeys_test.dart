@@ -122,6 +122,11 @@ Widget _harness({required AppSession session, required Widget child}) {
 
 Future<void> _openSurface<T extends Widget>(WidgetTester tester, IconData icon) async {
   final iconFinder = find.byIcon(icon);
+  await tester.scrollUntilVisible(
+    iconFinder,
+    240,
+    scrollable: find.byType(Scrollable).first,
+  );
   final tile = find.ancestor(of: iconFinder, matching: find.byType(ListTile));
   expect(tile, findsOneWidget);
   await tester.ensureVisible(tile);
