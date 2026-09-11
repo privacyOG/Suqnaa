@@ -23,6 +23,8 @@ const iosAppDelegate = read('apps/mobile/ios/Runner/AppDelegate.swift');
 const iosIconCatalog = read('apps/mobile/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json');
 const mobileIgnore = read('apps/mobile/.gitignore');
 const pubspec = read('apps/mobile/pubspec.yaml');
+const iosUsesCocoaPods = exists('apps/mobile/ios/Podfile');
+const iosPodfile = iosUsesCocoaPods ? read('apps/mobile/ios/Podfile') : null;
 
 assert.match(androidSettings, /com\.android\.application.*9\.0\.1/);
 assert.match(androidSettings, /org\.jetbrains\.kotlin\.android.*2\.3\.20/);
@@ -87,7 +89,20 @@ assert.match(iosProject, /CODE_SIGN_STYLE = Manual/);
 assert.match(iosProject, /xcode_backend\.sh\\" build/);
 assert.match(iosWorkspace, /Runner\.xcodeproj/);
 assert.doesNotMatch(iosWorkspace, /Pods\/Pods\.xcodeproj/);
-assert.ok(!exists('apps/mobile/ios/Podfile'), 'iOS must use Swift Package Manager without a CocoaPods Podfile');
+
+if (iosUsesCocoaPods) {
+  assert.match(pubspec, /enable-swift-package-manager:\s*false/);
+  assert.match(iosPodfile, /platform :ios, '15\.0'/);
+  assert.match(iosPodfile, /project 'Runner'/);
+  assert.match(iosPodfile, /target 'Runner' do/);
+  assert.match(iosPodfile, /flutter_ios_podfile_setup/);
+  assert.match(iosPodfile, /flutter_install_all_ios_pods/);
+  assert.match(iosPodfile, /flutter_additional_ios_build_settings/);
+  assert.doesNotMatch(iosPodfile, /target 'RunnerTests'/);
+} else {
+  assert.doesNotMatch(pubspec, /enable-swift-package-manager:\s*false/);
+}
+
 assert.match(iosScheme, /buildConfiguration="Profile"/);
 assert.match(iosScheme, /buildConfiguration="Release"/);
 assert.match(iosScheme, /<PreActions>[\s\S]*?Run Prepare Flutter Framework Script[\s\S]*?\/bin\/sh[\s\S]*?xcode_backend\.sh&quot; prepare/);
@@ -126,7 +141,8 @@ for (const source of [
   iosProfile,
   iosDebug,
   iosAppFrameworkInfo,
-  iosProject
+  iosProject,
+  ...(iosPodfile ? [iosPodfile] : [])
 ]) {
   assert.doesNotMatch(source, /BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY/);
 }

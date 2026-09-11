@@ -7,7 +7,9 @@ import '../../session/session_scope.dart';
 import 'password_recovery_screen.dart';
 
 class AccountLoginScreen extends StatefulWidget {
-  const AccountLoginScreen({super.key});
+  const AccountLoginScreen({super.key, this.authApi});
+
+  final AuthApi? authApi;
 
   @override
   State<AccountLoginScreen> createState() => _AccountLoginScreenState();
@@ -27,7 +29,7 @@ class _AccountLoginScreenState extends State<AccountLoginScreen> {
   @override
   void initState() {
     super.initState();
-    _api = AuthApi(baseUrl: Uri.parse(MobileEnvironment.apiBaseUrl));
+    _api = widget.authApi ?? AuthApi(baseUrl: Uri.parse(MobileEnvironment.apiBaseUrl));
   }
 
   @override

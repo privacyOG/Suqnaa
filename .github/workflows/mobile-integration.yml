@@ -1,0 +1,140 @@
+name: Mobile Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-integration-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-integration:
+    name: Android emulator marketplace journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Prepare Android emulator
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          adb="$ANDROID_HOME/platform-tools/adb"
+          emulator="$ANDROID_HOME/emulator/emulator"
+          log="$RUNNER_TEMP/android-emulator.log"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platform-tools' \
+            'emulator' \
+            'platforms;android-35' \
+            'system-images;android-35;google_apis;x86_64'
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+            --force \
+            --name suqnaa_integration \
+            --package 'system-images;android-35;google_apis;x86_64'
+
+          available_avds="$("$emulator" -list-avds)"
+          if ! grep -qx 'suqnaa_integration' <<<"$available_avds"; then
+            echo 'Android AVD creation did not produce suqnaa_integration.' >&2
+            printf 'Available AVDs:\n%s\n' "$available_avds" >&2
+            find "$ANDROID_AVD_HOME" -maxdepth 2 -type f -print >&2 || true
+            exit 1
+          fi
+
+          sudo chmod 666 /dev/kvm || true
+          "$adb" start-server
+          nohup "$emulator" \
+            -avd suqnaa_integration \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -gpu swiftshader_indirect \
+            -no-snapshot \
+            -no-metrics \
+            > "$log" 2>&1 &
+          emulator_pid=$!
+
+          device_ready=false
+          for _ in $(seq 1 90); do
+            if "$adb" devices | grep -q '^emulator-[0-9].*device$'; then
+              device_ready=true
+              break
+            fi
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              echo 'Android emulator exited before registering with adb.' >&2
+              cat "$log" >&2 || true
+              exit 1
+            fi
+            sleep 2
+          done
+          if [ "$device_ready" != true ]; then
+            echo 'Android emulator did not register with adb within 180 seconds.' >&2
+            cat "$log" >&2 || true
+            exit 1
+          fi
+
+          timeout 300 bash -c 'until [ "$("'"$adb"'" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          "$adb" shell input keyevent 82 || true
+          flutter devices
+      - name: Run Android integration suite
+        working-directory: apps/mobile
+        run: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/marketplace_journeys_test.dart -d emulator-5554
+      - name: Upload Android emulator log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-mobile-integration-failure
+          path: ${{ runner.temp }}/android-emulator.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ios-integration:
+    name: iOS simulator marketplace journeys
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Boot available iPhone simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          device_id="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+          if [ -z "$device_id" ]; then
+            echo 'No available iPhone simulator was found.' >&2
+            exit 1
+          fi
+          echo "device_id=$device_id" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$device_id" 2>/dev/null || true
+          xcrun simctl bootstatus "$device_id" -b
+          flutter devices
+      - name: Run iOS integration suite
+        working-directory: apps/mobile
+        run: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/marketplace_journeys_test.dart -d '${{ steps.simulator.outputs.device_id }}'
