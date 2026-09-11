@@ -122,18 +122,15 @@ Widget _harness({required AppSession session, required Widget child}) {
 
 Future<void> _openSurface<T extends Widget>(WidgetTester tester, IconData icon) async {
   final iconFinder = find.byIcon(icon);
-  await tester.scrollUntilVisible(
-    iconFinder,
-    240,
-    scrollable: find.byType(Scrollable).first,
-  );
   final tile = find.ancestor(of: iconFinder, matching: find.byType(ListTile));
   expect(tile, findsOneWidget);
+  await tester.ensureVisible(tile);
+  await tester.pumpAndSettle();
   await tester.tap(tile);
-  await tester.pump(const Duration(milliseconds: 250));
+  await tester.pumpAndSettle();
   expect(find.byType(T), findsOneWidget);
   Navigator.of(tester.element(find.byType(T))).pop();
-  await tester.pump(const Duration(milliseconds: 250));
+  await tester.pumpAndSettle();
 }
 
 class _FixtureAuthApi extends AuthApi {
