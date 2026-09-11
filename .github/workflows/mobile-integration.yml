@@ -36,6 +36,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          adb="$ANDROID_HOME/platform-tools/adb"
+          emulator="$ANDROID_HOME/emulator/emulator"
+          log="$RUNNER_TEMP/android-emulator.log"
+
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             'platform-tools' \
@@ -46,18 +50,41 @@ jobs:
             --force \
             --name suqnaa_integration \
             --package 'system-images;android-35;google_apis;x86_64'
+
           sudo chmod 666 /dev/kvm || true
-          nohup "$ANDROID_HOME/emulator/emulator" \
+          "$adb" start-server
+          nohup "$emulator" \
             -avd suqnaa_integration \
             -no-window \
             -no-audio \
             -no-boot-anim \
             -gpu swiftshader_indirect \
             -no-snapshot \
-            > "$RUNNER_TEMP/android-emulator.log" 2>&1 &
-          "$ANDROID_HOME/platform-tools/adb" wait-for-device
-          timeout 300 bash -c 'until [ "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
-          "$ANDROID_HOME/platform-tools/adb" shell input keyevent 82 || true
+            -no-metrics \
+            > "$log" 2>&1 &
+          emulator_pid=$!
+
+          device_ready=false
+          for _ in $(seq 1 90); do
+            if "$adb" devices | grep -q '^emulator-[0-9].*device$'; then
+              device_ready=true
+              break
+            fi
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              echo 'Android emulator exited before registering with adb.' >&2
+              cat "$log" >&2 || true
+              exit 1
+            fi
+            sleep 2
+          done
+          if [ "$device_ready" != true ]; then
+            echo 'Android emulator did not register with adb within 180 seconds.' >&2
+            cat "$log" >&2 || true
+            exit 1
+          fi
+
+          timeout 300 bash -c 'until [ "$("'"$adb"'" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          "$adb" shell input keyevent 82 || true
           flutter devices
       - name: Run Android integration suite
         working-directory: apps/mobile
@@ -73,7 +100,7 @@ jobs:
 
   ios-integration:
     name: iOS simulator marketplace journeys
-    runs-on: macos-15-intel
+    runs-on: macos-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
