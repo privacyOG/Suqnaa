@@ -1,0 +1,116 @@
+name: Security Adversarial
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/security-adversarial.yml'
+      - 'apps/api/src/auth/**'
+      - 'apps/api/src/integration/security-adversarial.integration.test.ts'
+      - 'apps/api/src/media/**'
+      - 'apps/api/src/payments/**'
+      - 'apps/api/src/routes/**'
+      - 'apps/api/src/security/**'
+      - 'apps/web/app/api/**'
+      - 'apps/web/lib/web-session.ts'
+      - 'apps/web/lib/security-adversarial.test.ts'
+      - 'infra/db/migrations/**'
+      - 'scripts/migrate-database.mjs'
+      - 'scripts/migration-lib.mjs'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/security-adversarial.yml'
+      - 'apps/api/src/auth/**'
+      - 'apps/api/src/integration/security-adversarial.integration.test.ts'
+      - 'apps/api/src/media/**'
+      - 'apps/api/src/payments/**'
+      - 'apps/api/src/routes/**'
+      - 'apps/api/src/security/**'
+      - 'apps/web/app/api/**'
+      - 'apps/web/lib/web-session.ts'
+      - 'apps/web/lib/security-adversarial.test.ts'
+      - 'infra/db/migrations/**'
+      - 'scripts/migrate-database.mjs'
+      - 'scripts/migration-lib.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-adversarial-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  adversarial-security:
+    name: Authorization, abuse and input attack suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: suqnaa
+          POSTGRES_PASSWORD: suqnaa_dev_password
+          POSTGRES_DB: suqnaa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suqnaa -d suqnaa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      API_HOST: 127.0.0.1
+      API_PORT: 4000
+      WEB_ORIGIN: http://127.0.0.1:3000
+      DATABASE_URL: postgres://suqnaa:suqnaa_dev_password@127.0.0.1:5432/suqnaa
+      JWT_ACCESS_SECRET: ci-access-secret-change-in-production-32chars
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-in-production-32chars
+      PASSWORD_PEPPER: ci-password-pepper-change-in-production-32chars
+      PASSWORD_RESET_PEPPER: ci-password-reset-pepper-change-in-production-32chars
+      VERIFICATION_CODE_PEPPER: ci-verification-pepper-change-in-production-32chars
+      VERIFICATION_DELIVERY_PROVIDER: console
+      CHALLENGE_PROVIDER: none
+      SELLER_SETTLEMENT_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends imagemagick
+          convert -version
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Apply complete migration ledger
+        run: node scripts/migrate-database.mjs
+      - name: Run API adversarial security suite
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          pnpm --dir apps/api exec tsx src/integration/security-adversarial.integration.test.ts | tee "$RUNNER_TEMP/security-api.log"
+          ! grep -F 'P1-19-security-password-123' "$RUNNER_TEMP/security-api.log"
+          ! grep -F 'ci-access-secret-change-in-production-32chars' "$RUNNER_TEMP/security-api.log"
+          ! grep -F 'suqnaa_dev_password' "$RUNNER_TEMP/security-api.log"
+      - name: Run browser request-forgery suite
+        working-directory: apps/web
+        run: pnpm exec tsx lib/security-adversarial.test.ts
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-adversarial-failure
+          path: ${{ runner.temp }}/security-api.log
+          if-no-files-found: ignore
+          retention-days: 7
