@@ -39,6 +39,8 @@ jobs:
           adb="$ANDROID_HOME/platform-tools/adb"
           emulator="$ANDROID_HOME/emulator/emulator"
           log="$RUNNER_TEMP/android-emulator.log"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
 
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
@@ -46,10 +48,18 @@ jobs:
             'emulator' \
             'platforms;android-35' \
             'system-images;android-35;google_apis;x86_64'
-          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
             --force \
             --name suqnaa_integration \
             --package 'system-images;android-35;google_apis;x86_64'
+
+          available_avds="$("$emulator" -list-avds)"
+          if ! grep -qx 'suqnaa_integration' <<<"$available_avds"; then
+            echo 'Android AVD creation did not produce suqnaa_integration.' >&2
+            printf 'Available AVDs:\n%s\n' "$available_avds" >&2
+            find "$ANDROID_AVD_HOME" -maxdepth 2 -type f -print >&2 || true
+            exit 1
+          fi
 
           sudo chmod 666 /dev/kvm || true
           "$adb" start-server
