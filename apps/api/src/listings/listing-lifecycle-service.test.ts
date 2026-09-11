@@ -9,7 +9,7 @@ import {
 
 const sellerId = randomUUID();
 const buyerId = randomUUID();
-const now = new Date('2026-08-08T00:00:00.000Z');
+const now = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
 async function insertListing(input: {
   id: string;
