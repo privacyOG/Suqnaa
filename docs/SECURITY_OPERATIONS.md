@@ -40,14 +40,18 @@ Changes to CSP must be tested against authentication, challenge rendering, check
 
 ## Secret rotation
 
-File-backed production secrets are kept under `SUQNAA_SECRET_DIR` and must remain outside Git. Use an operator-generated replacement file that is not stored in shell history or tickets, then atomically replace the active file with:
+File-backed production secrets are kept under `SUQNAA_SECRET_DIR` and must remain outside Git. The secret directory itself is mode `0700`. Local Docker Compose file-backed secrets are bind-mounted into application containers that run as non-root users, so the individual source files are mode `0644`; their host confidentiality depends on the non-traversable `0700` parent directory. Do not place these files in a directory readable or traversable by unrelated host users.
+
+Use an operator-generated replacement file that is not stored in shell history or tickets, then atomically replace the active file with:
 
 ```bash
 SUQNAA_SECRET_DIR=/secure/suqnaa/production \
   bash deploy/rotate-file-secret.sh turnstile_secret_key /secure/staging/new-turnstile-secret
 ```
 
-The helper validates the secret name against the tracked production secret contract, copies it into a mode-0600 temporary file in the destination directory, rejects empty replacements, atomically renames it over the active file, and prints only the secret name—not the value.
+The helper validates the secret name against the tracked production secret contract, forces the destination secret directory to mode `0700`, copies the replacement into a mode-`0644` temporary file in that directory, rejects empty replacements, atomically renames it over the active file, and prints only the secret name—not the value.
+
+This permission model is deliberate: the API and worker Docker images run as non-root `node`, while local Compose cannot remap `uid`, `gid`, or mode for a host-file-backed secret bind mount. A mode-`0600` host source owned by the deployment operator would therefore be unreadable at `/run/secrets/...` inside those containers. Never work around this by running the API or workers as root.
 
 After file replacement, recreate every service that mounts the secret. For `turnstile_secret_key`, recreate the API and verify API readiness plus a challenge-protected registration/login action before declaring rotation complete.
 
