@@ -1,0 +1,4 @@
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${SUQNAA_STAGING_SMOKE_DB_PORT:-55432}:5432"
