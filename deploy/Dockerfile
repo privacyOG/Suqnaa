@@ -70,7 +70,7 @@ COPY --from=web-build /workspace/package.json ./package.json
 COPY --from=web-build /workspace/pnpm-workspace.yaml ./pnpm-workspace.yaml
 USER node
 EXPOSE 3000
-CMD ["node_modules/.bin/next", "start", "apps/web", "-H", "0.0.0.0", "-p", "3000"]
+CMD ["node", "apps/web/node_modules/next/dist/bin/next", "start", "apps/web", "-H", "0.0.0.0", "-p", "3000"]
 
 FROM node:${NODE_VERSION} AS migrate
 ENV NODE_ENV=production

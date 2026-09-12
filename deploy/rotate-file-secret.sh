@@ -29,6 +29,12 @@ if [[ ! -d "$secret_dir" ]]; then
   exit 66
 fi
 
+# Docker Compose implements local file-backed secrets as bind mounts. The API and
+# worker images deliberately run as the non-root `node` user, so the mounted
+# source file must be readable by that user. Host confidentiality comes from the
+# non-traversable secret directory rather than a mode-0600 source file.
+chmod 0700 "$secret_dir"
+
 target="$secret_dir/$secret_name"
 temporary=$(mktemp "$secret_dir/.${secret_name}.rotate.XXXXXX")
 cleanup() {
@@ -36,7 +42,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-install -m 0600 "$replacement_file" "$temporary"
+install -m 0644 "$replacement_file" "$temporary"
 if [[ ! -s "$temporary" ]]; then
   echo "replacement secret must not be empty" >&2
   exit 65

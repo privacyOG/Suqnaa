@@ -1,0 +1,329 @@
+name: Staging Smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/staging-smoke.yml'
+      - 'apps/api/src/**'
+      - 'apps/web/**'
+      - 'deploy/**'
+      - 'infra/db/**'
+      - 'scripts/migrate-database.mjs'
+      - 'scripts/migration-lib.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/staging-smoke.yml'
+      - 'apps/api/src/**'
+      - 'apps/web/**'
+      - 'deploy/**'
+      - 'infra/db/**'
+      - 'scripts/migrate-database.mjs'
+      - 'scripts/migration-lib.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  staging-smoke:
+    name: Production-like staging marketplace journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked test dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare ephemeral staging configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 0700 "$GITHUB_WORKSPACE/.ci/staging-secrets"
+
+          printf '%s' 'staging-postgres-password-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/postgres_password"
+          printf '%s' 'staging-redis-password-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/redis_password"
+          printf '%s' 'staging-queue-password-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/queue_password"
+          printf '%s' 'suqnaa-staging' > "$GITHUB_WORKSPACE/.ci/staging-secrets/object_storage_root_user"
+          printf '%s' 'staging-object-storage-password-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/object_storage_root_password"
+          printf '%s' 'staging-observability-token-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/observability_metrics_token"
+          printf '%s' 'staging-turnstile-placeholder-secret-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/turnstile_secret_key"
+          printf '%s' 'staging-grafana-password-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/grafana_admin_password"
+          printf '%s' 'postgres://unused' > "$GITHUB_WORKSPACE/.ci/staging-secrets/backup_database_url"
+          printf '%s' 'age1unusedstagingrecipient' > "$GITHUB_WORKSPACE/.ci/staging-secrets/backup_age_recipient"
+          printf '%s' 'unused' > "$GITHUB_WORKSPACE/.ci/staging-secrets/backup_object_storage_access_key"
+          printf '%s' 'unused' > "$GITHUB_WORKSPACE/.ci/staging-secrets/backup_object_storage_secret_key"
+          printf '%s' 'AGE-SECRET-KEY-UNUSED-STAGING' > "$GITHUB_WORKSPACE/.ci/staging-secrets/backup_age_identity"
+          printf '%s' 'postgres://unused' > "$GITHUB_WORKSPACE/.ci/staging-secrets/restore_database_url"
+          printf '%s' 'unused' > "$GITHUB_WORKSPACE/.ci/staging-secrets/restore_object_storage_access_key"
+          printf '%s' 'unused' > "$GITHUB_WORKSPACE/.ci/staging-secrets/restore_object_storage_secret_key"
+
+          cat > "$GITHUB_WORKSPACE/.ci/staging.runtime.env" <<'EOF'
+          NODE_ENV=production
+          API_HOST=0.0.0.0
+          API_PORT=4000
+          WEB_ORIGIN=http://127.0.0.1:3000
+          NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000
+          API_BASE_URL=http://api:4000
+          DATABASE_URL=postgres://suqnaa:staging-postgres-password-2026@postgres:5432/suqnaa_staging
+          REDIS_URL=redis://:staging-redis-password-2026@redis:6379
+          QUEUE_REDIS_URL=redis://:staging-queue-password-2026@queue:6379
+          JWT_ACCESS_SECRET=staging-access-secret-change-before-real-deployment-2026
+          JWT_REFRESH_SECRET=staging-refresh-secret-change-before-real-deployment-2026
+          PASSWORD_PEPPER=staging-password-pepper-change-before-real-deployment-2026
+          PASSWORD_RESET_PEPPER=staging-reset-pepper-change-before-real-deployment-2026
+          VERIFICATION_CODE_PEPPER=staging-verification-pepper-change-before-real-deployment-2026
+          VERIFICATION_DELIVERY_PROVIDER=console
+          SELLER_VERIFICATION_PROVIDER=none
+          CHALLENGE_PROVIDER=none
+          PAYMENT_EVENT_PROVIDER=staging_sandbox
+          PAYMENT_EVENT_SIGNING_SECRET=staging-sandbox-payment-signing-secret-2026-change-me
+          PAYMENT_EVENT_MAX_AGE_SECONDS=300
+          PAYMENT_COLLECTION_PROVIDER=none
+          PAYMENT_COLLECTION_LIVE_APPROVED=false
+          PAYMENT_COLLECTION_WEB_ORIGIN=http://127.0.0.1:3000
+          SELLER_SETTLEMENT_ENABLED=false
+          SELLER_SETTLEMENT_LIVE_APPROVED=false
+          MEDIA_STORAGE_DRIVER=s3
+          S3_ENDPOINT=http://object-storage:9000
+          S3_BUCKET=suqnaa-staging-media
+          S3_ACCESS_KEY=suqnaa-staging
+          S3_SECRET_KEY=staging-object-storage-password-2026
+          S3_FORCE_PATH_STYLE=true
+          NOTIFICATION_EMAIL_PROVIDER=disabled
+          NOTIFICATION_SMS_PROVIDER=disabled
+          NOTIFICATION_PUSH_PROVIDER=disabled
+          EOF
+
+          cat > "$GITHUB_WORKSPACE/.ci/staging.compose.env" <<EOF
+          SUQNAA_POSTGRES_DB=suqnaa_staging
+          SUQNAA_POSTGRES_USER=suqnaa
+          SUQNAA_APPLICATION_NETWORK=suqnaa-staging-smoke-application
+          SUQNAA_EDGE_NETWORK=suqnaa-staging-smoke-edge
+          SUQNAA_SECRET_DIR=$GITHUB_WORKSPACE/.ci/staging-secrets
+          SUQNAA_ENV_FILE=$GITHUB_WORKSPACE/.ci/staging.runtime.env
+          SUQNAA_WEB_DOMAIN=staging.example.invalid
+          SUQNAA_API_DOMAIN=api.staging.example.invalid
+          SUQNAA_ACME_EMAIL=ops@example.invalid
+          SUQNAA_BACKUP_S3_BUCKETS=suqnaa-staging-media
+          SUQNAA_RESTORE_ENVIRONMENT=staging
+          NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000
+          NEXT_PUBLIC_CHALLENGE_SCRIPT_URL=
+          SUQNAA_STAGING_SMOKE_DB_PORT=55432
+          EOF
+
+          chmod 600 "$GITHUB_WORKSPACE/.ci/staging.runtime.env" "$GITHUB_WORKSPACE/.ci/staging.compose.env"
+          chmod 644 "$GITHUB_WORKSPACE/.ci/staging-secrets"/*
+          echo "STAGING_COMPOSE_ENV=$GITHUB_WORKSPACE/.ci/staging.compose.env" >> "$GITHUB_ENV"
+          echo "STAGING_RUNTIME_ENV=$GITHUB_WORKSPACE/.ci/staging.runtime.env" >> "$GITHUB_ENV"
+
+      - name: Validate staging Compose overlays
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.infrastructure.yml \
+            -f deploy/compose.staging-smoke.infrastructure.yml \
+            config --quiet
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml \
+            config --quiet
+
+      - name: Start production-like staging dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.infrastructure.yml \
+            -f deploy/compose.staging-smoke.infrastructure.yml \
+            up -d postgres redis queue object-storage
+
+          for service in postgres redis queue object-storage; do
+            container_id="$(docker compose --env-file "$STAGING_COMPOSE_ENV" \
+              -f deploy/compose.infrastructure.yml \
+              -f deploy/compose.staging-smoke.infrastructure.yml \
+              ps -q "$service")"
+            for attempt in $(seq 1 60); do
+              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")"
+              if [ "$status" = healthy ]; then
+                break
+              fi
+              if [ "$status" = exited ] || [ "$attempt" -eq 60 ]; then
+                docker logs "$container_id" || true
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
+      - name: Build production application images
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml \
+            build api web worker-listings migrate
+
+      - name: Apply staging migration ledger
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml \
+            --profile migrate run --rm migrate
+
+      - name: Start production application topology
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml \
+            up -d \
+              api web \
+              worker-listings worker-discovery worker-notifications \
+              worker-settlements worker-disputes worker-returns
+
+          compose_app() {
+            docker compose --env-file "$STAGING_COMPOSE_ENV" \
+              -f deploy/compose.production.yml \
+              -f deploy/compose.staging-smoke.application.yml "$@"
+          }
+
+          compose_infra() {
+            docker compose --env-file "$STAGING_COMPOSE_ENV" \
+              -f deploy/compose.infrastructure.yml \
+              -f deploy/compose.staging-smoke.infrastructure.yml "$@"
+          }
+
+          api_container="$(compose_app ps -q api)"
+          web_container="$(compose_app ps -q web)"
+          postgres_container="$(compose_infra ps -q postgres)"
+          api_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$api_container")"
+          web_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$web_container")"
+          postgres_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$postgres_container")"
+
+          if [ -z "$api_ip" ] || [ -z "$web_ip" ] || [ -z "$postgres_ip" ]; then
+            compose_app ps -a
+            compose_app logs api web
+            compose_infra ps -a
+            compose_infra logs postgres
+            exit 1
+          fi
+
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent --show-error "http://$api_ip:4000/v1/health/ready" >/dev/null; then
+              break
+            fi
+            api_state="$(docker inspect --format '{{.State.Status}}' "$api_container")"
+            if [ "$api_state" = exited ] || [ "$api_state" = restarting ] || [ "$attempt" -eq 90 ]; then
+              compose_app logs api
+              exit 1
+            fi
+            sleep 2
+          done
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error "http://$web_ip:3000/" >/dev/null; then
+              break
+            fi
+            web_state="$(docker inspect --format '{{.State.Status}}' "$web_container")"
+            if [ "$web_state" = exited ] || [ "$web_state" = restarting ] || [ "$attempt" -eq 60 ]; then
+              compose_app logs web
+              exit 1
+            fi
+            sleep 2
+          done
+
+          for service in worker-listings worker-discovery worker-notifications worker-settlements worker-disputes worker-returns; do
+            container_id="$(compose_app ps -q "$service")"
+            for attempt in $(seq 1 30); do
+              state="$(docker inspect --format '{{.State.Status}}' "$container_id")"
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
+              if [ "$state" = running ] && { [ "$health" = healthy ] || [ "$health" = none ]; }; then
+                break
+              fi
+              if [ "$state" = exited ] || [ "$state" = restarting ] || [ "$attempt" -eq 30 ]; then
+                compose_app logs "$service"
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
+          echo "STAGING_API_BASE_URL=http://$api_ip:4000" >> "$GITHUB_ENV"
+          echo "STAGING_DATABASE_URL=postgres://suqnaa:staging-postgres-password-2026@$postgres_ip:5432/suqnaa_staging" >> "$GITHUB_ENV"
+
+      - name: Run deployed marketplace smoke journey
+        env:
+          PAYMENT_EVENT_PROVIDER: staging_sandbox
+          PAYMENT_EVENT_SIGNING_SECRET: staging-sandbox-payment-signing-secret-2026-change-me
+        run: pnpm --dir apps/api exec tsx src/integration/staging-smoke.deployed.integration.test.ts
+
+      - name: Capture staging failure evidence
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/staging-smoke-evidence"
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.infrastructure.yml \
+            -f deploy/compose.staging-smoke.infrastructure.yml \
+            ps -a > "$RUNNER_TEMP/staging-smoke-evidence/infrastructure-ps.txt"
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.infrastructure.yml \
+            -f deploy/compose.staging-smoke.infrastructure.yml \
+            logs --no-color > "$RUNNER_TEMP/staging-smoke-evidence/infrastructure.log"
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml \
+            ps -a > "$RUNNER_TEMP/staging-smoke-evidence/application-ps.txt"
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml \
+            logs --no-color > "$RUNNER_TEMP/staging-smoke-evidence/application.log"
+
+      - name: Upload staging failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-smoke-failure
+          path: ${{ runner.temp }}/staging-smoke-evidence
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Tear down ephemeral staging
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml \
+            down --remove-orphans
+          docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.infrastructure.yml \
+            -f deploy/compose.staging-smoke.infrastructure.yml \
+            down -v --remove-orphans
+          rm -rf "$GITHUB_WORKSPACE/.ci"

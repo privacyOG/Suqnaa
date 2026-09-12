@@ -12,9 +12,16 @@ async function runOnce(): Promise<void> {
   await runSellerSettlementBatch({ limit: configuration.workerBatchSize });
 }
 
+async function waitForShutdown(): Promise<void> {
+  while (!stopping) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
 async function main(): Promise<void> {
   if (!configuration.enabled) {
-    console.log('Seller settlement worker is disabled.');
+    console.log('Seller settlement worker is disabled; remaining idle until shutdown.');
+    await waitForShutdown();
     await closeDb();
     return;
   }
