@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
+import { resolveApiErrorResponse } from '../config/http-error.js';
 import { closeDb, db } from '../db/index.js';
 import { transformListingImage } from '../media/listing-image-transform.js';
 import { verifyAndParseStripeWebhook } from '../payments/stripe-webhook.js';
@@ -9,6 +10,13 @@ import { marketActionRoutes } from '../routes/market-actions.js';
 import { offerWorkflowRoutes } from '../routes/offer-workflow.js';
 
 const app = Fastify();
+app.setErrorHandler((error, _request, reply) => {
+  const mappedError = resolveApiErrorResponse(error);
+  if (mappedError) {
+    return reply.code(mappedError.statusCode).send(mappedError.body);
+  }
+  return reply.code(500).send({ error: 'Internal server error' });
+});
 await app.register(authRoutes, { prefix: '/v1' });
 await app.register(marketActionRoutes, { prefix: '/v1' });
 await app.register(offerWorkflowRoutes, { prefix: '/v1' });
