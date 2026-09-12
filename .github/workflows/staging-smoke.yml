@@ -128,8 +128,6 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000
           NEXT_PUBLIC_CHALLENGE_SCRIPT_URL=
           SUQNAA_STAGING_SMOKE_DB_PORT=55432
-          SUQNAA_STAGING_SMOKE_API_PORT=4000
-          SUQNAA_STAGING_SMOKE_WEB_PORT=3000
           EOF
 
           chmod 600 "$GITHUB_WORKSPACE/.ci/staging.runtime.env" "$GITHUB_WORKSPACE/.ci/staging.compose.env"
@@ -207,45 +205,67 @@ jobs:
               worker-listings worker-discovery worker-notifications \
               worker-settlements worker-disputes worker-returns
 
-          api_container="$(docker compose --env-file "$STAGING_COMPOSE_ENV" \
-            -f deploy/compose.production.yml \
-            -f deploy/compose.staging-smoke.application.yml ps -q api)"
+          compose_app() {
+            docker compose --env-file "$STAGING_COMPOSE_ENV" \
+              -f deploy/compose.production.yml \
+              -f deploy/compose.staging-smoke.application.yml "$@"
+          }
+
+          api_container="$(compose_app ps -q api)"
+          web_container="$(compose_app ps -q web)"
+          api_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$api_container")"
+          web_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$web_container")"
+
+          if [ -z "$api_ip" ] || [ -z "$web_ip" ]; then
+            compose_app ps -a
+            compose_app logs api web
+            exit 1
+          fi
 
           for attempt in $(seq 1 90); do
-            if curl --fail --silent --show-error http://127.0.0.1:4000/v1/health/ready >/dev/null; then
+            if curl --fail --silent --show-error "http://$api_ip:4000/v1/health/ready" >/dev/null; then
               break
             fi
             api_state="$(docker inspect --format '{{.State.Status}}' "$api_container")"
             if [ "$api_state" = exited ] || [ "$api_state" = restarting ] || [ "$attempt" -eq 90 ]; then
-              docker compose --env-file "$STAGING_COMPOSE_ENV" \
-                -f deploy/compose.production.yml \
-                -f deploy/compose.staging-smoke.application.yml logs api
+              compose_app logs api
               exit 1
             fi
             sleep 2
           done
 
-          web_container="$(docker compose --env-file "$STAGING_COMPOSE_ENV" \
-            -f deploy/compose.production.yml \
-            -f deploy/compose.staging-smoke.application.yml ps -q web)"
-
           for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
+            if curl --fail --silent --show-error "http://$web_ip:3000/" >/dev/null; then
               break
             fi
             web_state="$(docker inspect --format '{{.State.Status}}' "$web_container")"
             if [ "$web_state" = exited ] || [ "$web_state" = restarting ] || [ "$attempt" -eq 60 ]; then
-              docker compose --env-file "$STAGING_COMPOSE_ENV" \
-                -f deploy/compose.production.yml \
-                -f deploy/compose.staging-smoke.application.yml logs web
+              compose_app logs web
               exit 1
             fi
             sleep 2
           done
 
+          for service in worker-listings worker-discovery worker-notifications worker-settlements worker-disputes worker-returns; do
+            container_id="$(compose_app ps -q "$service")"
+            for attempt in $(seq 1 30); do
+              state="$(docker inspect --format '{{.State.Status}}' "$container_id")"
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
+              if [ "$state" = running ] && { [ "$health" = healthy ] || [ "$health" = none ]; }; then
+                break
+              fi
+              if [ "$state" = exited ] || [ "$state" = restarting ] || [ "$attempt" -eq 30 ]; then
+                compose_app logs "$service"
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
+          echo "STAGING_API_BASE_URL=http://$api_ip:4000" >> "$GITHUB_ENV"
+
       - name: Run deployed marketplace smoke journey
         env:
-          STAGING_API_BASE_URL: http://127.0.0.1:4000
           STAGING_DATABASE_URL: postgres://suqnaa:staging-postgres-password-2026@127.0.0.1:55432/suqnaa_staging
           PAYMENT_EVENT_PROVIDER: staging_sandbox
           PAYMENT_EVENT_SIGNING_SECRET: staging-sandbox-payment-signing-secret-2026-change-me
