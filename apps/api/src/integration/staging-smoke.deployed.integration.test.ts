@@ -54,7 +54,7 @@ async function request(path: string, options: RequestOptions = {}) {
 }
 
 async function register(label: string): Promise<Session> {
-  const email = `l01-${label}-${runId}@example.test`;
+  const email = `l01-${label.toLowerCase()}-${runId}@example.test`;
   const body = await request('/v1/auth/register', {
     method: 'POST',
     expectedStatus: 201,
