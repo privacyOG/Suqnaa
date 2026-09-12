@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          mkdir -p "$GITHUB_WORKSPACE/.ci/staging-secrets"
+          install -d -m 0700 "$GITHUB_WORKSPACE/.ci/staging-secrets"
 
           printf '%s' 'staging-postgres-password-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/postgres_password"
           printf '%s' 'staging-redis-password-2026' > "$GITHUB_WORKSPACE/.ci/staging-secrets/redis_password"
@@ -132,7 +132,8 @@ jobs:
           SUQNAA_STAGING_SMOKE_WEB_PORT=3000
           EOF
 
-          chmod 600 "$GITHUB_WORKSPACE/.ci/staging.runtime.env" "$GITHUB_WORKSPACE/.ci/staging.compose.env" "$GITHUB_WORKSPACE/.ci/staging-secrets"/*
+          chmod 600 "$GITHUB_WORKSPACE/.ci/staging.runtime.env" "$GITHUB_WORKSPACE/.ci/staging.compose.env"
+          chmod 644 "$GITHUB_WORKSPACE/.ci/staging-secrets"/*
           echo "STAGING_COMPOSE_ENV=$GITHUB_WORKSPACE/.ci/staging.compose.env" >> "$GITHUB_ENV"
           echo "STAGING_RUNTIME_ENV=$GITHUB_WORKSPACE/.ci/staging.runtime.env" >> "$GITHUB_ENV"
 
@@ -206,11 +207,16 @@ jobs:
               worker-listings worker-discovery worker-notifications \
               worker-settlements worker-disputes worker-returns
 
+          api_container="$(docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml ps -q api)"
+
           for attempt in $(seq 1 90); do
             if curl --fail --silent --show-error http://127.0.0.1:4000/v1/health/ready >/dev/null; then
               break
             fi
-            if [ "$attempt" -eq 90 ]; then
+            api_state="$(docker inspect --format '{{.State.Status}}' "$api_container")"
+            if [ "$api_state" = exited ] || [ "$api_state" = restarting ] || [ "$attempt" -eq 90 ]; then
               docker compose --env-file "$STAGING_COMPOSE_ENV" \
                 -f deploy/compose.production.yml \
                 -f deploy/compose.staging-smoke.application.yml logs api
@@ -219,11 +225,16 @@ jobs:
             sleep 2
           done
 
+          web_container="$(docker compose --env-file "$STAGING_COMPOSE_ENV" \
+            -f deploy/compose.production.yml \
+            -f deploy/compose.staging-smoke.application.yml ps -q web)"
+
           for attempt in $(seq 1 60); do
             if curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
               break
             fi
-            if [ "$attempt" -eq 60 ]; then
+            web_state="$(docker inspect --format '{{.State.Status}}' "$web_container")"
+            if [ "$web_state" = exited ] || [ "$web_state" = restarting ] || [ "$attempt" -eq 60 ]; then
               docker compose --env-file "$STAGING_COMPOSE_ENV" \
                 -f deploy/compose.production.yml \
                 -f deploy/compose.staging-smoke.application.yml logs web
