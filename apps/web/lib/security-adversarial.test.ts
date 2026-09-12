@@ -5,7 +5,7 @@ import {
   maximumRefreshTokenLength,
   parseWebSessionCredentials,
   validToken
-} from './web-session.ts';
+} from './web-session';
 
 function mutation(url: string, headers: Record<string, string> = {}): Request {
   return new Request(url, { method: 'POST', headers });
