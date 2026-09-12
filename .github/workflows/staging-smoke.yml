@@ -211,14 +211,24 @@ jobs:
               -f deploy/compose.staging-smoke.application.yml "$@"
           }
 
+          compose_infra() {
+            docker compose --env-file "$STAGING_COMPOSE_ENV" \
+              -f deploy/compose.infrastructure.yml \
+              -f deploy/compose.staging-smoke.infrastructure.yml "$@"
+          }
+
           api_container="$(compose_app ps -q api)"
           web_container="$(compose_app ps -q web)"
+          postgres_container="$(compose_infra ps -q postgres)"
           api_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$api_container")"
           web_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$web_container")"
+          postgres_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$postgres_container")"
 
-          if [ -z "$api_ip" ] || [ -z "$web_ip" ]; then
+          if [ -z "$api_ip" ] || [ -z "$web_ip" ] || [ -z "$postgres_ip" ]; then
             compose_app ps -a
             compose_app logs api web
+            compose_infra ps -a
+            compose_infra logs postgres
             exit 1
           fi
 
@@ -263,10 +273,10 @@ jobs:
           done
 
           echo "STAGING_API_BASE_URL=http://$api_ip:4000" >> "$GITHUB_ENV"
+          echo "STAGING_DATABASE_URL=postgres://suqnaa:staging-postgres-password-2026@$postgres_ip:5432/suqnaa_staging" >> "$GITHUB_ENV"
 
       - name: Run deployed marketplace smoke journey
         env:
-          STAGING_DATABASE_URL: postgres://suqnaa:staging-postgres-password-2026@127.0.0.1:55432/suqnaa_staging
           PAYMENT_EVENT_PROVIDER: staging_sandbox
           PAYMENT_EVENT_SIGNING_SECRET: staging-sandbox-payment-signing-secret-2026-change-me
         run: pnpm --dir apps/api exec tsx src/integration/staging-smoke.deployed.integration.test.ts
