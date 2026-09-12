@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { httpMetrics } from './http-metrics.js';
+import { marketplaceMetrics } from './marketplace-metrics.js';
 import {
   resolveRequestContext,
   safeRouteLabel,
@@ -49,6 +50,11 @@ export function registerHttpObservability(app: FastifyInstance): void {
       route,
       statusClass: responseClass,
       durationMs
+    });
+    marketplaceMetrics.observeHttp({
+      method: request.method,
+      route,
+      statusCode: reply.statusCode
     });
 
     request.log.info({
