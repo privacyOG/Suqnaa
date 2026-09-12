@@ -21,13 +21,13 @@ Required files:
 - `restore_object_storage_access_key`
 - `restore_object_storage_secret_key`
 
-Use a separate secret directory for each environment and point Compose at it with `SUQNAA_SECRET_DIR`. Restrict the directory to the deployment account and do not copy these values into `.env.production`, image build arguments, CI logs, or repository files.
+Use a separate secret directory for each environment and point Compose at it with `SUQNAA_SECRET_DIR`. The secret directory must be mode `0700` and restricted to the deployment account. Because local Docker Compose implements file-backed secrets as bind mounts into application containers that deliberately run as non-root users, individual source files are mode `0644`; host confidentiality comes from the non-traversable parent directory. Do not place these files in a directory readable or traversable by unrelated host users, and do not copy their values into `.env.production`, image build arguments, CI logs, or repository files.
 
 `observability_metrics_token` must contain at least 32 characters in production. The exact same secret file is mounted into the API and Prometheus, so the scrape credential never needs to be duplicated in environment variables. Rotate it by replacing the secret and restarting the API and Prometheus together.
 
 `grafana_admin_password` protects the bootstrap administrator account. Grafana is bound to `127.0.0.1` by default and must not be exposed publicly without the same edge authentication and access controls used for other operations surfaces.
 
-`turnstile_secret_key` is the server-only production human-verification credential. Production API startup rejects an inline `TURNSTILE_SECRET_KEY`; it must use the mounted file at `TURNSTILE_SECRET_KEY_FILE`. Rotate the provider credential by writing the new value to a temporary mode-0600 file in the same secret directory, atomically renaming it to `turnstile_secret_key`, recreating the API service, and verifying `/v1/health/ready` plus a real challenge-protected action. Never log or expose the secret through the public challenge configuration.
+`turnstile_secret_key` is the server-only production human-verification credential. Production API startup rejects an inline `TURNSTILE_SECRET_KEY`; it must use the mounted file at `TURNSTILE_SECRET_KEY_FILE`. Rotate the provider credential by writing the new value to a temporary mode-`0644` file in the same mode-`0700` secret directory, atomically renaming it to `turnstile_secret_key`, recreating the API service, and verifying `/v1/health/ready` plus a real challenge-protected action. Never log or expose the secret through the public challenge configuration.
 
 ## Backup and restore credentials
 
@@ -48,7 +48,7 @@ Application credentials should use least-privilege identities distinct from infr
 ## Rotation rules
 
 - Generate replacement values outside the repository and never print them in shell history, CI output, tickets, or chat.
-- Prefer atomic file replacement on the deployment host: write a mode-0600 temporary file in the same directory, verify ownership/permissions, then rename it over the active secret.
+- Prefer atomic file replacement on the deployment host: keep the environment secret directory mode `0700`, write a mode-`0644` temporary source file in that same directory, verify ownership/permissions, then rename it over the active secret. This combination is required for non-root local-Compose consumers while preventing unrelated host users from traversing the directory.
 - Recreate every service that mounts the changed secret; a file replacement alone does not guarantee a running container observes the new value.
 - Verify health and the affected protected workflow before declaring rotation complete.
 - Keep the previous value only for the minimum rollback window supported by that credential, then destroy it securely.
