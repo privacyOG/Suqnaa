@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { httpMetrics } from '../observability/http-metrics.js';
+import { marketplaceMetrics } from '../observability/marketplace-metrics.js';
 import {
   loadMetricsAccessToken,
   metricsAuthorizationAllowed
@@ -20,6 +21,6 @@ export async function observabilityRoutes(app: FastifyInstance): Promise<void> {
 
     reply.header('Cache-Control', 'no-store');
     reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
-    return reply.send(httpMetrics.renderPrometheus());
+    return reply.send(`${httpMetrics.renderPrometheus()}${marketplaceMetrics.renderPrometheus()}`);
   });
 }
