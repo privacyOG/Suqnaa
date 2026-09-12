@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
-import { Pool } from 'pg';
+import pg from 'pg';
 
 const apiBaseUrl = (process.env.STAGING_API_BASE_URL ?? '').replace(/\/+$/, '');
 const databaseUrl = process.env.STAGING_DATABASE_URL ?? '';
@@ -15,7 +15,7 @@ assert.ok(paymentSigningSecret.length >= 32, 'PAYMENT_EVENT_SIGNING_SECRET must 
 const runId = randomUUID();
 const password = 'L01-staging-smoke-password-123';
 const userAgent = 'Suqnaa-L01-Staging-Smoke/1.0';
-const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+const pool = new pg.Pool({ connectionString: databaseUrl, max: 2 });
 
 type Session = {
   accessToken: string;
