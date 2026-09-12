@@ -16,12 +16,13 @@
     "infrastructure:validate": "node scripts/validate-production-infrastructure.mjs",
     "security:validate": "node scripts/validate-production-security.mjs",
     "mobile-platforms:validate": "node scripts/validate-mobile-platforms.mjs",
+    "private-beta:validate": "node scripts/validate-private-beta-readiness.mjs",
     "policy": "node scripts/repository-policy.mjs",
     "typecheck": "pnpm -r typecheck",
     "test:api": "pnpm --filter suqnaa-api test:security",
     "test:web": "pnpm --filter suqnaa-web test:session",
     "test:deployment": "pnpm --dir apps/api exec tsx src/deployment/readiness.test.ts",
-    "test": "pnpm test:api && pnpm test:web && pnpm test:deployment && pnpm containers:validate && pnpm infrastructure:validate && pnpm security:validate && pnpm mobile-platforms:validate",
+    "test": "pnpm test:api && pnpm test:web && pnpm test:deployment && pnpm containers:validate && pnpm infrastructure:validate && pnpm security:validate && pnpm mobile-platforms:validate && pnpm private-beta:validate",
     "ci": "pnpm policy && pnpm typecheck && pnpm test"
   }
 }
