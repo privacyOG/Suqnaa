@@ -1,0 +1,59 @@
+name: Full Launch Readiness
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/full-launch-readiness.yml'
+      - '.github/workflows/staging-smoke.yml'
+      - '.github/workflows/launch-performance.yml'
+      - '.github/workflows/security-adversarial.yml'
+      - 'docs/**'
+      - 'scripts/validate-full-launch-readiness.mjs'
+      - 'scripts/validate-private-beta-readiness.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/full-launch-readiness.yml'
+      - '.github/workflows/staging-smoke.yml'
+      - '.github/workflows/launch-performance.yml'
+      - '.github/workflows/security-adversarial.yml'
+      - 'docs/**'
+      - 'scripts/validate-full-launch-readiness.mjs'
+      - 'scripts/validate-private-beta-readiness.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-launch-readiness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Reconcile full-launch evidence boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate full-launch readiness contract
+        run: pnpm full-launch:validate
