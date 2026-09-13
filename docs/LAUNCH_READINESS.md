@@ -1,117 +1,144 @@
 # Launch readiness
 
-This document tracks what is required before Suqnaa can move from local development to staging, public beta, and full marketplace launch.
+This document is the canonical repository-side reconciliation contract for taking Suqnaa from the current production-ready technical baseline through the remaining human, legal, store, privacy and live-operations launch gates.
 
-## Current launch status
+It is intentionally conservative: repository automation may prove that technical controls exist and pass, but it must not manufacture legal approval, operator training, accessibility device review, store-console acceptance, provider approval, or real beta evidence.
 
-- **Private staging/demo:** allowed once the web app, API, database, and environment variables are deployed together.
-- **Public landing page:** allowed once final contact details and production hosting are configured.
-- **Full public marketplace:** blocked until object storage is provisioned, moderation, verification, payments/compliance, backups, and operational monitoring are completed.
+## Current reconciliation status
 
-## Website readiness
+Current verified `main` baseline when this contract was created: `a53edb32cacf15289c4ef65eb5d247954162f833` through PR #188.
 
-- [x] Bilingual landing routes exist at `/en` and `/ar`.
-- [x] Root `/` redirects to `/en` so visitors do not land on a basic language selector.
-- [x] Public catalog route exists at `/{locale}/listings`.
-- [x] Listing detail route exists at `/{locale}/listings/{listingId}`.
-- [x] Account sign-in and registration pages exist.
-- [x] Seller draft creation and listing management pages exist.
-- [x] Footer navigation links to draft Terms, Privacy, item rules, safety, and contact pages.
-- [x] Draft bilingual policy pages exist under `/{locale}/policy/{pageSlug}`.
-- [x] Seller listing form supports category selection, photo uploads, availability status, quantity, and unit label.
-- [x] Public catalog and listing details can display uploaded listing photos.
-- [x] Media delivery can use local development storage, public object URLs, or short-lived signed object URLs.
-- [ ] Replace draft policy copy with final legally reviewed terms, privacy, item-rules, safety, and contact content.
-- [ ] Add SEO metadata for marketplace, listing, account, and seller pages.
-- [ ] Add production analytics/error monitoring only after privacy review.
+- Repository technical controls: `repository-ready`
+- P0-31 legal/Arabic policy approval: `pending-external-evidence`
+- P1-11 app-store submission readiness: `pending-external-evidence`
+- P1-13 manual accessibility/localisation QA: `pending-external-evidence`
+- P1-14 production analytics: `blocked-pending-privacy-review`
+- L-01 production-like staging gate: `repository-complete`
+- L-02 private beta: `pending-external-evidence`
+- L-03 public beta: `pending-external-evidence`
+- L-04 overall: `blocked-on-external-evidence`
 
-## Deployment readiness
+Any unresolved blocker is a **no-go**.
 
-- [x] Root package scripts include `typecheck`, `test`, `build`, and `ci`.
-- [x] GitHub Actions CI has been added for pull requests and main-branch pushes.
-- [ ] Commit a generated `pnpm-lock.yaml` from a clean local install.
-- [ ] Choose production hosting for `apps/web`.
-- [ ] Choose production hosting for `apps/api`.
-- [ ] Configure HTTPS and custom domain routing for `suqnaa.com`.
-- [ ] Configure production `WEB_ORIGIN`, `NEXT_PUBLIC_API_BASE_URL`, and `API_BASE_URL`.
-- [ ] Configure production secrets through the hosting provider's secret manager.
-- [ ] Add a production database migration process.
-- [ ] Add backup and restore procedures.
+## Repository-complete technical baseline
 
-## Data and infrastructure readiness
+The following launch-critical technical work is already represented on `main` and must remain green on the exact release candidate:
 
-- [ ] Provision production PostgreSQL with PostGIS.
-- [ ] Provision production Redis or replace in-memory limits with a durable shared rate-limit store.
-- [ ] Provision production object storage for listing media and configure the API to use it.
-- [x] Add S3-compatible media storage adapter for listing media.
-- [x] Add upload limits and server-side MIME validation for listing images.
-- [ ] Add malware scanning and image processing before full public launch.
-- [ ] Add object lifecycle and retention rules.
-- [ ] Add database backups with restore testing.
+- production containers, infrastructure topology, shared Redis state, media hardening, observability, encrypted backups/restore, deployment reliability and production security controls;
+- Android/iOS platform foundations and secret-gated store release pipelines;
+- marketplace/listing SEO and structured public discovery;
+- database-backed API integration journeys;
+- bilingual browser end-to-end journeys;
+- Android/iOS native mobile integration journeys;
+- launch performance certification;
+- adversarial security certification;
+- production-like deployed staging smoke coverage;
+- public-beta feature flags, provider approval guards and privacy-safe aggregate monitoring.
 
-## Security readiness
+Canonical supporting contracts include:
 
-- [x] Access and refresh tokens are separated.
-- [x] Web session storage uses HttpOnly cookies.
-- [x] Same-origin protected API transport exists for authenticated browser actions.
-- [x] Basic rate limits exist on high-risk routes.
-- [x] Listing media uploads require seller ownership and are rate limited.
-- [x] Private object buckets can be served through short-lived signed URLs.
-- [x] User/listing reports require authentication, rate limits, and protected browser transport.
-- [ ] Configure Cloudflare Turnstile or another real challenge provider in production.
-- [ ] Verify CORS only allows the production web origin.
-- [ ] Add security headers at the edge or hosting layer.
-- [ ] Add audit-log review process for sensitive actions.
-- [ ] Add admin-only moderation workflows before public marketplace launch.
+- `docs/STAGING_SMOKE.md`
+- `docs/PERFORMANCE_GATES.md`
+- `docs/BACKUP_RESTORE.md`
+- `docs/OBSERVABILITY.md`
+- `docs/DEPLOYMENT_RELIABILITY.md`
+- `docs/SECURITY_OPERATIONS.md`
+- `docs/MOBILE_PLATFORM_RELEASES.md`
+- `docs/PRIVATE_BETA_OPERATIONS.md`
+- `docs/PUBLIC_BETA.md`
+- `docs/P0_31_LEGAL_REVIEW_HANDOFF.md`
+- `docs/INITIAL_LAUNCH_POLICY.md`
 
-## Marketplace readiness
+These repository controls are necessary but not sufficient for L-04.
 
-- [x] Draft listing creation exists.
-- [x] Seller listing status transitions exist.
-- [x] Public active listings exist.
-- [x] Buyer-to-seller messaging and offer flows exist at code level.
-- [x] Listing photo upload and display exists for staging/development.
-- [x] Item and service availability fields exist.
-- [x] Category selection is exposed in the listing form.
-- [x] Reporting flows for users/listings are exposed from listing details.
-- [ ] Admin review and takedown tools must be created before public launch.
-- [ ] Final item rules must be written and reviewed.
-- [ ] Buyer/seller safety guidance must be linked from listing and messaging flows.
+## Remaining external and human blockers
 
-## Payments, orders, and compliance
+### P0-31 — final English/Arabic legal policy approval
 
-- [ ] Keep real payments disabled until provider and compliance review is complete.
-- [ ] Decide whether Suqnaa is classified as a marketplace, payment facilitator, escrow-like service, or simple classifieds platform in each target jurisdiction.
-- [ ] Select payment provider terms that support marketplace transactions.
-- [ ] Define buyer protection, seller protection, refunds, chargebacks, and disputes.
-- [ ] Keep cryptocurrency features disabled or sandboxed until AML/CTF, sanctions, KYC thresholds, and digital-currency obligations are reviewed.
+P0-31 remains blocked until the matched English and Arabic policy set receives genuine review and the approved copy, effective dates, entity/contact facts, retention rules and production-provider facts are incorporated exactly as described in `docs/P0_31_LEGAL_REVIEW_HANDOFF.md`.
 
-## Release gates
+CI cannot approve legal text, invent public organisation details, or create privileged legal-review evidence.
 
-### Staging gate
+### P1-11 — mobile store submission readiness
 
-Staging can go live when:
+P1-11 remains blocked until the real production-provider inventory is final, privacy/data-safety disclosures match that inventory, Android private testing and iOS TestFlight evidence are complete, real store-console records/questionnaires are complete, and reviewer access is provisioned outside source control.
 
-1. CI passes.
-2. Web and API deploy successfully.
-3. Production-like environment variables are configured.
-4. Test accounts can register, sign in, create a listing with photos, publish it, message, and make an offer.
+Repository-generated screenshots, metadata and release automation do not substitute for store-console or testing evidence.
 
-### Public beta gate
+### P1-13 — manual accessibility/localisation acceptance
 
-Public beta can go live when:
+Automated accessibility and localisation checks do not substitute for keyboard-only, screen-reader, TalkBack, VoiceOver, zoom/text-scaling, responsive-layout, reduced-motion and Arabic RTL review across the required user journeys.
 
-1. Production object storage is provisioned and configured.
-2. Final legal and safety pages are published.
-3. Moderation/reporting process exists.
-4. Backups and monitoring are active.
-5. Real payments are disabled unless compliance review is complete.
+The final release record must contain dated human acceptance evidence with no unresolved release-blocking defect.
 
-### Full marketplace gate
+### P1-14 — production analytics privacy review
 
-Full launch can go live when:
+Production analytics must remain absent or disabled until privacy review defines the exact purpose, lawful/approved collection boundary, consent model where required, data minimisation, retention, access, processor/provider facts and deletion controls.
 
-1. Payment and dispute flows are legally reviewed.
-2. Admin moderation and fraud workflows are operational.
-3. Media, database, logs, backups, and incident response are production-ready.
-4. Terms, privacy, item rules, refund/dispute, and safety policies are final.
+No analytics SDK, tag, cookie or production event collection may be introduced merely to make a launch checklist appear complete.
+
+### L-02 — private beta human evidence
+
+The repository-side private-beta operating contract is present, but L-02 itself still requires genuine dated evidence for operator training, final policy review and controlled real-user acceptance. Synthetic CI journeys are prerequisites, not human acceptance.
+
+Use `docs/PRIVATE_BETA_OPERATIONS.md` as the canonical evidence contract.
+
+### L-03 — real public beta evidence
+
+The repository-side public-beta controls are merged, including reversible feature flags, payment/verification approval guards and privacy-safe aggregate metrics. L-03 itself is not complete until an actual controlled public cohort is launched and monitored with a recorded human go/no-go outcome.
+
+CI cannot manufacture public-beta evidence or prove that real reliability, abuse, conversion and support load were acceptable.
+
+Use `docs/PUBLIC_BETA.md` as the canonical operating contract.
+
+## L-04 full-launch gate
+
+L-04 may be signed off only for one immutable release candidate SHA. The sign-off record must identify that SHA and prove all of the following:
+
+1. required exact-head repository CI is green, including Quality Gate, API integration, browser E2E, native mobile integration/builds, performance, adversarial security and staging smoke;
+2. P0-31 final English/Arabic policies are approved and published with the exact reviewed version/effective date;
+3. production payment collection, seller verification and seller settlement are enabled only in the approved provider/mode combination and all required live approvals are recorded;
+4. disputes, moderation, fraud/risk operations and support escalation ownership are active;
+5. observability, alerting, encrypted backups, restore procedure, deployment rollback and incident response have named operational ownership;
+6. P1-11 mobile store evidence is complete for the platforms intended for launch;
+7. P1-13 manual accessibility/localisation review is complete with no release-blocking defect;
+8. P1-14 privacy review is complete before any production analytics is enabled;
+9. L-02 private-beta evidence is complete;
+10. L-03 public-beta evidence is complete and the cohort outcome supports progression to full launch;
+11. all release-blocking defects, incidents, unresolved legal conditions and provider mismatches are closed or explicitly result in a no-go;
+12. the final go/no-go decision, approvers, timestamp, rollback trigger and rollback owner are recorded outside source control or in the approved operational evidence system as appropriate.
+
+## Required L-04 evidence record
+
+The final release evidence should record at minimum:
+
+- release candidate SHA and immutable build identifiers;
+- exact green workflow/run references for required technical gates;
+- legal policy version/effective date and external approval references;
+- approved production payment, verification and settlement modes/providers;
+- backup/restore drill reference and timestamp;
+- incident-response and support ownership;
+- mobile store testing/submission evidence for each launched platform;
+- accessibility/localisation acceptance reference;
+- production analytics/privacy decision, including an explicit `disabled` result when analytics is intentionally not launched;
+- private-beta acceptance reference;
+- public-beta monitoring window, cohort scope, reliability/abuse/conversion/support review and outcome;
+- final go/no-go decision and rollback criteria.
+
+Do not place secrets, reviewer credentials, privileged legal advice, customer data or production identifiers that do not belong in the public repository into this evidence record.
+
+## Exact-head release procedure
+
+When all external blockers are genuinely satisfied:
+
+1. integrate the approved policy/store/accessibility/privacy changes onto a release candidate branch based on current `main`;
+2. reconcile any long-lived draft branch before merge rather than merging stale history blindly;
+3. run every required gate on the exact final candidate SHA;
+4. sweep pull-request review threads and unresolved failures;
+5. merge only with an expected-head guard;
+6. validate the resulting `main` merge SHA;
+7. create the immutable release/store artifacts from that validated state;
+8. record the L-04 evidence and human go/no-go decision;
+9. only then mark the remaining tracker items and L-04 complete.
+
+Until that sequence is complete, Suqnaa must be described as technically advanced but **not fully launch-approved**.
