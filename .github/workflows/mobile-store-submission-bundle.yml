@@ -75,7 +75,7 @@ jobs:
           }
           NODE
       - name: Upload submission bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: suqnaa-mobile-store-submission-${{ github.event.pull_request.head.sha || github.sha }}
           path: build/mobile-store-submission/
