@@ -109,7 +109,7 @@ jobs:
         run: pnpm --dir apps/api exec tsx src/performance/launch-performance.ts
       - name: Upload launch performance report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: launch-performance-report
           path: |

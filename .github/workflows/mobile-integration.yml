@@ -101,7 +101,7 @@ jobs:
         run: flutter test integration_test/marketplace_journeys_test.dart -d emulator-5554
       - name: Upload Android emulator log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-mobile-integration-failure
           path: ${{ runner.temp }}/android-emulator.log
