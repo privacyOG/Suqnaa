@@ -98,7 +98,7 @@ jobs:
           flutter devices
       - name: Run Android integration suite
         working-directory: apps/mobile
-        run: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/marketplace_journeys_test.dart -d emulator-5554
+        run: flutter test integration_test/marketplace_journeys_test.dart -d emulator-5554
       - name: Upload Android emulator log on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -137,4 +137,4 @@ jobs:
           flutter devices
       - name: Run iOS integration suite
         working-directory: apps/mobile
-        run: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/marketplace_journeys_test.dart -d '${{ steps.simulator.outputs.device_id }}'
+        run: flutter test integration_test/marketplace_journeys_test.dart -d '${{ steps.simulator.outputs.device_id }}'
