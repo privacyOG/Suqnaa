@@ -7,6 +7,10 @@ import {
   statusClass
 } from './request-context.js';
 import { getTraceReporter } from './trace-reporter.js';
+import {
+  publicBetaRequestAllowed,
+  resolvePublicBetaConfiguration
+} from '../public-beta/public-beta-policy.js';
 
 type ActiveRequest = {
   requestId: string;
@@ -23,6 +27,8 @@ export function requestObservabilityContext(request: FastifyRequest): ActiveRequ
 }
 
 export function registerHttpObservability(app: FastifyInstance): void {
+  const publicBetaConfiguration = resolvePublicBetaConfiguration(process.env);
+
   app.addHook('onRequest', async (request, reply) => {
     const resolved = resolveRequestContext({
       requestId: request.headers['x-request-id'],
@@ -36,6 +42,18 @@ export function registerHttpObservability(app: FastifyInstance): void {
     activeRequests.set(request, context);
     reply.header('X-Request-Id', context.requestId);
     reply.header('X-Trace-Id', context.traceId);
+
+    if (request.method !== 'OPTIONS') {
+      const route = request.routeOptions.url ?? request.url.split('?', 1)[0] ?? request.url;
+      if (!publicBetaRequestAllowed(publicBetaConfiguration, request.method, route)) {
+        marketplaceMetrics.increment({
+          category: 'support',
+          event: 'feature_blocked',
+          outcome: 'public_beta_policy'
+        });
+        return reply.code(503).send({ error: 'Feature unavailable during public beta' });
+      }
+    }
   });
 
   app.addHook('onResponse', async (request, reply) => {
