@@ -1,10 +1,16 @@
 type MarketplaceMetricKey = string;
 
+type MarketplaceMetricCategory = 'reliability' | 'abuse' | 'conversion' | 'support';
+
 type MarketplaceMetricRecord = {
-  category: 'reliability' | 'abuse' | 'conversion' | 'support';
+  category: MarketplaceMetricCategory;
   event: string;
   outcome: string;
   count: number;
+};
+
+type MarketplaceMetricIncrement = Omit<MarketplaceMetricRecord, 'count'> & {
+  count?: number;
 };
 
 const bounded = /^[a-z][a-z0-9_]{0,47}$/;
@@ -20,7 +26,7 @@ function escapeLabel(value: string): string {
 export class MarketplaceMetricsRegistry {
   private readonly records = new Map<MarketplaceMetricKey, MarketplaceMetricRecord>();
 
-  increment(input: MarketplaceMetricRecord & { count?: number }): void {
+  increment(input: MarketplaceMetricIncrement): void {
     if (!bounded.test(input.event) || !bounded.test(input.outcome)) {
       throw new Error('Marketplace metric labels must be bounded safe identifiers');
     }
