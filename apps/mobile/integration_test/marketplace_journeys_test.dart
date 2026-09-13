@@ -35,7 +35,18 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), 'buyer@example.test');
     await tester.enterText(find.byType(TextFormField).at(1), 'integration-password');
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+
+    // On a real iOS simulator the software keyboard can cover the submit
+    // control after entering the password. Dismiss focus and explicitly bring
+    // the control into view before tapping so this remains a genuine pointer
+    // interaction instead of relying on platform-specific keyboard geometry.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    final signInButton = find.widgetWithText(FilledButton, 'Sign in');
+    await tester.ensureVisible(signInButton);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(signInButton).onPressed, isNotNull);
+    await tester.tap(signInButton);
     await tester.pumpAndSettle();
 
     expect(session.isSignedIn, isTrue);
