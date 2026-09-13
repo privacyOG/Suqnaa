@@ -1,0 +1,83 @@
+name: Mobile Store Submission Bundle
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-submission-bundle.yml'
+      - 'scripts/build-mobile-store-submission-bundle.mjs'
+      - 'scripts/build-mobile-store-readiness-report.mjs'
+      - 'scripts/validate-mobile-store-readiness.mjs'
+      - 'scripts/validate-mobile-store-testing.mjs'
+      - 'scripts/validate-mobile-store-console-handoff.mjs'
+      - 'scripts/validate-mobile-privacy-reconciliation.mjs'
+      - 'scripts/validate-mobile-store-reviewer-access.mjs'
+      - 'scripts/reconcile-mobile-store-readiness.mjs'
+      - 'scripts/reconcile-mobile-store-screenshots.mjs'
+      - 'apps/mobile/pubspec.yaml'
+      - 'apps/mobile/pubspec.lock'
+      - 'apps/mobile/store/**'
+      - 'apps/web/app/[locale]/account-deletion/**'
+      - 'apps/web/lib/legal-policy-content.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-submission-bundle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-submission-bundle:
+    name: Build candidate submission bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate source-of-truth readiness package
+        run: node scripts/validate-mobile-store-readiness.mjs
+      - name: Reconcile derived readiness state
+        run: node scripts/reconcile-mobile-store-readiness.mjs
+      - name: Validate private testing evidence
+        run: node scripts/validate-mobile-store-testing.mjs
+      - name: Validate store-console operator handoff
+        run: node scripts/validate-mobile-store-console-handoff.mjs
+      - name: Validate privacy/provider reconciliation
+        run: node scripts/validate-mobile-privacy-reconciliation.mjs
+      - name: Validate reviewer access evidence
+        run: node scripts/validate-mobile-store-reviewer-access.mjs
+      - name: Build deterministic Apple/Google submission bundle
+        run: node scripts/build-mobile-store-submission-bundle.mjs
+      - name: Build operator readiness report
+        run: node scripts/build-mobile-store-readiness-report.mjs
+      - name: Verify candidate/approved safety marker
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -s build/mobile-store-submission/submission-bundle.json
+          test -s build/mobile-store-submission/SHA256SUMS
+          test -s build/mobile-store-submission/STATUS.txt
+          test -s build/mobile-store-submission/readiness-report.json
+          test -s build/mobile-store-submission/READINESS.md
+          (cd build/mobile-store-submission && sha256sum --check SHA256SUMS)
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const bundle = JSON.parse(readFileSync('build/mobile-store-submission/submission-bundle.json', 'utf8'));
+          const report = JSON.parse(readFileSync('build/mobile-store-submission/readiness-report.json', 'utf8'));
+          const status = readFileSync('build/mobile-store-submission/STATUS.txt', 'utf8');
+          if (bundle.submissionAllowed !== report.readyForPublicSubmission) process.exit(1);
+          if (bundle.submissionAllowed) {
+            if (bundle.bundleType !== 'approved_submission' || !status.startsWith('APPROVED SUBMISSION BUNDLE')) process.exit(1);
+          } else {
+            if (bundle.bundleType !== 'candidate_not_for_public_submission' || !status.startsWith('CANDIDATE ONLY')) process.exit(1);
+          }
+          NODE
+      - name: Upload submission bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: suqnaa-mobile-store-submission-${{ github.event.pull_request.head.sha || github.sha }}
+          path: build/mobile-store-submission/
+          if-no-files-found: error
+          retention-days: 14

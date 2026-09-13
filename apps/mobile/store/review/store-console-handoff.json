@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "status": "operator_action_required",
+  "platforms": {
+    "apple": {
+      "bundleId": "co.privacyx.suqnaa",
+      "requiredActions": [
+        {
+          "id": "app_record",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference to the App Store Connect app record showing the production bundle identifier."
+        },
+        {
+          "id": "localized_metadata",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming English and Arabic metadata was reconciled from the approved submission bundle."
+        },
+        {
+          "id": "privacy_answers",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming App Privacy answers match the approved source-controlled disclosure manifest."
+        },
+        {
+          "id": "age_rating",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming the App Store age-rating questionnaire was completed and reviewed."
+        },
+        {
+          "id": "distribution",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming launch countries, availability, pricing and distribution settings."
+        },
+        {
+          "id": "review_contact",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming review contact details and reviewer credentials were entered only in App Store Connect."
+        },
+        {
+          "id": "testflight",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference to the production-candidate TestFlight build and completed private-testing evidence."
+        }
+      ]
+    },
+    "googlePlay": {
+      "packageName": "co.privacyx.suqnaa",
+      "requiredActions": [
+        {
+          "id": "app_record",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference to the Play Console app record showing the production package name."
+        },
+        {
+          "id": "localized_listing",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming English and Arabic store listing metadata was reconciled from the approved submission bundle."
+        },
+        {
+          "id": "data_safety",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming Data safety answers match the approved source-controlled disclosure manifest."
+        },
+        {
+          "id": "content_rating",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming the Play content-rating questionnaire was completed and reviewed."
+        },
+        {
+          "id": "distribution",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming launch countries, availability, pricing and distribution settings."
+        },
+        {
+          "id": "review_access",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference confirming app-access instructions and reviewer credentials were entered only in Play Console."
+        },
+        {
+          "id": "testing_tracks",
+          "status": "pending",
+          "evidenceRequired": true,
+          "evidenceDescription": "Durable reference to the production-candidate internal/closed testing build and completed private-testing evidence."
+        }
+      ]
+    }
+  },
+  "completionRule": "Every required action must be approved with a non-empty evidenceReference and approvedAt timestamp before store_console_configuration may be approved in submission-evidence.json.",
+  "secretBoundary": "Never place store passwords, reviewer passwords, API keys, signing material, recovery codes or private credentials in this file, GitHub issues, pull requests, workflow artifacts or repository history."
+}

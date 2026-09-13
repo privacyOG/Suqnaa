@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "status": "external_provisioning_required",
+  "credentialsStoredInRepository": false,
+  "reviewAccount": {
+    "environment": "sandbox_or_non_production",
+    "mustRemainFunctionalDuringReview": true,
+    "requiresRealMoney": false,
+    "requiresRealIdentityDocuments": false,
+    "credentialsSuppliedOnlyThroughStoreConsole": true,
+    "provisioningEvidenceReference": null,
+    "approvedAt": null
+  },
+  "requiredCapabilities": [
+    {"id":"sign_in","status":"pending","evidenceReference":null},
+    {"id":"browse_catalogue","status":"pending","evidenceReference":null},
+    {"id":"open_listing_detail","status":"pending","evidenceReference":null},
+    {"id":"create_or_edit_test_listing","status":"pending","evidenceReference":null},
+    {"id":"open_messages","status":"pending","evidenceReference":null},
+    {"id":"exercise_offer_or_order_flow","status":"pending","evidenceReference":null},
+    {"id":"view_test_order","status":"pending","evidenceReference":null},
+    {"id":"exercise_fulfilment_flow","status":"pending","evidenceReference":null},
+    {"id":"exercise_account_deletion_flow","status":"pending","evidenceReference":null}
+  ],
+  "completionRule": "status may be approved only when the review account has external provisioning evidence, approvedAt is ISO-8601, and every required capability is approved with a durable non-secret evidence reference. Passwords, one-time codes, recovery secrets and private credentials must never be stored in this file or elsewhere in source control."
+}

@@ -1,0 +1,29 @@
+name: Mobile Store Readiness Reconciliation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-readiness-reconciliation.yml'
+      - 'scripts/reconcile-mobile-store-readiness.mjs'
+      - 'apps/mobile/store/**'
+      - 'apps/web/lib/legal-policy-content.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-readiness-reconciliation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reconcile-readiness:
+    name: Derived readiness contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reconcile evidence against underlying contracts
+        run: node scripts/reconcile-mobile-store-readiness.mjs

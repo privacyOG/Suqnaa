@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "status": "incomplete",
+  "evidence": [
+    {
+      "id": "legal_approval",
+      "required": true,
+      "status": "pending",
+      "owner": "P0-31",
+      "evidenceReference": null,
+      "approvedAt": null,
+      "notes": "Set only after the privacy, terms, contact and retention policy set has completed the required legal/Arabic review and effective dates are published."
+    },
+    {
+      "id": "screenshots",
+      "required": true,
+      "status": "approved",
+      "owner": "P1-11",
+      "evidenceReference": "apps/mobile/store/screenshots/manifest.json",
+      "approvedAt": "2026-08-12T14:57:47Z",
+      "notes": "All 24 required EN/AR Android/iOS screenshots were captured from rendered UI, visually approved, committed, and reconciled at 1080x1920 with SHA-256 fingerprints."
+    },
+    {
+      "id": "privacy_form_reconciliation",
+      "required": true,
+      "status": "pending",
+      "owner": "P1-11/P0-31",
+      "evidenceReference": null,
+      "approvedAt": null,
+      "notes": "Requires final comparison of Apple App Privacy and Google Data safety answers against the production SDK/provider inventory and approved privacy policy."
+    },
+    {
+      "id": "private_testing",
+      "required": true,
+      "status": "pending",
+      "owner": "release_operator",
+      "evidenceReference": null,
+      "approvedAt": null,
+      "notes": "Requires Android private testing and iOS TestFlight testing to complete without release-blocking defects."
+    },
+    {
+      "id": "store_console_configuration",
+      "required": true,
+      "status": "external",
+      "owner": "release_operator",
+      "evidenceReference": null,
+      "approvedAt": null,
+      "notes": "Requires the real Apple/Google store records, categories, distribution, content-rating forms and review contacts to be configured."
+    },
+    {
+      "id": "review_credentials",
+      "required": true,
+      "status": "external",
+      "owner": "release_operator",
+      "evidenceReference": null,
+      "approvedAt": null,
+      "notes": "Requires dedicated reviewer credentials to be provisioned outside source control and supplied only through the store review consoles."
+    }
+  ],
+  "completionRule": "status may be ready only when every required evidence item has status approved, a non-empty evidenceReference, and an ISO-8601 approvedAt timestamp."
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate_requires_store_console_confirmation",
+  "scope": "Current Suqnaa marketplace mobile application behavior only; reassess whenever messaging, listings, regulated goods policy, payments, user-generated content or moderation capabilities change.",
+  "appleAgeRating": {
+    "userGeneratedContent": true,
+    "messagingOrChat": true,
+    "commerce": true,
+    "gambling": false,
+    "lootBoxes": false,
+    "simulatedGambling": false,
+    "sexualContent": "none_expected",
+    "violence": "none_expected",
+    "medicalTreatment": false,
+    "unrestrictedWebAccess": false,
+    "parentalControls": false,
+    "notes": [
+      "Marketplace listings and messages are user-generated and moderated.",
+      "Prohibited-item policy and reporting/moderation controls apply to listings and conversations.",
+      "Final answers and resulting age rating must be confirmed in App Store Connect against the production build."
+    ]
+  },
+  "googlePlayContentRating": {
+    "userGeneratedContent": true,
+    "userInteraction": true,
+    "sharesUserLocation": false,
+    "digitalPurchases": false,
+    "physicalGoodsCommerce": true,
+    "gambling": false,
+    "sexualContent": "none_expected",
+    "violence": "none_expected",
+    "notes": [
+      "Payments relate to marketplace transactions for physical goods/services rather than Play-billed digital content.",
+      "Final IARC questionnaire responses must be completed from the production feature set in Play Console."
+    ]
+  },
+  "reviewRequiredBeforeSubmission": true
+}

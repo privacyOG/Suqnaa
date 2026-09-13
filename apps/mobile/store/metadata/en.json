@@ -1,0 +1,22 @@
+{
+  "locale": "en-AU",
+  "appName": "Suqnaa",
+  "subtitle": "Buy and sell with confidence",
+  "shortDescription": "A marketplace for discovering, listing, messaging and protected local transactions.",
+  "fullDescription": "Suqnaa is a marketplace for buying and selling goods with built-in discovery, listings, messaging, offers, protected transaction workflows, fulfilment and safety controls. Sellers can create and manage listings, buyers can browse and make offers, and both sides can follow orders and fulfilment from their account.\n\nSuqnaa is designed for an initial Australian launch. Marketplace safety, moderation, account security and privacy controls are integrated throughout the experience. Payment and seller-payout functionality uses approved provider infrastructure rather than storing raw card or bank credentials in the app.\n\nAvailability of individual features may depend on eligibility, verification, location and launch stage.",
+  "keywords": [
+    "marketplace",
+    "buy",
+    "sell",
+    "local",
+    "listings",
+    "offers"
+  ],
+  "proposedPrimaryCategory": "Shopping",
+  "supportUrl": "https://suqnaa.com/en/policy/contact",
+  "privacyPolicyUrl": "https://suqnaa.com/en/policy/privacy",
+  "accountDeletionUrl": "https://suqnaa.com/en/account-deletion",
+  "marketingUrl": "https://suqnaa.com/en",
+  "legalApprovalStatus": "blocked_pending_p0_31",
+  "notes": "Store copy is release-candidate metadata. Privacy/legal URLs resolve to candidate policy content that must receive final legal approval before public store submission."
+}
