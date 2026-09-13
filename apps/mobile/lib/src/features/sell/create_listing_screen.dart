@@ -34,13 +34,14 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   bool _submitting = false;
   String? _error;
 
+  bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
+  String _t(String en, String ar) => _isArabic ? ar : en;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final session = SessionScope.of(context);
-    if (identical(session, _session)) {
-      return;
-    }
+    if (identical(session, _session)) return;
 
     _session = session;
     _api = ListingApi(
@@ -67,9 +68,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   Future<void> _submit() async {
     final api = _api;
     final session = _session;
-    if (api == null || session == null || _submitting) {
-      return;
-    }
+    if (api == null || session == null || _submitting) return;
 
     if (!session.isSignedIn) {
       await Navigator.of(context).push(
@@ -78,13 +77,11 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final price = double.tryParse(_priceController.text.trim());
     if (price == null) {
-      setState(() => _error = 'Enter a valid price.');
+      setState(() => _error = _t('Enter a valid price.', 'أدخل سعراً صالحاً.'));
       return;
     }
 
@@ -111,32 +108,25 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         },
       );
 
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       final listing = response['listing'];
       final listingId = listing is Map ? listing['id']?.toString() : null;
+      final saved = _t('Draft listing saved.', 'تم حفظ مسودة الإعلان.');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            listingId == null
-                ? 'Draft listing saved.'
-                : 'Draft listing saved: $listingId',
-          ),
-        ),
+        SnackBar(content: Text(listingId == null ? saved : '$saved $listingId')),
       );
       Navigator.of(context).pop(response);
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Unable to save the listing. Check the details and try again.';
+          _error = _t(
+            'Unable to save the listing. Check the details and try again.',
+            'تعذر حفظ الإعلان. تحقق من التفاصيل وحاول مرة أخرى.',
+          );
         });
       }
     } finally {
-      if (mounted) {
-        setState(() => _submitting = false);
-      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -151,12 +141,12 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create listing'),
+        title: Text(_t('Create listing', 'إنشاء إعلان')),
         backgroundColor: SuqnaaBrand.ivory,
         actions: [
           IconButton(
             key: const Key('open-listing-photo-manager-from-create'),
-            tooltip: 'Manage listing photos',
+            tooltip: _t('Manage listing photos', 'إدارة صور الإعلان'),
             icon: const Icon(Icons.photo_library_outlined),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -173,9 +163,9 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            const Text(
-              'Sell on Suqnaa',
-              style: TextStyle(
+            Text(
+              _t('Sell on Suqnaa', 'بِع على سوقنا'),
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
                 color: SuqnaaBrand.blue,
@@ -184,38 +174,47 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
             const SizedBox(height: 8),
             Text(
               signedIn
-                  ? 'Create a private draft. You can review it before publishing.'
-                  : 'Sign in before saving your listing draft.',
+                  ? _t(
+                      'Create a private draft. You can review it before publishing.',
+                      'أنشئ مسودة خاصة ويمكنك مراجعتها قبل النشر.',
+                    )
+                  : _t(
+                      'Sign in before saving your listing draft.',
+                      'سجّل الدخول قبل حفظ مسودة إعلانك.',
+                    ),
             ),
             const SizedBox(height: 24),
             _Field(
-              label: 'Title',
+              label: _t('Title', 'العنوان'),
               controller: _titleController,
-              hint: 'Example: Samsung Galaxy phone',
+              hint: _t('Example: Samsung Galaxy phone', 'مثال: هاتف سامسونج جالاكسي'),
               validator: (value) {
                 final text = value?.trim() ?? '';
                 if (text.length < 3) {
-                  return 'Title must contain at least 3 characters';
+                  return _t('Title must contain at least 3 characters', 'يجب ألا يقل العنوان عن 3 أحرف');
                 }
                 if (text.length > 120) {
-                  return 'Title must not exceed 120 characters';
+                  return _t('Title must not exceed 120 characters', 'يجب ألا يتجاوز العنوان 120 حرفاً');
                 }
                 return null;
               },
             ),
             const SizedBox(height: 14),
             _Field(
-              label: 'Description',
+              label: _t('Description', 'الوصف'),
               controller: _descriptionController,
-              hint: 'Describe the item, condition, and important details',
+              hint: _t(
+                'Describe the item, condition, and important details',
+                'صِف السلعة وحالتها وأهم التفاصيل',
+              ),
               maxLines: 6,
               validator: (value) {
                 final text = value?.trim() ?? '';
                 if (text.length < 10) {
-                  return 'Description must contain at least 10 characters';
+                  return _t('Description must contain at least 10 characters', 'يجب ألا يقل الوصف عن 10 أحرف');
                 }
                 if (text.length > 5000) {
-                  return 'Description must not exceed 5,000 characters';
+                  return _t('Description must not exceed 5,000 characters', 'يجب ألا يتجاوز الوصف 5000 حرف');
                 }
                 return null;
               },
@@ -226,15 +225,14 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                 Expanded(
                   flex: 2,
                   child: _Field(
-                    label: 'Price',
+                    label: _t('Price', 'السعر'),
                     controller: _priceController,
                     hint: '0.00',
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     validator: (value) {
                       final amount = double.tryParse(value?.trim() ?? '');
                       if (amount == null || amount < 0) {
-                        return 'Enter a valid price';
+                        return _t('Enter a valid price', 'أدخل سعراً صالحاً');
                       }
                       return null;
                     },
@@ -243,12 +241,12 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _Field(
-                    label: 'Currency',
+                    label: _t('Currency', 'العملة'),
                     controller: _currencyController,
                     hint: 'AUD',
                     validator: (value) {
                       if ((value?.trim().length ?? 0) != 3) {
-                        return 'Use 3 letters';
+                        return _t('Use 3 letters', 'استخدم 3 أحرف');
                       }
                       return null;
                     },
@@ -259,26 +257,21 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _condition,
-              decoration: const InputDecoration(
-                labelText: 'Condition',
+              decoration: InputDecoration(
+                labelText: _t('Condition', 'الحالة'),
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 'new', child: Text('New')),
-                DropdownMenuItem(value: 'like_new', child: Text('Like new')),
-                DropdownMenuItem(value: 'good', child: Text('Good')),
-                DropdownMenuItem(value: 'fair', child: Text('Fair')),
-                DropdownMenuItem(
-                  value: 'parts_or_repair',
-                  child: Text('Parts or repair'),
-                ),
+              items: [
+                DropdownMenuItem(value: 'new', child: Text(_t('New', 'جديد'))),
+                DropdownMenuItem(value: 'like_new', child: Text(_t('Like new', 'كالجديد'))),
+                DropdownMenuItem(value: 'good', child: Text(_t('Good', 'جيد'))),
+                DropdownMenuItem(value: 'fair', child: Text(_t('Fair', 'مقبول'))),
+                DropdownMenuItem(value: 'parts_or_repair', child: Text(_t('Parts or repair', 'للقطع أو الإصلاح'))),
               ],
               onChanged: (value) {
-                if (value != null) {
-                  setState(() => _condition = value);
-                }
+                if (value != null) setState(() => _condition = value);
               },
             ),
             const SizedBox(height: 14),
@@ -286,12 +279,12 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
               children: [
                 Expanded(
                   child: _Field(
-                    label: 'Country',
+                    label: _t('Country', 'الدولة'),
                     controller: _countryController,
                     hint: 'AU',
                     validator: (value) {
                       if ((value?.trim().length ?? 0) != 2) {
-                        return 'Use 2 letters';
+                        return _t('Use 2 letters', 'استخدم حرفين');
                       }
                       return null;
                     },
@@ -301,7 +294,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                 Expanded(
                   flex: 2,
                   child: _Field(
-                    label: 'State / region',
+                    label: _t('State / region', 'الولاية / المنطقة'),
                     controller: _regionController,
                     hint: 'NSW',
                   ),
@@ -310,37 +303,34 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
             ),
             const SizedBox(height: 14),
             _Field(
-              label: 'City',
+              label: _t('City', 'المدينة'),
               controller: _cityController,
-              hint: 'Sydney',
+              hint: _t('Sydney', 'سيدني'),
             ),
             const SizedBox(height: 14),
             _Field(
-              label: 'Suburb',
+              label: _t('Suburb', 'الضاحية'),
               controller: _suburbController,
-              hint: 'Example: Greenacre',
+              hint: _t('Example: Greenacre', 'مثال: جريناكر'),
             ),
             const SizedBox(height: 14),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Local pickup'),
-              subtitle: const Text('Allow the buyer to collect the item'),
+              title: Text(_t('Local pickup', 'استلام محلي')),
+              subtitle: Text(_t('Allow the buyer to collect the item', 'اسمح للمشتري باستلام السلعة')),
               value: _allowPickup,
               onChanged: (value) => setState(() => _allowPickup = value),
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Delivery available'),
-              subtitle: const Text('Offer delivery or shipping'),
+              title: Text(_t('Delivery available', 'التوصيل متاح')),
+              subtitle: Text(_t('Offer delivery or shipping', 'وفّر التوصيل أو الشحن')),
               value: _allowDelivery,
               onChanged: (value) => setState(() => _allowDelivery = value),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 22),
             FilledButton.icon(
@@ -354,10 +344,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                   : Icon(signedIn ? Icons.save_outlined : Icons.login),
               label: Text(
                 _submitting
-                    ? 'Saving...'
+                    ? _t('Saving...', 'جارٍ الحفظ...')
                     : signedIn
-                        ? 'Save draft'
-                        : 'Sign in to continue',
+                        ? _t('Save draft', 'حفظ المسودة')
+                        : _t('Sign in to continue', 'سجّل الدخول للمتابعة'),
               ),
             ),
           ],
@@ -396,9 +386,7 @@ class _Field extends StatelessWidget {
         hintText: hint,
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );
   }

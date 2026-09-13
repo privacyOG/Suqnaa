@@ -1,0 +1,32 @@
+name: Mobile Store Screenshots
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-screenshots.yml'
+      - 'scripts/reconcile-mobile-store-screenshots.mjs'
+      - 'scripts/validate-mobile-store-readiness.mjs'
+      - 'apps/mobile/store/screenshots/**'
+      - 'apps/mobile/store/review/readiness.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshot-contract:
+    name: Screenshot artifact contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify screenshot manifest against retained PNG artifacts
+        run: node scripts/reconcile-mobile-store-screenshots.mjs --check
+      - name: Validate mobile store readiness package
+        run: node scripts/validate-mobile-store-readiness.mjs

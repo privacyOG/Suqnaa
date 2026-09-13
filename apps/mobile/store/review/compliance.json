@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate_requires_operator_confirmation",
+  "encryption": {
+    "usesHttpsTls": true,
+    "usesPlatformSecureStorage": true,
+    "customCryptographicAlgorithmImplementedByApp": false,
+    "exportComplianceOperatorReviewRequired": true,
+    "note": "Release operator must answer Apple export-compliance questions against the final production binary and applicable exemptions; this repository file is not legal advice or an export determination."
+  },
+  "commerce": {
+    "physicalGoodsMarketplace": true,
+    "digitalContentSoldForInAppConsumption": false,
+    "storeBillingRequiredForCurrentMarketplaceTransactions": false,
+    "note": "Reassess before any digital-goods or in-app-content monetisation is enabled."
+  },
+  "accounts": {
+    "authenticationRequiredForTransactionalFeatures": true,
+    "inAppAccountDeletionAvailable": true,
+    "publicDeletionInformationUrl": "https://suqnaa.com/en/account-deletion",
+    "reviewCredentialsExternalOnly": true
+  },
+  "moderation": {
+    "userGeneratedListings": true,
+    "userMessaging": true,
+    "reportingControls": true,
+    "blockingOrMutingControls": true,
+    "moderationOperations": true
+  },
+  "operatorConfirmations": [
+    "Confirm final Apple export-compliance response for the production binary.",
+    "Confirm Play Console app-access instructions and reviewer account.",
+    "Confirm commerce classification still excludes store-billed digital content.",
+    "Confirm content-rating answers against the final production feature set."
+  ]
+}

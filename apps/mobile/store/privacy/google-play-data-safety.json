@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate_pending_legal_review",
+  "collectsData": true,
+  "sharesData": true,
+  "dataEncryptedInTransit": true,
+  "accountDeletionAvailable": true,
+  "accountDeletionUrl": "https://suqnaa.com/en/account-deletion",
+  "trackingOrAdvertising": false,
+  "categories": [
+    {"category":"personal_info","types":["name","email_address","phone_number","user_ids","address_or_marketplace_location"],"collected":true,"sharedWithServiceProviders":true,"purposes":["app_functionality","account_management","fraud_prevention_security"]},
+    {"category":"financial_info","types":["purchase_history","payment_or_payout_provider_references"],"collected":true,"sharedWithServiceProviders":true,"purposes":["app_functionality","fraud_prevention_security","accounting_reconciliation"],"notes":"Raw card numbers, CVV/CVC and bank credentials are designed to stay within approved provider-controlled systems."},
+    {"category":"messages","types":["in_app_messages"],"collected":true,"sharedWithServiceProviders":false,"purposes":["app_functionality","fraud_prevention_security","moderation"]},
+    {"category":"photos_and_videos","types":["photos"],"collected":true,"sharedWithServiceProviders":true,"purposes":["app_functionality","fraud_prevention_security","content_review"]},
+    {"category":"app_activity","types":["app_interactions","other_user_generated_content"],"collected":true,"sharedWithServiceProviders":false,"purposes":["app_functionality","fraud_prevention_security"]},
+    {"category":"device_or_other_ids","types":["security_session_identifiers"],"collected":true,"sharedWithServiceProviders":true,"purposes":["security","app_functionality"]},
+    {"category":"app_info_and_performance","types":["diagnostics","operational_metrics"],"collected":true,"sharedWithServiceProviders":true,"purposes":["app_functionality","security"],"notes":"Telemetry is privacy-minimised; no production advertising or analytics SDK is currently declared."}
+  ],
+  "sharingDefinitionNote": "Service-provider transfers necessary to operate payments, verification, communications, infrastructure and security must be checked against Google Play's current definitions when the production provider inventory is final.",
+  "reviewRequiredBeforeSubmission": [
+    "Verify all production SDKs and providers against the final Data safety form definitions.",
+    "Complete P0-31 legal/privacy approval and publish an effective privacy policy.",
+    "Re-evaluate declarations if P1-14 analytics or any advertising/tracking SDK is introduced."
+  ]
+}

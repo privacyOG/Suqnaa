@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate_pending_legal_review",
+  "tracking": false,
+  "trackingSdkPresent": false,
+  "thirdPartyAdvertising": false,
+  "dataTypes": [
+    {"type":"contact_info.email_address","collected":true,"linkedToUser":true,"purposes":["app_functionality","account_management","security"]},
+    {"type":"contact_info.phone_number","collected":true,"linkedToUser":true,"purposes":["app_functionality","account_management","security"]},
+    {"type":"contact_info.name_or_display_name","collected":true,"linkedToUser":true,"purposes":["app_functionality"]},
+    {"type":"location.coarse_location","collected":true,"linkedToUser":true,"purposes":["app_functionality"],"notes":"Marketplace location is intentionally privacy-reduced rather than continuous precise device location."},
+    {"type":"user_content.photos","collected":true,"linkedToUser":true,"purposes":["app_functionality","fraud_prevention_security"]},
+    {"type":"user_content.other_user_content","collected":true,"linkedToUser":true,"purposes":["app_functionality","fraud_prevention_security"],"notes":"Listings, messages, reports, dispute/support material and business/profile content."},
+    {"type":"purchases.purchase_history","collected":true,"linkedToUser":true,"purposes":["app_functionality","fraud_prevention_security","accounting_reconciliation"]},
+    {"type":"financial_info.payment_info","collected":true,"linkedToUser":true,"purposes":["app_functionality","fraud_prevention_security"],"notes":"Provider references/status are handled by Suqnaa; raw card numbers, CVV/CVC and bank credentials are designed to remain provider-controlled."},
+    {"type":"identifiers.user_id","collected":true,"linkedToUser":true,"purposes":["app_functionality","security"]},
+    {"type":"usage_data.product_interaction","collected":true,"linkedToUser":true,"purposes":["app_functionality","fraud_prevention_security"],"notes":"Marketplace interaction records such as listings, offers, orders and recently viewed/saved state. No production analytics SDK is currently declared."},
+    {"type":"diagnostics.other_diagnostic_data","collected":true,"linkedToUser":false,"purposes":["app_functionality","security"],"notes":"Privacy-safe operational telemetry is designed to avoid raw request bodies, IP addresses and user IDs in metric labels."},
+    {"type":"sensitive_info.identity_verification_status","collected":true,"linkedToUser":true,"purposes":["app_functionality","fraud_prevention_security"],"notes":"Verification status/provider references; provider-controlled evidence may be handled under the approved verification workflow."}
+  ],
+  "reviewRequiredBeforeSubmission": [
+    "Confirm every declaration against the production provider/SDK inventory at submission time.",
+    "Complete P0-31 legal/privacy approval and publish an effective privacy policy.",
+    "Re-evaluate this file if P1-14 production analytics is implemented."
+  ]
+}

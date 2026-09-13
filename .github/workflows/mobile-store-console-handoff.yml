@@ -1,0 +1,25 @@
+name: Mobile Store Console Handoff
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-store-console-handoff.yml'
+      - 'scripts/validate-mobile-store-console-handoff.mjs'
+      - 'apps/mobile/store/review/store-console-handoff.json'
+      - 'apps/mobile/store/review/submission-evidence.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-store-console-handoff:
+    name: Store console handoff contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Apple and Google operator handoff evidence
+        run: node scripts/validate-mobile-store-console-handoff.mjs
