@@ -33,8 +33,16 @@ void main() {
       child: AccountLoginScreen(authApi: _FixtureAuthApi()),
     ));
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'buyer@example.test');
-    await tester.enterText(find.byType(TextFormField).at(1), 'integration-password');
+    final authFields = find.byType(TextFormField, skipOffstage: false);
+    expect(authFields, findsNWidgets(2));
+    final contactField = authFields.at(0);
+    final passwordField = authFields.at(1);
+
+    await tester.ensureVisible(contactField);
+    await tester.enterText(contactField, 'buyer@example.test');
+    await tester.ensureVisible(passwordField);
+    await tester.pumpAndSettle();
+    await tester.enterText(passwordField, 'integration-password');
 
     // On a real iOS simulator the software keyboard can cover the submit
     // control after entering the password. Dismiss focus and explicitly bring
