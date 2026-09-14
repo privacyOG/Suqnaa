@@ -35,7 +35,7 @@ assert.match(workflow, /base64 --decode/);
 assert.match(workflow, /keytool -list[\s\S]*?-keystore "\$keystore_path"[\s\S]*?-alias "\$SUQNAA_ANDROID_KEY_ALIAS"/);
 assert.match(workflow, /flutter build appbundle --release/);
 assert.match(workflow, /sha256sum build\/app\/outputs\/bundle\/release\/app-release\.aab/);
-assert.match(workflow, /actions\/upload-artifact@v4/);
+assert.match(workflow, /actions\/upload-artifact@v7/);
 assert.match(workflow, /retention-days: 14/);
 assert.match(workflow, /Remove temporary Android signing material[\s\S]*?if: always\(\)[\s\S]*?rm -f "\$RUNNER_TEMP\/suqnaa-release\.jks"/);
 

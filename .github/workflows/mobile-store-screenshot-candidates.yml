@@ -67,7 +67,7 @@ jobs:
           test "$(find "$root" -type f -name '*.png' | wc -l)" -eq 24
           find "$root" -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum > "$root/SHA256SUMS"
       - name: Upload screenshot candidates for visual approval
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: suqnaa-store-screenshot-candidates-${{ github.event.pull_request.head.sha || github.sha }}
           path: apps/mobile/build/store-screenshot-candidates/
