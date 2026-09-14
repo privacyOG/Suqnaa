@@ -1,0 +1,57 @@
+name: AWS SDK Lockfile Generation
+
+on:
+  push:
+    branches:
+      - maintenance/aws-sdk-s3-3.1130.0-mainline
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Generate combined AWS SDK lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Set paired AWS SDK versions
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'apps/api/package.json';
+          const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+          pkg.dependencies['@aws-sdk/client-s3'] = '3.1130.0';
+          pkg.dependencies['@aws-sdk/s3-request-presigner'] = '3.1130.0';
+          fs.writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+      - name: Generate combined lockfile
+        run: pnpm install --lockfile-only --ignore-scripts
+      - name: Verify frozen installation
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify paired versions
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('apps/api/package.json', 'utf8'));
+          if (pkg.dependencies['@aws-sdk/client-s3'] !== '3.1130.0') process.exit(1);
+          if (pkg.dependencies['@aws-sdk/s3-request-presigner'] !== '3.1130.0') process.exit(1);
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          if (!lock.includes("'@aws-sdk/client-s3':\n        specifier: 3.1130.0\n        version: 3.1130.0")) process.exit(1);
+          if (!lock.includes("'@aws-sdk/s3-request-presigner':\n        specifier: 3.1130.0\n        version: 3.1130.0")) process.exit(1);
+          NODE
+      - name: Upload generated manifest and lockfile
+        uses: actions/upload-artifact@v7
+        with:
+          name: aws-sdk-s3-3.1130.0-generated
+          path: |
+            apps/api/package.json
+            pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 1
