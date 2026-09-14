@@ -76,7 +76,7 @@ jobs:
           flutter-version: '3.44.9'
           channel: stable
           cache: true
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: '9.1.0'
       - name: Validate release inputs and Android signing secrets
