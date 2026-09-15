@@ -1,6 +1,7 @@
 import { AccountAuthForm } from '../../../../components/account-auth-form';
 
-export default function RegisterPage({ params }: { params: { locale: string } }) {
+export default async function RegisterPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   const isArabic = params.locale === 'ar';
 
   return (

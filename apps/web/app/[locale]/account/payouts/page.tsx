@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { SellerPayoutPanel } from '../../../../components/seller-payout-panel';
 import { isLocale } from '../../../../i18n/locales';
 
-export default function SellerPayoutPage({ params }: { params: { locale: string } }) {
+export default async function SellerPayoutPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
   const locale = params.locale as 'en' | 'ar';
   return (

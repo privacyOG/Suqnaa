@@ -80,11 +80,12 @@ function verificationLabel(status: string, isArabic: boolean): string {
   return (values[status] ?? values.unverified)[isArabic ? 1 : 0];
 }
 
-export default async function ListingDetailPage({
-  params
-}: {
-  params: { locale: string; listingId: string };
-}) {
+export default async function ListingDetailPage(
+  props: {
+    params: Promise<{ locale: string; listingId: string }>;
+  }
+) {
+  const params = await props.params;
   if (!isLocale(params.locale) || !uuidPattern.test(params.listingId)) notFound();
 
   const isArabic = params.locale === 'ar';

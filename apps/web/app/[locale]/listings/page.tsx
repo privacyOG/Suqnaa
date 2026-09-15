@@ -226,10 +226,14 @@ function distanceLabel(distanceKm: number, isArabic: boolean): string {
   return isArabic ? `على بُعد نحو ${distanceKm} كم` : `About ${distanceKm} km away`;
 }
 
-export default async function PublicListingsPage({ params, searchParams }: {
-  params: { locale: string };
-  searchParams: CatalogSearchParams;
-}) {
+export default async function PublicListingsPage(
+  props: {
+    params: Promise<{ locale: string }>;
+    searchParams: Promise<CatalogSearchParams>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
 
   const isArabic = params.locale === 'ar';

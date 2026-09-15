@@ -2,7 +2,8 @@ import { isLocale } from '../../../../i18n/locales';
 import { OperationsRiskPanel } from '../../../../components/operations-risk-panel';
 import { loadOperationsFraud } from '../../../../lib/operations-review-server';
 
-export default async function OperationsFraudPage({ params }: { params: { locale: string } }) {
+export default async function OperationsFraudPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const ar = params.locale === 'ar';
   const data = await loadOperationsFraud();

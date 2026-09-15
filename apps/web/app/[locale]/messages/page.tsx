@@ -5,7 +5,8 @@ import { SessionRefresh } from '../../../components/session-refresh';
 import { isLocale } from '../../../i18n/locales';
 import { loadAccountSessionState } from '../../../lib/account-session-state';
 
-export default async function MessagesPage({ params }: { params: { locale: string } }) {
+export default async function MessagesPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) {
     notFound();
   }

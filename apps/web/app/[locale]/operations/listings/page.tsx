@@ -1,7 +1,8 @@
 import { isLocale } from '../../../../i18n/locales';
 import { loadOperationsListings } from '../../../../lib/operations-review-server';
 
-export default async function OperationsListingsPage({ params }: { params: { locale: string } }) {
+export default async function OperationsListingsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const ar = params.locale === 'ar';
   const data = await loadOperationsListings();

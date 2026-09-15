@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { isLocale, type Locale } from '../../../i18n/locales';
 import { localeCanonical } from '../../../lib/seo';
 
-export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+export async function generateMetadata(props: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const params = await props.params;
   if (!isLocale(params.locale)) return { robots: { index: false, follow: false } };
   const locale = params.locale as Locale;
   const isArabic = locale === 'ar';

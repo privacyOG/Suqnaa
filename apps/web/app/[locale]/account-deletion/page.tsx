@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { isLocale, type Locale } from '../../../i18n/locales';
 
-export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+export async function generateMetadata(props: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const params = await props.params;
   if (!isLocale(params.locale)) return {};
   const ar = params.locale === 'ar';
   return {
@@ -15,7 +16,8 @@ export function generateMetadata({ params }: { params: { locale: string } }): Me
   };
 }
 
-export default function AccountDeletionPage({ params }: { params: { locale: string } }) {
+export default async function AccountDeletionPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
   const locale = params.locale as Locale;
   const ar = locale === 'ar';
