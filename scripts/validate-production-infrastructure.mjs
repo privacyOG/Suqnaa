@@ -150,6 +150,8 @@ assert.match(application, /^  application:\n\s+external: true\n\s+name: \$\{SUQN
 
 assert.match(caddy, /\{\$SUQNAA_WEB_DOMAIN\}/);
 assert.match(caddy, /\{\$SUQNAA_API_DOMAIN\}/);
+assert.match(caddy, /@next_image_optimizer path \/_next\/image/);
+assert.match(caddy, /respond @next_image_optimizer 404/);
 assert.match(caddy, /reverse_proxy \{\$SUQNAA_WEB_UPSTREAM\}/);
 assert.match(caddy, /reverse_proxy \{\$SUQNAA_API_UPSTREAM\}/);
 

@@ -18,6 +18,10 @@
   encode zstd gzip
   import security_headers
   header Content-Security-Policy "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"
+
+  @next_image_optimizer path /_next/image
+  respond @next_image_optimizer 404
+
   reverse_proxy {$SUQNAA_WEB_UPSTREAM}
 }
 
