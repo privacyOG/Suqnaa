@@ -9,6 +9,23 @@ updates:
       time: "04:15"
       timezone: Australia/Sydney
     open-pull-requests-limit: 10
+    groups:
+      web-runtime-version-updates:
+        applies-to: version-updates
+        patterns:
+          - next
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      web-runtime-security-updates:
+        applies-to: security-updates
+        patterns:
+          - next
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
 
   - package-ecosystem: github-actions
     directory: "/"
