@@ -9,7 +9,7 @@ on:
       - 'apps/mobile/pubspec.yaml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   resolve:
@@ -52,3 +52,14 @@ jobs:
           path: apps/mobile/pubspec.lock
           if-no-files-found: error
           retention-days: 7
+      - name: Publish validated lockfile blob
+        working-directory: apps/mobile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          payload="$RUNNER_TEMP/mobile-lock-blob.json"
+          jq -Rs '{content: ., encoding: "utf-8"}' pubspec.lock > "$payload"
+          blob_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$payload" --jq '.sha')"
+          echo "VALIDATED_MOBILE_LOCK_BLOB_SHA=$blob_sha"
