@@ -37,8 +37,8 @@ jobs:
           mv "$RUNNER_TEMP/pubspec.yaml" pubspec.yaml
           flutter pub get
           git diff --exit-code -- pubspec.yaml
-          grep -A4 '^  objective_c:' pubspec.lock
-          grep -A4 '^  objective_c:' pubspec.lock | grep 'version: "9.6.0"'
+          grep -A10 '^  objective_c:' pubspec.lock
+          grep -A10 '^  objective_c:' pubspec.lock | grep 'version: "9.6.0"'
       - name: Analyze mobile
         working-directory: apps/mobile
         run: flutter analyze
