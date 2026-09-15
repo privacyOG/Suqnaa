@@ -22,7 +22,7 @@ const apiBaseUrl =
   'http://localhost:4000';
 
 export async function loadAccountSessionState(): Promise<AccountSessionState> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessValue = cookieStore.get(accessCookieName)?.value;
   const hasRefreshValue = Boolean(cookieStore.get(refreshCookieName)?.value);
 

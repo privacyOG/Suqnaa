@@ -4,7 +4,8 @@ import { SessionRefresh } from '../../../../components/session-refresh';
 import { isLocale } from '../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../lib/account-session-state';
 
-export default async function ManageListingsPage({ params }: { params: { locale: string } }) {
+export default async function ManageListingsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) {
     notFound();
   }

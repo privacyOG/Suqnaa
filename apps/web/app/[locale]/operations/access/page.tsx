@@ -1,7 +1,8 @@
 import { OperationsAccessPanel } from '../../../../components/operations-access-panel';
 import { isLocale } from '../../../../i18n/locales';
 
-export default function OperationsAccessPage({ params }: { params: { locale: string } }) {
+export default async function OperationsAccessPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const isArabic = params.locale === 'ar';
 

@@ -22,7 +22,7 @@ const apiBaseUrl =
   'http://localhost:4000';
 
 export async function loadParticipantModerationActions(): Promise<ParticipantModerationAction[] | null> {
-  const access = cookies().get(accessCookieName)?.value;
+  const access = (await cookies()).get(accessCookieName)?.value;
   if (!access) return null;
 
   try {

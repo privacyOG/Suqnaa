@@ -1,7 +1,8 @@
 import { isLocale } from '../../../../i18n/locales';
 import { OperationsModerationPanel } from '../../../../components/operations-moderation-panel';
 
-export default function OperationsModerationPage({ params }: { params: { locale: string } }) {
+export default async function OperationsModerationPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const ar = params.locale === 'ar';
 

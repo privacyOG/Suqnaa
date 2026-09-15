@@ -1,6 +1,7 @@
 import { ForgotPasswordForm } from '../../../../components/forgot-password-form';
 
-export default function ForgotPasswordPage({ params }: { params: { locale: string } }) {
+export default async function ForgotPasswordPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   const isArabic = params.locale === 'ar';
   return (
     <main className="page-shell auth-page">

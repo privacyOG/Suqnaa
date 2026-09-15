@@ -1,7 +1,8 @@
 import { OperationsDisputePanel } from '../../../../components/operations-dispute-panel';
 import { isLocale } from '../../../../i18n/locales';
 
-export default function OperationsDisputesPage({ params }: { params: { locale: string } }) {
+export default async function OperationsDisputesPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const ar = params.locale === 'ar';
   return (

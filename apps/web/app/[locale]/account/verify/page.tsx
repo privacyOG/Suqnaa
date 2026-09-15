@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { AccountVerificationPanel } from '../../../../components/account-verification-panel';
 import { isLocale } from '../../../../i18n/locales';
 
-export default function AccountVerifyPage({ params }: { params: { locale: string } }) {
+export default async function AccountVerifyPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) {
     notFound();
   }

@@ -1,12 +1,13 @@
 import { ResetPasswordForm } from '../../../../components/reset-password-form';
 
-export default function ResetPasswordPage({
-  params,
-  searchParams
-}: {
-  params: { locale: string };
-  searchParams?: { token?: string };
-}) {
+export default async function ResetPasswordPage(
+  props: {
+    params: Promise<{ locale: string }>;
+    searchParams?: Promise<{ token?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const isArabic = params.locale === 'ar';
   return (
     <main className="page-shell auth-page">

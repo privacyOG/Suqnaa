@@ -15,11 +15,12 @@ async function loadListing(locale: string, listingId: string) {
   }
 }
 
-export async function generateMetadata({
-  params
-}: {
-  params: { locale: string; listingId: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ locale: string; listingId: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const listing = await loadListing(params.locale, params.listingId);
   if (!listing || !isLocale(params.locale)) {
     return {
@@ -29,13 +30,18 @@ export async function generateMetadata({
   return listingMetadata(listing, params.locale as Locale);
 }
 
-export default async function ListingSeoLayout({
-  children,
-  params
-}: {
-  children: React.ReactNode;
-  params: { locale: string; listingId: string };
-}) {
+export default async function ListingSeoLayout(
+  props: {
+    children: React.ReactNode;
+    params: Promise<{ locale: string; listingId: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   const listing = await loadListing(params.locale, params.listingId);
   const structuredData = listing && isLocale(params.locale)
     ? listingProductJsonLd(listing, params.locale as Locale)

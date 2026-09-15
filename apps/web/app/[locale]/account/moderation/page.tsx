@@ -3,7 +3,8 @@ import { ModerationAppealsPanel } from '../../../../components/moderation-appeal
 import { isLocale } from '../../../../i18n/locales';
 import { loadParticipantModerationActions } from '../../../../lib/moderation-participant-server';
 
-export default async function AccountModerationPage({ params }: { params: { locale: string } }) {
+export default async function AccountModerationPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
   const isArabic = params.locale === 'ar';
   const actions = await loadParticipantModerationActions();

@@ -10,7 +10,8 @@ function value(row: Record<string, unknown>, key: string): string {
   return String(item);
 }
 
-export default async function OperationsFinancePage({ params }: { params: { locale: string } }) {
+export default async function OperationsFinancePage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const ar = params.locale === 'ar';
   const data = await loadOperationsFinance();

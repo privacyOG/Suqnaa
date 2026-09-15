@@ -16,7 +16,8 @@ function SuqnaaMark() {
   );
 }
 
-export default function LocalizedHomePage({ params }: { params: { locale: string } }) {
+export default async function LocalizedHomePage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) {
     notFound();
   }
