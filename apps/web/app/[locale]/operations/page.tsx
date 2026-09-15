@@ -15,7 +15,8 @@ type MetricCard = {
   available: boolean;
 };
 
-export default async function OperationsPage({ params }: { params: { locale: string } }) {
+export default async function OperationsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const isArabic = params.locale === 'ar';
   const summary = await loadOperationsDashboardSummary();

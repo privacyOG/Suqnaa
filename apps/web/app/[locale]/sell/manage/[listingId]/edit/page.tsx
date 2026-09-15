@@ -7,11 +7,12 @@ import { SessionRefresh } from '../../../../../../components/session-refresh';
 import { isLocale } from '../../../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../../../lib/account-session-state';
 
-export default async function EditListingPage({
-  params
-}: {
-  params: { locale: string; listingId: string };
-}) {
+export default async function EditListingPage(
+  props: {
+    params: Promise<{ locale: string; listingId: string }>;
+  }
+) {
+  const params = await props.params;
   if (!isLocale(params.locale)) {
     notFound();
   }

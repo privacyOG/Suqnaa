@@ -3,7 +3,8 @@ import { AccountSecurityPanel } from '../../../../components/account-security-pa
 import { isLocale } from '../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../lib/account-session-state';
 
-export default async function AccountSecurityPage({ params }: { params: { locale: string } }) {
+export default async function AccountSecurityPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) {
     notFound();
   }

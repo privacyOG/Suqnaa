@@ -4,7 +4,8 @@ import { SignOutButton } from '../../../components/sign-out-button';
 import { isLocale } from '../../../i18n/locales';
 import { loadAccountSessionState } from '../../../lib/account-session-state';
 
-export default async function AccountPage({ params }: { params: { locale: string } }) {
+export default async function AccountPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) {
     notFound();
   }

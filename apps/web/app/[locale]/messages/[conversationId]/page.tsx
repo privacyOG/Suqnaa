@@ -6,11 +6,12 @@ import { loadAccountSessionState } from '../../../../lib/account-session-state';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export default async function ConversationPage({
-  params
-}: {
-  params: { locale: string; conversationId: string };
-}) {
+export default async function ConversationPage(
+  props: {
+    params: Promise<{ locale: string; conversationId: string }>;
+  }
+) {
+  const params = await props.params;
   if (!isLocale(params.locale) || !uuidPattern.test(params.conversationId)) {
     notFound();
   }

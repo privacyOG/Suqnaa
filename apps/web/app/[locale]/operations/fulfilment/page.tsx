@@ -5,7 +5,8 @@ function when(value: string | null, locale: string): string {
   return value ? new Date(value).toLocaleString(locale === 'ar' ? 'ar-AU' : 'en-AU') : '—';
 }
 
-export default async function OperationsFulfilmentPage({ params }: { params: { locale: string } }) {
+export default async function OperationsFulfilmentPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) return null;
   const ar = params.locale === 'ar';
   const data = await loadOperationsFulfilment();

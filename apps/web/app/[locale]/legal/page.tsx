@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { isLocale, type Locale } from '../../../i18n/locales';
 import { legalPolicies, legalPolicySlugs } from '../../../lib/legal-policy-content';
 
-export default function LegalPolicyIndexPage({ params }: { params: { locale: string } }) {
+export default async function LegalPolicyIndexPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
   const locale = params.locale as Locale;
   const ar = locale === 'ar';

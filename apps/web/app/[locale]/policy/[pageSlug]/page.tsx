@@ -8,7 +8,8 @@ export function generateStaticParams() {
   return locales.flatMap((locale) => policySlugs.map((pageSlug) => ({ locale, pageSlug })));
 }
 
-export function generateMetadata({ params }: { params: { locale: string; pageSlug: string } }): Metadata {
+export async function generateMetadata(props: { params: Promise<{ locale: string; pageSlug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   if (!isLocale(params.locale)) return {};
   const page = getPolicyPage(params.locale, params.pageSlug);
   if (!page) return {};
@@ -19,7 +20,8 @@ export function generateMetadata({ params }: { params: { locale: string; pageSlu
   };
 }
 
-export default function PolicyPage({ params }: { params: { locale: string; pageSlug: string } }) {
+export default async function PolicyPage(props: { params: Promise<{ locale: string; pageSlug: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
   const locale = params.locale as Locale;
   const ar = locale === 'ar';

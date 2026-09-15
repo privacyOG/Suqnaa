@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { OperationsVerificationPanel } from '../../../../components/operations-verification-panel';
 import { isLocale } from '../../../../i18n/locales';
 
-export default function OperationsVerificationsPage({ params }: { params: { locale: string } }) {
+export default async function OperationsVerificationsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
   const isArabic = params.locale === 'ar';
 

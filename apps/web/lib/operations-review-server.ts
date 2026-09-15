@@ -7,7 +7,7 @@ const apiBaseUrl =
   'http://localhost:4000';
 
 async function readOperations<T>(path: string): Promise<T | null> {
-  const access = cookies().get(accessCookieName)?.value;
+  const access = (await cookies()).get(accessCookieName)?.value;
   if (!access || !path.startsWith('/v1/operations/')) return null;
   try {
     const response = await fetch(`${apiBaseUrl}${path}`, {

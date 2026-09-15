@@ -4,7 +4,8 @@ import { SessionRefresh } from '../../../../components/session-refresh';
 import { isLocale } from '../../../../i18n/locales';
 import { loadAccountSessionState } from '../../../../lib/account-session-state';
 
-export default async function DiscoveryPage({ params }: { params: { locale: string } }) {
+export default async function DiscoveryPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   if (!isLocale(params.locale)) notFound();
   const isArabic = params.locale === 'ar';
   const { user, needsRotation } = await loadAccountSessionState();

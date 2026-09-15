@@ -1,6 +1,7 @@
 import { AccountAuthForm } from '../../../../components/account-auth-form';
 
-export default function SignInPage({ params }: { params: { locale: string } }) {
+export default async function SignInPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   const isArabic = params.locale === 'ar';
 
   return (
