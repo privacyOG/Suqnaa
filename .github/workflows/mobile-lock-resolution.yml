@@ -1,0 +1,54 @@
+name: Mobile lock resolution
+
+on:
+  push:
+    branches:
+      - maintenance/mobile-lock-resolution
+    paths:
+      - '.github/workflows/mobile-lock-resolution.yml'
+      - 'apps/mobile/pubspec.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve and validate mobile lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve known-compatible transitive version
+        working-directory: apps/mobile
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cp pubspec.yaml "$RUNNER_TEMP/pubspec.yaml"
+          cat >> pubspec.yaml <<'EOF'
+
+          dependency_overrides:
+            objective_c: 9.6.0
+          EOF
+          flutter pub get
+          mv "$RUNNER_TEMP/pubspec.yaml" pubspec.yaml
+          flutter pub get
+          git diff --exit-code -- pubspec.yaml
+          grep -A4 '^  objective_c:' pubspec.lock
+          grep -A4 '^  objective_c:' pubspec.lock | grep 'version: "9.6.0"'
+      - name: Analyze mobile
+        working-directory: apps/mobile
+        run: flutter analyze
+      - name: Test mobile
+        working-directory: apps/mobile
+        run: flutter test
+      - name: Upload resolved lockfile
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-pubspec-lock
+          path: apps/mobile/pubspec.lock
+          if-no-files-found: error
+          retention-days: 7
