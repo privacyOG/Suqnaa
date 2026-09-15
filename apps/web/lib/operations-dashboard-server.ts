@@ -25,7 +25,7 @@ const apiBaseUrl =
   'http://localhost:4000';
 
 export async function loadOperationsDashboardSummary(): Promise<OperationsDashboardSummary | null> {
-  const access = cookies().get(accessCookieName)?.value;
+  const access = (await cookies()).get(accessCookieName)?.value;
   if (!access) return null;
 
   try {

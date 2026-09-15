@@ -1,0 +1,100 @@
+name: Framework dependency resolution
+
+on:
+  push:
+    branches:
+      - security/framework-resolution-next15
+    paths:
+      - 'apps/web/package.json'
+      - 'apps/web/app/**'
+      - 'apps/web/lib/**'
+      - '.github/workflows/framework-resolution.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: framework-resolution-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve and validate patched web runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Apply official async request API codemod
+        run: pnpm dlx @next/codemod@16.3.5 next-async-request-api apps/web --force
+      - name: Capture codemod patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git diff -- apps/web > "$RUNNER_TEMP/next15-async-request-api.patch"
+          test -s "$RUNNER_TEMP/next15-async-request-api.patch"
+      - name: Upload codemod patch
+        uses: actions/upload-artifact@v7
+        with:
+          name: next15-async-request-api-patch
+          path: ${{ runner.temp }}/next15-async-request-api.patch
+          if-no-files-found: error
+          retention-days: 7
+      - name: Resolve lockfile
+        run: pnpm install --lockfile-only --no-frozen-lockfile
+      - name: Verify resolved dependency tree
+        run: pnpm install --frozen-lockfile
+      - name: Upload resolved dependency files
+        uses: actions/upload-artifact@v7
+        with:
+          name: framework-resolution
+          path: |
+            apps/web/package.json
+            pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 7
+      - name: Typecheck web
+        run: pnpm --filter suqnaa-web typecheck
+      - name: Test web
+        run: pnpm --filter suqnaa-web test:session
+      - name: Build web
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4000
+          API_BASE_URL: http://127.0.0.1:4000
+        run: pnpm --filter suqnaa-web build
+      - name: Reject unresolved migration markers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ! grep -R -n -E '@next-codemod|UnsafeUnwrapped' apps/web/app apps/web/lib
+      - name: Upload validated migration source
+        uses: actions/upload-artifact@v7
+        with:
+          name: framework-migration-source
+          path: |
+            apps/web/app
+            apps/web/lib/account-session-state.ts
+            apps/web/lib/operations-dashboard-server.ts
+            apps/web/lib/moderation-participant-server.ts
+            apps/web/lib/operations-review-server.ts
+            apps/web/tsconfig.json
+            apps/web/next-env.d.ts
+          if-no-files-found: error
+          retention-days: 7
+      - name: Materialize validated migration tree
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'privacyOG'
+          git config user.email 'kriptiik@proton.me'
+          git add apps/web pnpm-lock.yaml
+          git diff --cached --quiet && { echo 'No migration changes to materialize.' >&2; exit 1; }
+          git commit -m 'Materialize validated Next 15 migration'
+          git push --force origin HEAD:refs/heads/security/framework-resolution-next15-materialized

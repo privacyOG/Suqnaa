@@ -24,9 +24,9 @@ const supportedBinaryImageTypes = new Set(['image/jpeg', 'image/png', 'image/web
 const supportedDisputeEvidenceTypes = new Set([...supportedBinaryImageTypes, 'application/pdf']);
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     segments: string[];
-  };
+  }>;
 }
 
 interface PreparedRequest {
@@ -80,8 +80,8 @@ function normalizedContentType(value: string | null): string | null {
   return value?.split(';', 1)[0].trim().toLowerCase() || null;
 }
 
-async function prepareRequest(request: NextRequest, context: RouteContext): Promise<PreparedRequest | NextResponse> {
-  const route = resolveProtectedRoute(request.method, context.params.segments, request.nextUrl.searchParams);
+async function prepareRequest(request: NextRequest, segments: string[]): Promise<PreparedRequest | NextResponse> {
+  const route = resolveProtectedRoute(request.method, segments, request.nextUrl.searchParams);
   if (!route) return errorResponse('Protected route not allowed', 404);
   if (!isSameOriginMutation(request)) return errorResponse('Origin not allowed', 403);
 
@@ -161,8 +161,8 @@ async function upstreamResponse(
   return response;
 }
 
-async function handleProtectedRequest(request: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const prepared = await prepareRequest(request, context);
+async function handleProtectedRequest(request: NextRequest, segments: string[]): Promise<NextResponse> {
+  const prepared = await prepareRequest(request, segments);
   if (prepared instanceof NextResponse) return prepared;
 
   const userAgent = request.headers.get('user-agent');
@@ -208,5 +208,12 @@ async function handleProtectedRequest(request: NextRequest, context: RouteContex
   return upstreamResponse(apiResponse, prepared.route, rotatedCredentials);
 }
 
-export function GET(request: NextRequest, context: RouteContext) { return handleProtectedRequest(request, context); }
-export function POST(request: NextRequest, context: RouteContext) { return handleProtectedRequest(request, context); }
+export async function GET(request: NextRequest, context: RouteContext) {
+  const { segments } = await context.params;
+  return handleProtectedRequest(request, segments);
+}
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  const { segments } = await context.params;
+  return handleProtectedRequest(request, segments);
+}
