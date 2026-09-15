@@ -1,0 +1,88 @@
+name: Next 16 resolution proof
+
+on:
+  push:
+    branches:
+      - maintenance/next16-resolution
+    paths:
+      - '.github/workflows/next16-resolution.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: next16-resolution-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve and validate Next 16 runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Set Next 16 target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'apps/web/package.json';
+          const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+          pkg.dependencies.next = '16.3.5';
+          fs.writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+      - name: Resolve lockfile
+        run: pnpm install --lockfile-only --no-frozen-lockfile
+      - name: Verify frozen dependency tree
+        run: pnpm install --frozen-lockfile
+      - name: Verify resolved Next version
+        run: test "$(pnpm --filter suqnaa-web exec next --version)" = "Next.js v16.3.5"
+      - name: Typecheck web
+        run: pnpm --filter suqnaa-web typecheck
+      - name: Test web
+        run: pnpm --filter suqnaa-web test:session
+      - name: Build web with Next 16 default build engine
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4000
+          API_BASE_URL: http://127.0.0.1:4000
+        run: pnpm --filter suqnaa-web build
+      - name: Reject unexpected generated files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f apps/web/tsconfig.tsbuildinfo
+          unexpected="$(git status --porcelain | awk '{print $2}' | grep -Ev '^(apps/web/package.json|apps/web/next-env.d.ts|apps/web/tsconfig.json|pnpm-lock.yaml)$' || true)"
+          if [ -n "$unexpected" ]; then
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+      - name: Upload validated dependency files
+        uses: actions/upload-artifact@v7
+        with:
+          name: next16-validated-runtime
+          path: |
+            apps/web/package.json
+            apps/web/next-env.d.ts
+            apps/web/tsconfig.json
+            pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 7
+      - name: Materialize validated proof branch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name privacyOG
+          git config user.email kriptiik@proton.me
+          git switch -C maintenance/next16-materialized
+          git add apps/web/package.json apps/web/next-env.d.ts apps/web/tsconfig.json pnpm-lock.yaml
+          git commit -m "Materialize validated Next 16 migration"
+          git push --force origin HEAD:refs/heads/maintenance/next16-materialized
