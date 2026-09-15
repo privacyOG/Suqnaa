@@ -22,7 +22,7 @@
     "@aws-sdk/s3-request-presigner": "3.1130.0",
     "argon2": "0.41.1",
     "dotenv": "16.4.7",
-    "fastify": "5.12.1",
+    "fastify": "5.12.4",
     "kysely": "0.29.5",
     "pg": "8.23.0",
     "zod": "3.24.1"
