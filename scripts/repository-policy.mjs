@@ -33,6 +33,7 @@ const coAuthorMarker = fromPoints([99, 111, 45, 97, 117, 116, 104, 111, 114, 101
 const authoredByMarker = fromPoints([97, 117, 116, 104, 111, 114, 101, 100, 32, 98, 121]);
 const generatedByMarker = fromPoints([103, 101, 110, 101, 114, 97, 116, 101, 100, 32, 98, 121]);
 const automatedAuthorMarker = fromPoints([97, 117, 116, 111, 109, 97, 116, 101, 100, 32, 97, 117, 116, 104, 111, 114]);
+const standardPubLockHeader = fromPoints([35, 32, 103, 101, 110, 101, 114, 97, 116, 101, 100, 32, 98, 121, 32, 112, 117, 98]);
 
 function gitRaw(args) {
   return execFileSync('git', args, {
@@ -67,6 +68,11 @@ function containsRestrictedText(value) {
     const expression = new RegExp(`(^|[^a-z0-9])${entry}([^a-z0-9]|$)`, 'i');
     return expression.test(normalized);
   });
+}
+
+function isStandardPubLockAttribution(path, normalizedLine) {
+  return /(^|\/)pubspec\.lock$/.test(path)
+    && normalizedLine.trim() === standardPubLockHeader;
 }
 
 function inspectTrackedFiles(failures) {
@@ -107,7 +113,9 @@ function inspectTrackedFiles(failures) {
         || normalizedLine.includes(automatedAuthorMarker)
         || /^\s*(?:"?author"?|authors?)\s*[:=]/i.test(line);
 
-      if (attributionLine && !normalizedLine.includes(allowedAuthor.toLowerCase())) {
+      if (attributionLine
+          && !isStandardPubLockAttribution(path, normalizedLine)
+          && !normalizedLine.includes(allowedAuthor.toLowerCase())) {
         failures.push(`${path}: attribution must use ${allowedAuthor}`);
       }
     }
