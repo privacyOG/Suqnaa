@@ -20,8 +20,8 @@ importers:
         specifier: 0.41.1
         version: 0.41.1
       dotenv:
-        specifier: 16.4.7
-        version: 16.4.7
+        specifier: 18.0.3
+        version: 18.0.3
       fastify:
         specifier: 5.12.1
         version: 5.12.1
@@ -639,9 +639,10 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
-  dotenv@16.4.7:
-    resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
+  dotenv@18.0.3:
+    resolution: {integrity: sha512-/8CJTyL817qPnfbQrJgOEcrU3fDrJkRIoXBE566wHuvIXKOCHUZhPqGPbCPi9SogjdGnreF0TlvnTgK6J/8zpA==}
     engines: {node: '>=12'}
+    hasBin: true
 
   esbuild@0.28.2:
     resolution: {integrity: sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==}
@@ -1458,7 +1459,7 @@ snapshots:
   detect-libc@2.1.2:
     optional: true
 
-  dotenv@16.4.7: {}
+  dotenv@18.0.3: {}
 
   esbuild@0.28.2:
     optionalDependencies:
