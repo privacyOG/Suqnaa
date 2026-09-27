@@ -30,7 +30,7 @@
   "devDependencies": {
     "@types/node": "22.10.2",
     "@types/pg": "8.23.1",
-    "tsx": "4.23.13",
+    "tsx": "4.23.15",
     "typescript": "5.7.2"
   },
   "private": true
